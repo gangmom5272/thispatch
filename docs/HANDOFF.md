@@ -42,14 +42,31 @@ SSAFY 팀 A202 의 빅데이터 분산처리 관통 프로젝트입니다. 사�
 
 「데이터 정리」 구조 — 실측 요약(쉬운 버전) / 1 필요한 데이터 / 2 수집 / 3 가공 / 4 저장 / 5 논리적 설계 / 6 물리적 설계 / 7 정해야 할 것
 
-### 로컬
+### 노션 · INFRA 열 (2026-09-09 신규)
+| 페이지 | ID |
+|---|---|
+| 클러스터 구성 | `3d69f3f2-7852-8126-938b-eb7cb66e1ec0` |
+| 워커 노드 설치 (노트북 2~5) | `3d69f3f2-7852-81e1-b9a7-e542ac9924b1` |
+| 개발환경 버전 | `3d69f3f2-7852-8123-b4f6-f406707da3cb` |
+
+### 로컬 — 2026-09-09 저장소 구조 개편됨
+`scripts/` 를 역할별로 쪼갰습니다. 예전 경로는 이제 없습니다.
+
 ```
-C:\Users\SSAFY\Desktop\S15P21A202\
-  docs\                      설계 문서 (git 미추적)
-  scripts\collect_soak.py    지속 수집 검증 도구
-  scripts\spark_bench.py     Spark 집계 벤치마크
-  scripts\out\reviews\       수집한 리뷰 2,662만 건 · 4.3GB · 1,974 파일
-  scripts\.gitignore         out/ 제외
+C:\Users\SSAFY\Desktop\S15P21A202\      (git 추적됨 · GitLab master)
+  backend\                    Spring Boot 3.5.16 · Gradle · com.ssafy.thispatch
+  infra\                      클러스터 구축·운영 스크립트 01~09
+  bench\collect_soak.py       지속 수집 검증 도구       (구 scripts\)
+  bench\spark_bench.py        Spark 집계 벤치마크       (구 scripts\)
+  bench\results\              측정 결과 json
+  docs\                       설계 문서 (이제 git 추적)
+  docs\db\schema.sql          최종 DDL — 테이블 18개. 이게 정본
+  docs\db\schema.html         필드 명세 (브라우저로 열면 표로 보임)
+  subtask\                    사전 과제 기간 산출물 (개인 TIL·하둡 과제)
+  .gitignore                  수집 데이터·빌드 산출물 차단
+
+  scripts\out\                리뷰 원본 4.3GB · 1,979 파일  ← 저장소 밖으로 옮길 예정
+  scripts\out_20260906_*\     리뷰 원본 2.2GB · 1,996 파일
 
 C:\Users\SSAFY\Downloads\Steam 운영 진단 플랫폼 (standalone).html   목업 23MB
 ```
@@ -209,15 +226,18 @@ HDFS Parquet   1.67억 건 · 약 26GB (Snappy)
 PostgreSQL
   daily_stat        약 3,425만 행 · 약 2GB   ← 가장 큰 테이블
   patch_stat        약 75만
-  band_topic_stat   32.9만
-  patch_summary     8.2만
+  band_topic_stat   약 19.6만  ← 재추정. 부정만 세면 더 줄어듦
   language_stat     8.2만
   band_stat         6.6만
-  patch_review      약 54만 · 329MB (행당 452B)
+  display_review    약 54만 · 329MB (행당 452B)
   game_tag          약 184만
   news              약 160만
   game              184,389
 ```
+`patch_summary` 8.2만 행은 없어졌다 — AI 요약을 저장하지 않기로 했다.
+`band_topic_stat` 은 32.9만 → 약 19.6만으로 재추정됐고, 부정 리뷰만 세기로 해서 더 줄어든다.
+**세 집계 테이블(band_stat · band_topic_stat · language_stat)의 행 수는 다시 계산해야 한다.**
+
 `daily_stat` 산정 근거: 게임 132개 표본의 관측일수를 규모별로 나눠 8,239개로 외삽.
 리뷰 1천~1만 평균 1,800일 / 1만~10만 3,081일 / 10만 이상 3,259일 × 2채널.
 
@@ -261,19 +281,38 @@ USER 는 PostgreSQL 예약어 (MEMBER·LANGUAGE·TAG·TOPIC·CODE·NEWS 는 아�
 - 토픽 분류 결과는 `/review_topic` 에 분리 (centroid 변경 시 원본 22GB 재작성 회피)
 - 집계도 매일 전량 재계산 (수정일 기준이라 과거 숫자가 계속 변함)
 
-### 테이블 20개
+### 테이블 18개 — 2026-09-09 확정. `docs/db/schema.sql` 이 정본
 ```
 마스터   tag · topic · language · code
 원본     game · game_tag · news
-공지가공  patch_change · game_term
+공지가공  patch_change
 집계     daily_stat · patch_stat · band_stat · band_topic_stat · language_stat
-화면용   patch_review · patch_summary
+화면용   display_review
 회원     app_user · my_game
 배치     batch_job · collect_progress
 ```
 
+20개에서 줄어든 경위 — **ERD 그릴 때 아래 세 개를 넣지 말 것.**
+
+| 없어진 것 | 이유 |
+|---|---|
+| `game_term` | 슬롯에서 `target_side` 를 빼면서 쓸 데가 없어짐 |
+| `patch_summary` · `review_summary` | AI 요약을 저장하지 않고 필요할 때 만들기로 결정 |
+| `patch_review` → `display_review` | 이름만 변경. 패치 전용이 아니라 화면에 보여줄 리뷰 전반 |
+
+관계 22개. 복합 PK 는 `game_tag` 하나뿐이다.
+
 PK 규칙: **우리가 만드는 행은 대리키 + UNIQUE.** 외부 시스템의 불변 단일 식별자는 그대로 PK.
-- 자연키 PK: `game.appid` `news.gid` `patch_review.review_id` `tag.tag_id` `language.language_code` `patch_stat.gid`
+- 자연키 PK: `game.appid` `news.gid` `tag.tag_id` `language.language_code` `patch_stat.gid` `patch_change.gid` `topic.topic_id`
+- **`display_review` 는 자연키를 쓸 수 없다.** 스팀 `recommendationid` 는 리뷰가 수정되면
+  같은 값으로 다시 오므로 PK 가 못 된다. `review_id BIGSERIAL` 을 우리가 부여하고
+  `UNIQUE (recommendationid, updated_ts)` 로 버전을 구분한다
+- **`news.gid` 는 VARCHAR(20). BIGINT 로 바꾸면 안 된다.** 공지 11,477건 실측 최댓값이
+  8,033,928,544,510,244,328 로 signed BIGINT 상한의 87.1% 다. 스팀 GlobalID 는
+  unsigned 64bit 이라 상위 비트가 켜진 gid 하나에 INSERT 가 터진다
+- **`topic.topic_id` 는 SMALLSERIAL 금지.** 1~5 를 코드가 의미로 참조한다
+  (1=밸런스 2=최적화·버그 3=UI·조작 4=운영 5=BM·과금)
+- **`game_tag` 만 복합 PK** (`appid`, `tag_id`). 다른 테이블이 참조하지 않아 키 전파 문제가 없다
 - `band_topic_stat` 은 `band_stat_id` 를 FK 로 참조 (비식별관계) → 키 전파 차단
 - **UNIQUE 필수.** 매일 전량 재적재하므로 없으면 중복 행이 조용히 들어가 화면 숫자가 두 배가 됨
 
@@ -301,7 +340,12 @@ PK 규칙: **우리가 만드는 행은 대리키 + UNIQUE.** 외부 시스템�
 - 대상은 30바이트 초과 리뷰만
 - 대표 리뷰: 패치 후 7일 창 · 30바이트 필터 · `votes_up` 내림차순 · 5건 · 임계값 없음
 - 밴드 경계는 패치 전후 14일 리뷰의 `playtime_at_review` 4분위, **패치마다 재계산**
-- 통계는 패치 전 7일 / 후 7일 각각 (before/after)
+- **`patch_stat` 만** 패치 전 7일 / 후 7일 비교를 한다
+- **`band_stat` · `band_topic_stat` · `language_stat` 은 전후 비교를 하지 않는다 (2026-09-09 변경).**
+  최근 14일 구성비만 들고 있다. 이유는 실측 — 언어별 긍정률 증감이 95% 신뢰구간을
+  넘는 조합이 5.5% 뿐이었다 (패치 시점에 맞춰도 4.6%). `prev_*` `delta_*` 컬럼을 전부 걷어냈다
+- `band_topic_stat` 은 **부정 리뷰만** 센다 (불만요소 탭이므로). 0건 조합은 행을 만들지 않고
+  화면에서 「리뷰 없음」으로 표시한다
 - 5건 못 채우는 언어·밴드는 제외
 - AI 요약: 게임당 10개 (리뷰탭 1 + 밴드 4 + 언어 5) = 약 8.2만 개. `source_ids` 비교해 바뀐 것만 재생성
 - 패치 판정: 태그 → 부정패턴 → 출시표현 → 제목키워드 → 본문동사 순서 (순서 중요)
@@ -332,10 +376,12 @@ app_user(app_user_id BIGSERIAL PK, login_type LOCAL|STEAM,
 ### A · 지금 막고 있는 것
 | 항목 | 선택지 | 막고 있는 것 |
 |---|---|---|
-| **A-1 JPA vs MyBatis** | JPA면 20개 전부 대리키 / MyBatis면 2개만 | PK 전략 전체 |
-| **A-2 `code` 테이블 구조** | ① 공통 1개(20테이블, FK 타입 안전성 없음) ② 슬롯별 5개(24테이블) ③ **1개+생성컬럼(20테이블, 안전, 권고)** | `patch_change` DDL |
+| **A-1 JPA vs MyBatis** | JPA면 전부 대리키 / MyBatis면 자연키 허용 | PK 전략 전체 |
+| **A-2 `code` 테이블 구조** | ① 공통 1개 ② 슬롯별 3개 ③ **1개+생성컬럼(안전, 권고)** | `patch_change` DDL 확정 |
 | A-3 임베딩 단위 | **목업으로 해결 — 노트 전체** | (해결) |
-| A-4 슬롯 값 | **목업으로 3개로 축소** | 값 목록 확정만 남음 |
+| A-4 슬롯 값 목록 | 슬롯은 3개로 확정. **각 슬롯에 어떤 값이 들어가는지 미정** | `code` 테이블 초기 데이터 |
+| **A-5 임베딩 차원** | `patch_change.embedding vector(768)` 의 768 이 임시값 | 모델 정하면 확정. AI 담당 |
+| **A-6 패치 정규화 단위** | 공지 1건=1행 (현재) vs 문장 단위 | 팀원이 테스트 중. 문장 단위면 `patch_change` PK 가 `patch_change_id BIGSERIAL` 로 바뀌고 `news`→`patch_change` 가 1:1 에서 1:N 이 된다. **다른 17개 테이블은 영향 없음** |
 
 A-2 ③안:
 ```sql
@@ -349,7 +395,11 @@ PostgreSQL 12+ 필요. ①안으로 시작해도 데이터 이관 없이 전환 
 PostgreSQL 버전 / `language` 테이블 유지 여부 / `user_auth` 분리 여부 / 게임 카탈로그 갱신 주기와 신규 게임 편입 / 리뷰 수집 대상 기준(1,000건) 확정 / 공지 재수집 주기 / 배치 실패 재수행 정책 / Plan 탭 입력 저장 여부
 
 ### C · 구현 단계
-`game_term` 채우는 법 (A-4 로 소멸 가능) / 유사 검색 순위 / 벡터 인덱스 종류(hnsw vs ivfflat)
+유사 검색 순위 규칙 / 긍정률 표시 최소 표본 (5건 + n 병기 권고) / 배치 재시도 정책 /
+`news.patch_reason` 유지 여부 (삭제 후보)
+
+`game_term` 채우는 법과 벡터 인덱스 종류는 해결됐다 — 테이블이 없어졌고, 인덱스는
+`hnsw` 로 확정했다 (74만 행 · 벡터 1.06GB 규모면 `ivfflat` 이 불필요).
 
 ### D · 실측 — 1개만 남음
 임베딩 처리 속도 (AI 담당). 나머지 3개는 완료.
@@ -360,7 +410,15 @@ PostgreSQL 버전 / `language` 테이블 유지 여부 / `user_auth` 분리 여�
 
 ### 결정된 것 (다시 논의 불필요)
 - 조사 템플릿 6개 페이지 → **작성하지 않기로 함.** 조사 내용은 「2 · 수집」에 실측값으로 이미 정리됨
-- ERDCloud 물리 ERD → 회의에서 A-1·A-2 정한 뒤 한 번에 그림
+- 테이블 18개 · 관계 22개 · 전체 DDL → `docs/db/schema.sql`
+- 인프라 전부 (아래 11장)
+
+### ERD 작업 시 주의
+`docs/db/schema.sql` 과 `docs/db/schema.html` 이 최신이다. 노션 「데이터 정리」 페이지의
+오래된 서술과 어긋나면 **DDL 쪽이 맞다.**
+
+ERDCloud 에 그리기 전에 A-1(JPA vs MyBatis)과 A-2(`code` 구조)를 정해야 한다.
+둘 다 PK 와 FK 모양을 바꾼다. A-6 은 `patch_change` 하나만 바꾸므로 나중에 반영해도 된다.
 
 ---
 
@@ -494,4 +552,78 @@ Stardew Valley  스토어   892,552 / steam   891,949 / all 1,036,847
 
 ### daily_stat 행 수 산정 완료
 게임 132개 표본을 규모별로 나눠 8,239개로 외삽: **약 3,425만 행 · 약 2GB.**
-`patch_review`(329MB)의 6배로 **스키마에서 가장 큰 테이블**입니다.
+`display_review`(329MB)의 6배로 **스키마에서 가장 큰 테이블**입니다.
+
+---
+
+## 11. 인프라 — 2026-09-09 구축 완료
+
+상세는 노션 INFRA 열 3개 페이지. 여기는 요약만 둔다.
+
+### 확정된 구성
+```
+Hadoop 3.5.0 · Spark 4.2.0 · Java 17 · PostgreSQL 17.11 + pgvector 0.8.6
+```
+
+Spark 4.2.0 이 품은 `hadoop-client` 가 정확히 3.5.0 이라 클러스터와 버전이 일치한다.
+Hadoop 3.5.0 은 Java 17 바이트코드(major=61)로 컴파일돼 있어 `--add-opens` 우회가 필요 없다.
+
+| 노드 | 역할 |
+|---|---|
+| 노트북1 (마스터) | NameNode · SecondaryNameNode · ResourceManager · DataNode · NodeManager |
+| 노트북2~5 (워커) | DataNode · NodeManager |
+| 노트북6 | AI 전용 (RTX 4070). 클러스터 노드 아님 |
+| 서버1 | 서비스 · PostgreSQL 17 |
+| 서버2A | HDFS 백업 보관 |
+
+EC2 2대는 **보안그룹이 22번만 열려 있어 노드로 쓰지 않는다.** SSH 터널로 PostgreSQL 에
+적재하고 `scp` 로 백업만 넘긴다.
+
+자원 합계 74GB · 30 vcore (마스터 10GB, 워커 16GB × 4). WSL2 는 호스트 63.5GB 중 31GB 만 본다.
+
+### 마스터 검증 결과 (1노드 기준, 전부 통과)
+| 항목 | 결과 |
+|---|---|
+| HDFS 86MB 왕복 | sha256 동일 · 블록 134MB · 복제 3 |
+| YARN MapReduce pi | 3.135 · 16.2초 |
+| Spark on YARN pi | 3.14192 |
+| Spark → HDFS Parquet | 200만 행 · 긍정 1,333,333 (정확히 2/3) · appid 74,000 · 날짜 14일 |
+| 대역 간 인바운드 | 무선 워커 → 유선 마스터 `9000` 도달 확인 |
+
+### ⚠️ WSL2 에서 발목 잡은 것들 — 다른 노트북에서도 같이 겪는다
+| 증상 | 원인 | 해결 |
+|---|---|---|
+| `apt`·`curl` 이 `No route to host` | 죽은 기본 게이트웨이를 WSL 이 골라옴. 1시간 수명으로 계속 재등록됨 | `0.0.0.0/1` + `128.0.0.0/1` 로 덮기. `infra/05-wsl-route-fix.sh` |
+| 재시작하면 `UnknownHostException: dispatch-master` | WSL 이 부팅마다 `/etc/hosts` 를 새로 만듦 | `wsl.conf` 에 `generateHosts = false` |
+| 터미널 닫으면 노드가 사라짐 | WSL2 유휴 타이머가 VM 을 내림 | `vmIdleTimeout=-1` + 시작프로그램. `infra/09-wsl-keepalive.ps1` |
+| 다른 노드가 못 붙음 | Hyper-V 방화벽 `DefaultInboundAction = Block`. **Windows "허용" 팝업이 안 뜬다** | `infra/06-firewall.ps1` (관리자) |
+| 데몬이 셸 종료 시 죽음 | `start-dfs.sh` 로 띄우면 SIGHUP | systemd 서비스화. `infra/08-systemd-hadoop.sh` |
+| Spark UI 가 `10.255.255.254` | 미러링 모드 `lo` 주소를 자기 주소로 잡음 | `spark-env.sh` 에 `SPARK_LOCAL_IP` 명시 |
+
+### 마스터 IP 는 고정이 아니다
+무선 → USB 유선으로 바꾸자 `70.12.246.60/21` → `70.12.108.81/24` 로 서브넷까지 달라졌다.
+그래서 설정 XML 에는 IP 를 쓰지 않고 `dispatch-master` 이름만 쓴다. 바뀌면 각 노드에서:
+
+```bash
+bash infra/07-cluster.sh setmaster <새 IP>
+sudo systemctl restart dispatch-cluster.target
+```
+
+### 스키마에 직접 걸리는 실측 하나
+`partitionBy` 로 쓴 BOOLEAN 컬럼은 읽을 때 **STRING 으로 돌아온다.** 파티션 값이
+디렉터리명(`voted_up=true`)에서 복원되기 때문이다.
+
+```
+partitionBy("voted_up")  ->  struct<..., voted_up:string>
+일반 컬럼                 ->  struct<..., voted_up:boolean>
+```
+
+**HDFS 파티션은 날짜(`stat_date`)로만 잡고 `voted_up` 은 일반 컬럼으로 둔다.**
+
+### 남은 일
+- 워커 4대 설치 — IP 는 등록해둠 (`70.12.246.76` `70.12.247.106` `70.12.247.103` `70.12.247.164`)
+- 노트북↔노트북 실제 처리량 측정 → 22GB 적재 시간 확정 (지금은 추정 40분~1시간)
+- 마스터 → 서버1 PostgreSQL SSH 터널 자동화
+- 서버2A 백업 스크립트 (HDFS 데이터 + NameNode 메타데이터)
+- 오전 9시 배치 systemd 타이머
+- SSAFY 포트 개방 요청 — 배포용 `80` `443`

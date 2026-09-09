@@ -1,0 +1,65 @@
+# 저장소 전체 공통 무시 목록
+#
+# backend/ 와 bench/ 는 각자 .gitignore 를 갖고 있다. 하위가 우선한다.
+
+# ── 수집 데이터 ────────────────────────────────────
+# 리뷰 원본은 앱·언어당 수백 MB 까지 간다 (실측: 730_russian.jsonl.gz 188MB).
+# 소크 테스트 산출물이 6.5GB 쌓인 적이 있다. HDFS 에 두고 git 에는 올리지 않는다.
+out/
+out_*/
+data/
+*.jsonl
+*.jsonl.gz
+*.parquet
+*.avro
+*.orc
+
+# ── 빌드 산출물 ────────────────────────────────────
+# 소스와 컴파일 결과가 같이 커밋되면 pull 마다 충돌이 난다.
+*.class
+*.jar
+*.war
+*.o
+*.so
+build/
+target/
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# ── Node ──────────────────────────────────────────
+node_modules/
+dist/
+.next/
+.vite/
+coverage/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Python ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ── 편집기 · OS ───────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── 비밀정보 ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+application-secret.yaml
+application-local.yaml
+
+# ── 로그 ──────────────────────────────────────────
+*.log
+logs/

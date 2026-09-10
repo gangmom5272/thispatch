@@ -160,7 +160,7 @@ if [ "$ROLE" = worker ]; then
     echo "$MYIP_ONLY $NODE_NAME" | sudo tee -a /etc/hosts >/dev/null
     echo "  → $NODE_NAME 으로 덮었습니다."
     echo "  → 마스터에서 이걸 실행해야 합니다:"
-    echo "        bash infra/07-cluster.sh addworker $MYIP_ONLY"
+    echo "        bash infra/scripts/07-cluster.sh addworker $MYIP_ONLY"
   fi
 fi
 

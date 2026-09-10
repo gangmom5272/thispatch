@@ -129,20 +129,34 @@ generateResolvConf = true
 " | sudo tee -a /etc/wsl.conf >/dev/null
   echo "  /etc/wsl.conf 에 generateHosts=false 추가 (다음 wsl 재시작부터 적용)"
 fi
-# NodeManager 는 설정된 IP 를 자기 /etc/hosts 로 역방향 조회해서 그 이름으로
-# RM 에 등록한다. Docker Desktop 이 깔린 노트북은 자기 랜 IP 를
-# host.docker.internal 에 묶어 두는데, 그러면 마스터가 그 이름을 해석하지 못해
-# 그 노드에 컨테이너를 띄울 수 없다 (실측).
-# 여러 워커에 도커가 깔려 있으면 전부 같은 이름이 되어 서로 덮어쓰기까지 한다.
-# 그래서 이 노드의 랜 IP 에 붙은 다른 이름을 걷어내고 IP 로 등록되게 둔다.
-if grep -qE "^${MYIP_ONLY}[[:space:]]" /etc/hosts 2>/dev/null; then
-  echo "  /etc/hosts 에서 ${MYIP_ONLY} 에 붙은 이름 제거:"
-  grep -E "^${MYIP_ONLY}[[:space:]]" /etc/hosts | sed "s/^/    /"
-  sudo sed -i "/^${MYIP_ONLY}[[:space:]]/d" /etc/hosts
-fi
+# NodeManager 는 설정된 IP 를 역방향 조회해서 나온 이름으로 RM 에 등록한다.
+# 조회 결과가 없으면 IP 문자열을 그대로 쓴다 — 그게 우리가 원하는 것이다.
+#
+# 문제: Docker Desktop 이 깔린 노트북은 Windows hosts 파일에
+# "<랜 IP> host.docker.internal" 을 넣어둔다. WSL 은 DNS 를 Windows 로 넘기므로
+# WSL 안에 docker 가 없어도 그 이름이 돌아온다(실측). 그러면 NodeManager 가
+# host.docker.internal 로 등록하고, 마스터가 그 이름을 못 풀어 컨테이너를
+# 못 띄운다. 여러 노드에 깔려 있으면 이름이 겹쳐 서로 덮어쓰기까지 한다.
+#
+# /etc/hosts 가 DNS 보다 먼저 조회된다(nsswitch: files dns). 우리 이름을
+# 넣어 이긴다. 마스터에도 같은 줄이 필요하며, 07-cluster.sh addworker 가 넣는다.
+
 sudo sed -i "/dispatch-master/d" /etc/hosts
 echo "$MASTER_IP dispatch-master" | sudo tee -a /etc/hosts >/dev/null
 grep dispatch /etc/hosts | sed "s/^/  /"
+if [ "$ROLE" = worker ]; then
+  NODE_NAME="dispatch-w${MYIP_ONLY##*.}"
+  sudo sed -i "/[[:space:]]${NODE_NAME}\$/d" /etc/hosts
+  FOREIGN=$(getent hosts "$MYIP_ONLY" 2>/dev/null | tr -s " " | cut -d" " -f2)
+  if [ -n "$FOREIGN" ]; then
+    echo "  \u26a0 $MYIP_ONLY 가 '$FOREIGN' 로 역방향 조회됩니다 (우리가 넣은 이름이 아님)"
+    echo "$MYIP_ONLY $NODE_NAME" | sudo tee -a /etc/hosts >/dev/null
+    echo "  → $NODE_NAME 으로 덮었습니다."
+    echo "  → 마스터에서 이걸 실행해야 합니다:"
+    echo "        bash infra/07-cluster.sh addworker $MYIP_ONLY"
+  fi
+fi
+
 
 sudo mkdir -p "$DATA"/hdfs/name "$DATA"/hdfs/data \
              "$DATA"/hadoop/tmp "$DATA"/hadoop/nm-local "$DATA"/hadoop/nm-log \

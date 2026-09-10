@@ -120,6 +120,18 @@ addworker)
     echo "$IP 등록. 현재 워커: $(tr "\n" " " < "$W")"
   fi
   echo
+  # Docker Desktop 이 깔린 노트북은 자기 IP 가 host.docker.internal 로
+  # 역방향 조회되어 NodeManager 가 그 이름으로 등록한다. 워커 쪽에서
+  # dispatch-w<마지막 옥텟> 으로 덮으므로 마스터도 그 이름을 알아야 한다.
+  NODE_NAME="dispatch-w${IP##*.}"
+  if grep -qE "^${IP}[[:space:]]+${NODE_NAME}$" /etc/hosts 2>/dev/null; then
+    echo "  /etc/hosts: $NODE_NAME 이미 있음"
+  else
+    sudo sed -i "/[[:space:]]${NODE_NAME}$/d" /etc/hosts
+    echo "$IP $NODE_NAME" | sudo tee -a /etc/hosts >/dev/null
+    echo "  /etc/hosts 에 $IP $NODE_NAME 등록"
+  fi
+
   echo "무암호 SSH 확인:"
   if ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$IP" true 2>/dev/null; then
     echo "  $IP 정상"

@@ -44,6 +44,7 @@ if [ "$ROLE" != master ] && [ "$ROLE" != worker ]; then
 fi
 
 MYIP=$(ip -4 -o addr show scope global | grep -v " lo " | head -1 | tr -s " " | cut -d" " -f4)
+MYIP_ONLY=${MYIP%%/*}          # 프리픽스(/24) 뺀 순수 IP. YARN 광고 주소에 쓴다
 
 echo "══ 디스패치 노드 구성 ══════════════════════════════"
 echo "  역할        $ROLE"
@@ -225,9 +226,15 @@ cat > "$HC/yarn-site.xml" <<XEOF
        RM 이 컨테이너를 띄우려고 이 포트로 접속하므로 막히면 앱이 ACCEPTED 에서
        영원히 멈춘다 (실측: NodeId ...:45363 으로 접속 못 해 AM 이 안 뜸).
        마스터 1노드일 때는 로컬이라 드러나지 않는다. -->
-  <property><name>yarn.nodemanager.address</name><value>0.0.0.0:8041</value></property>
-  <property><name>yarn.nodemanager.localizer.address</name><value>0.0.0.0:8040</value></property>
-  <property><name>yarn.nodemanager.webapp.address</name><value>0.0.0.0:8042</value></property>
+  <!-- 광고 주소는 이 노드의 랜 IP 로 박는다.
+       NodeManager 는 HDFS DataNode 와 달리 호스트명으로 등록하는데,
+       미러링 모드 WSL 의 호스트명(DESKTOP-xxxx)은 다른 노드가 해석하지 못해
+       RM 에서 UnknownHostException 이 나고 앱이 ACCEPTED 에서 멈춘다.
+       bind-host 가 0.0.0.0 이라 리슨은 모든 인터페이스에 그대로 남는다.
+       ⚠ IP 가 바뀌면 이 스크립트를 다시 돌려야 한다. -->
+  <property><name>yarn.nodemanager.address</name><value>$MYIP_ONLY:8041</value></property>
+  <property><name>yarn.nodemanager.localizer.address</name><value>$MYIP_ONLY:8040</value></property>
+  <property><name>yarn.nodemanager.webapp.address</name><value>$MYIP_ONLY:8042</value></property>
   <property><name>yarn.timeline-service.bind-host</name><value>0.0.0.0</value></property>
 
   <property><name>yarn.nodemanager.aux-services</name><value>mapreduce_shuffle</value></property>

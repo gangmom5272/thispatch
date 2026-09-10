@@ -104,11 +104,19 @@ echo "  dispatch-cluster.target"
 echo
 echo "── 기존 수동 기동 데몬 정지 ───────────────────────"
 # start-dfs.sh 로 띄운 게 남아 있으면 포트가 겹친다
-sudo -u "$RUN_USER" env HADOOP_HOME="$HADOOP_HOME" JAVA_HOME="$JAVA_HOME_PATH" \
-  bash -c "$HADOOP_HOME/sbin/stop-yarn.sh; $HADOOP_HOME/sbin/stop-dfs.sh" >/dev/null 2>&1 || true
+# stop-dfs.sh 는 워커에서 돌리면 안 된다.
+#   내부적으로 hdfs getconf -namenodes 로 dispatch-master 를 찾아낸 뒤
+#   거기로 SSH 해서 마스터의 NameNode 를 정지시킨다.
+#   워커가 자기 데몬을 정리하려다 클러스터 전체를 내리는 셈이다.
+#   지금은 워커 키가 마스터 authorized_keys 에 없어서 SSH 가 실패해 우연히
+#   막히지만, 양방향 키를 깔면 그대로 터진다.
+if [ "$ROLE" = master ]; then
+  sudo -u "$RUN_USER" env HADOOP_HOME="$HADOOP_HOME" JAVA_HOME="$JAVA_HOME_PATH" \
+    bash -c "$HADOOP_HOME/sbin/stop-yarn.sh; $HADOOP_HOME/sbin/stop-dfs.sh" >/dev/null 2>&1 || true
+fi
 pkill -u "$RUN_USER" -f "org.apache.hadoop" 2>/dev/null || true
 sleep 3
-echo "  정리 완료"
+echo "  정리 완료 ($ROLE)"
 
 echo
 echo "── 등록 · 기동 ────────────────────────────────────"

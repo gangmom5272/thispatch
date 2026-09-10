@@ -125,7 +125,10 @@ grep -qF "$(cat ~/.ssh/id_ed25519.pub)" ~/.ssh/authorized_keys || \
   cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
 chmod 700 ~/.ssh
 chmod 600 ~/.ssh/authorized_keys
-printf "Host *\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n  LogLevel ERROR\n" > ~/.ssh/config
+# ConnectTimeout 이 없으면 아직 설치 안 된 워커로 SSH 할 때 무한정 매달린다.
+# 실측: 방화벽이 22번을 막은 노드로 ssh 했더니 130초를 넘겨도 안 끝났다.
+# stop-dfs.sh 가 workers 목록 전체에 SSH 하므로, 없으면 마스터가 멈춘 것처럼 보인다.
+printf "Host *\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n  LogLevel ERROR\n  ConnectTimeout 5\n  ServerAliveInterval 15\n  ServerAliveCountMax 3\n" > ~/.ssh/config
 chmod 600 ~/.ssh/config
 # -n 필수: 없으면 ssh 가 표준입력을 삼켜서 이 스크립트를
 # 파이프로 넘길 때 뒷부분이 잘린다.
@@ -273,8 +276,12 @@ XEOF
 
 # workers — start-dfs.sh / start-yarn.sh 가 SSH 로 붙는 대상.
 # 워커 노트북 IP 가 정해지면 여기에 한 줄씩 추가한다.
+# 마스터를 재구성해도 등록된 워커 목록이 날아가지 않게 한다.
+# 예전에는 > 로 덮어써서 addworker 로 넣은 IP 가 전부 사라졌다.
 if [ "$ROLE" = master ]; then
-  echo "$MASTER_IP" > "$HC/workers"
+  [ -f "$HC/workers" ] || : > "$HC/workers"
+  sed -i "/^localhost$/d" "$HC/workers"
+  grep -qx "$MASTER_IP" "$HC/workers" || sed -i "1i $MASTER_IP" "$HC/workers"
   echo "  workers: $(tr "\n" " " < "$HC/workers")"
 fi
 echo "  core/hdfs/yarn/mapred-site.xml 작성 완료"
@@ -347,6 +354,17 @@ spark.rpc.askTimeout               300s
 spark.task.maxFailures             6
 spark.stage.maxConsecutiveAttempts 8
 XEOF
+# PostgreSQL JDBC 드라이버.
+# Spark 익스큐터가 워커에서 돌면서 서버1 에 적재하므로 워커에도 있어야 한다.
+# 마스터에만 두면 익스큐터가 ClassNotFoundException 으로 죽는다.
+JDBC=$(ls "$DL"/postgresql-*.jar 2>/dev/null | head -1)
+if [ -n "$JDBC" ]; then
+  cp "$JDBC" "$OPT/spark/jars/"
+  echo "  JDBC 드라이버 배치: $(basename "$JDBC")"
+else
+  echo "  ⚠ $DL 에 postgresql-*.jar 가 없습니다. Spark 의 PostgreSQL 적재가 실패합니다."
+fi
+
 echo "  spark-env.sh · spark-defaults.conf 작성 완료"
 
 # ── [8/8] 환경변수 ────────────────────────────────────

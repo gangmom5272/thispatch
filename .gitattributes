@@ -8,18 +8,20 @@
 # PowerShell 은 CRLF 가 자연스럽다
 *.ps1           text eol=crlf
 
-# 나머지 텍스트는 각자 플랫폼에 맞게
-*.py            text
-*.sql           text
-*.md            text
-*.json          text
-*.xml           text
-*.yml           text
-*.yaml          text
+# 그 밖의 텍스트 파일에는 text 속성을 주지 않는다.
+# 주면 기존 파일 전체가 줄바꿈 정규화 대상이 되어, 손대지도 않은 README.md 가
+# 450+/450- 변경으로 잡히고 팀원 수정과 충돌한다. (실측)
 
-# 바이너리 취급
+# 바이너리는 diff 를 시도하지 않게 한다
 *.png           binary
 *.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
 *.jar           binary
+*.war           binary
+*.class         binary
 *.tar.gz        binary
 *.tgz           binary
+*.zip           binary

@@ -105,6 +105,36 @@ generateResolvConf = true
     fi
   fi
 
+
+  # 이 노드 자신의 IP 도 바눵을 수 있다.
+  # yarn.nodemanager.* 는 자기 IP 를 박고 있어서 /etc/hosts 만 고쳐도 부족하다.
+  # 실제로 마스터 IP 가 하루 반 사이 세 번 바뀌었고(무선→유선→IP 추돌),
+  # 그럴 때마다 04-wsl-node.sh 를 다시 돌려야 했다. 여기서 함께 고친다.
+  SELFIP=$(ip route get "$IP" 2>/dev/null | grep -oE "src [0-9.]+" | cut -d" " -f2 | head -1)
+  if [ -z "${SELFIP:-}" ]; then
+    DEFIF=$(ip route | grep "^default" | head -1 | tr -s " " | cut -d" " -f5)
+    SELFIP=$(ip -4 -o addr show dev "$DEFIF" scope global 2>/dev/null | tr -s " " | cut -d" " -f4 | cut -d/ -f1 | head -1)
+  fi
+
+  Y=$HADOOP_CONF_DIR/yarn-site.xml
+  if [ -n "${SELFIP:-}" ] && [ -f "$Y" ]; then
+    OLD=$(grep -oE "<name>yarn.nodemanager.address</name><value>[0-9.]+" "$Y" \
+          | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | head -1)
+    if [ -n "$OLD" ] && [ "$OLD" != "$SELFIP" ]; then
+      sed -i "s|>${OLD}:8041<|>${SELFIP}:8041<|; s|>${OLD}:8040<|>${SELFIP}:8040<|; s|>${OLD}:8042<|>${SELFIP}:8042<|; s|<value>${OLD}</value>|<value>${SELFIP}</value>|" "$Y"
+      echo "  yarn-site.xml 의 자기 주소 $OLD → $SELFIP"
+    else
+      echo "  yarn-site.xml 의 자기 주소 $SELFIP (변경 없음)"
+    fi
+  fi
+
+  # workers 에 남은 옛 마스터 항목을 걷어낸다
+  if [ -f "$W" ] && [ -n "${SELFIP:-}" ] && [ "$SELFIP" = "$IP" ]; then
+    for old in $(grep -vx "$IP" "$W" | grep -E "^${IP%.*}\." || true); do
+      sed -i "/^${old}$/d" "$W"
+      echo "  workers 에서 옛 마스터 $old 제거"
+    done
+  fi
   echo
   echo "  데몬 재시작:  sudo systemctl restart dispatch-cluster.target"
   ;;

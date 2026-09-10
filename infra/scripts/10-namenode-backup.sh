@@ -38,7 +38,7 @@ fi
 
 # ── 백업 대상 서버 ────────────────────────────────────────────
 # 환경변수로 덮어쓸 수 있다.  BACKUP_HOST=... ./10-namenode-backup.sh now
-BACKUP_HOST=${BACKUP_HOST:-172.26.7.158}
+BACKUP_HOST=${BACKUP_HOST:-j15a202a.p.ssafy.io}
 BACKUP_USER=${BACKUP_USER:-ubuntu}
 BACKUP_KEY=${BACKUP_KEY:-$HOME/.ssh/J15A202T.pem}
 BACKUP_DIR=${BACKUP_DIR:-/home/ubuntu/dispatch-backup/namenode}
@@ -220,7 +220,7 @@ restore)
 
   1) 백업 가져오기
        scp -i ~/.ssh/J15A202T.pem \
-         ubuntu@172.26.7.158:/home/ubuntu/dispatch-backup/namenode/namenode-<시각>.tar.gz .
+         ubuntu@j15a202a.p.ssafy.io:/home/ubuntu/dispatch-backup/namenode/namenode-<시각>.tar.gz .
        tar -xzf namenode-<시각>.tar.gz
 
   2) NameNode 정지

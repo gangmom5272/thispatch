@@ -43,8 +43,30 @@ if [ "$ROLE" != master ] && [ "$ROLE" != worker ]; then
   echo "ROLE=master 또는 ROLE=worker 로 지정하세요." >&2; exit 1
 fi
 
-MYIP=$(ip -4 -o addr show scope global | grep -v " lo " | head -1 | tr -s " " | cut -d" " -f4)
-MYIP_ONLY=${MYIP%%/*}          # 프리픽스(/24) 뺀 순수 IP. YARN 광고 주소에 쓴다
+# 이 노드의 랜 IP.
+#
+# `ip -4 -o addr | head -1` 로 고르면 안 된다. Docker Desktop 이 깔린 노트북은
+# 인터페이스가 여러 개라 엉뚱한 것을 집는다 (실측: 한 노드가 host.docker.internal
+# 로 YARN 에 등록되어 마스터가 이름을 해석하지 못했다).
+#
+# 마스터로 나갈 때 커널이 실제로 쓰는 출발지 주소를 묻는 것이 가장 정확하다.
+# 마스터 자신에게도 동작한다.
+MYIP_ONLY=$(ip route get "$MASTER_IP" 2>/dev/null | grep -oE "src [0-9.]+" | cut -d" " -f2 | head -1)
+
+# 그래도 못 구하면 기본 경로가 붙은 인터페이스에서 가져온다
+if [ -z "${MYIP_ONLY:-}" ]; then
+  DEFIF=$(ip route | grep "^default" | head -1 | tr -s " " | cut -d" " -f5)
+  MYIP_ONLY=$(ip -4 -o addr show dev "$DEFIF" scope global 2>/dev/null | tr -s " " | cut -d" " -f4 | cut -d/ -f1 | head -1)
+fi
+
+if [ -z "${MYIP_ONLY:-}" ]; then
+  echo "이 노드의 IP 를 찾지 못했습니다. 네트워크를 확인하세요." >&2
+  ip -4 -o addr show scope global >&2
+  exit 1
+fi
+
+MYIP=$(ip -4 -o addr show scope global | grep "$MYIP_ONLY/" | head -1 | tr -s " " | cut -d" " -f4)
+[ -n "$MYIP" ] || MYIP="$MYIP_ONLY"
 
 echo "══ 디스패치 노드 구성 ══════════════════════════════"
 echo "  역할        $ROLE"

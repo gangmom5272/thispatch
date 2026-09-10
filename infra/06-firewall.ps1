@@ -54,6 +54,9 @@ $rules = @(
     @{ n = 'yarn-rm';            p = '8030-8033' }
     @{ n = 'yarn-rm-web';        p = '8088' }
     @{ n = 'yarn-nm-localizer';  p = '8040' }
+    # RM 이 컨테이너를 띄우려고 접속하는 포트. 04-wsl-node.sh 에서 8041 로 고정했다.
+    # 이게 막히면 앱이 ACCEPTED 에서 영원히 멈춘다.
+    @{ n = 'yarn-nm-container';  p = '8041' }
     @{ n = 'yarn-nm-web';        p = '8042' }
     @{ n = 'mr-shuffle';         p = '13562' }
     @{ n = 'spark-ui';           p = '4040-4060' }

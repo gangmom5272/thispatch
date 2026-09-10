@@ -219,6 +219,15 @@ cat > "$HC/yarn-site.xml" <<XEOF
   <property><name>yarn.resourcemanager.hostname</name><value>dispatch-master</value></property>
   <property><name>yarn.resourcemanager.bind-host</name><value>0.0.0.0</value></property>
   <property><name>yarn.nodemanager.bind-host</name><value>0.0.0.0</value></property>
+
+  <!-- NodeManager 의 컨테이너 관리 포트를 고정한다.
+       기본값이 :0 (임의 포트)라 매번 바뀌고, 그러면 방화벽에 뚫어둘 수가 없다.
+       RM 이 컨테이너를 띄우려고 이 포트로 접속하므로 막히면 앱이 ACCEPTED 에서
+       영원히 멈춘다 (실측: NodeId ...:45363 으로 접속 못 해 AM 이 안 뜸).
+       마스터 1노드일 때는 로컬이라 드러나지 않는다. -->
+  <property><name>yarn.nodemanager.address</name><value>0.0.0.0:8041</value></property>
+  <property><name>yarn.nodemanager.localizer.address</name><value>0.0.0.0:8040</value></property>
+  <property><name>yarn.nodemanager.webapp.address</name><value>0.0.0.0:8042</value></property>
   <property><name>yarn.timeline-service.bind-host</name><value>0.0.0.0</value></property>
 
   <property><name>yarn.nodemanager.aux-services</name><value>mapreduce_shuffle</value></property>

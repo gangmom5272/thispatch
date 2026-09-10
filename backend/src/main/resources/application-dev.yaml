@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/thispatch
+    username: thispatch
+    password: thispatch
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+  batch:
+    jdbc:
+      initialize-schema: never

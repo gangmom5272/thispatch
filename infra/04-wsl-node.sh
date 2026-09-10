@@ -129,6 +129,17 @@ generateResolvConf = true
 " | sudo tee -a /etc/wsl.conf >/dev/null
   echo "  /etc/wsl.conf 에 generateHosts=false 추가 (다음 wsl 재시작부터 적용)"
 fi
+# NodeManager 는 설정된 IP 를 자기 /etc/hosts 로 역방향 조회해서 그 이름으로
+# RM 에 등록한다. Docker Desktop 이 깔린 노트북은 자기 랜 IP 를
+# host.docker.internal 에 묶어 두는데, 그러면 마스터가 그 이름을 해석하지 못해
+# 그 노드에 컨테이너를 띄울 수 없다 (실측).
+# 여러 워커에 도커가 깔려 있으면 전부 같은 이름이 되어 서로 덮어쓰기까지 한다.
+# 그래서 이 노드의 랜 IP 에 붙은 다른 이름을 걷어내고 IP 로 등록되게 둔다.
+if grep -qE "^${MYIP_ONLY}[[:space:]]" /etc/hosts 2>/dev/null; then
+  echo "  /etc/hosts 에서 ${MYIP_ONLY} 에 붙은 이름 제거:"
+  grep -E "^${MYIP_ONLY}[[:space:]]" /etc/hosts | sed "s/^/    /"
+  sudo sed -i "/^${MYIP_ONLY}[[:space:]]/d" /etc/hosts
+fi
 sudo sed -i "/dispatch-master/d" /etc/hosts
 echo "$MASTER_IP dispatch-master" | sudo tee -a /etc/hosts >/dev/null
 grep dispatch /etc/hosts | sed "s/^/  /"

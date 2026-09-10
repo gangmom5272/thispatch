@@ -169,10 +169,18 @@ CREATE TABLE daily_stat (
     UNIQUE (appid, stat_date)
 );
 
--- ⚠ edited_* 정확도가 HDFS compaction 에 달려 있습니다.
---   현재 compaction 이 review_id 기준 최신만 남겨 이력을 주 1회 지웁니다.
---   9/1 작성 · 9/5 수정 · 9/9 재수정된 리뷰는 최신만 보면 9/5 를 영구히 놓칩니다.
---   dedup 키를 (review_id, source_version) 으로 바꿔야 합니다 (연 8.7GB).
+-- edited_* 정확도와 HDFS compaction — 2026-09-10 확정
+--
+--   HDFS 에서 리뷰의 모든 버전을 보존합니다. 중복 판단 기준은
+--   (recommendationid, updated_ts) 로, 위 display_review 의 UNIQUE 와 같은 규칙입니다.
+--
+--   최신만 남기는 안을 버렸습니다. 9/1 작성 · 9/5 수정 · 9/9 재수정된 리뷰는
+--   최신만 보면 9/5 를 영구히 놓치고, 그러면 9/5 의 edited_* 를 다시 만들 수
+--   없습니다. 버전 보존 비용은 연 8.7GB 이고 디스크는 4.92TB 있습니다.
+--
+--   따라서 compaction 의 역할은 이력 정리가 아니라 파일 통합입니다.
+--   수집 1회에 파일이 1,974개 나오므로(실측), 그대로 두면 데이터 크기와
+--   무관하게 Spark 가 파일 여는 비용만으로 느려집니다.
 
 -- 창이 닫힌 뒤에만 INSERT 합니다 → 행의 존재가 완료 표시.
 -- is_complete / observed_through 컬럼이 필요 없습니다.

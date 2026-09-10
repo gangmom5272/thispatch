@@ -280,6 +280,14 @@ USER 는 PostgreSQL 예약어 (MEMBER·LANGUAGE·TAG·TOPIC·CODE·NEWS 는 아�
   **삭제는 감지하지 않기로 결정.**
 - 토픽 분류 결과는 `/review_topic` 에 분리 (centroid 변경 시 원본 22GB 재작성 회피)
 - 집계도 매일 전량 재계산 (수정일 기준이라 과거 숫자가 계속 변함)
+- **compaction 은 버전을 보존한다 (2026-09-10 확정).**
+  중복 판단 기준은 `(recommendationid, updated_ts)` — `display_review` 의 UNIQUE 와 같다.
+  완전히 같은 행만 걷어내고 옛 버전은 남긴다. 최신만 남기면 `daily_stat` 의
+  `edited_*` 를 다시 만들 수 없기 때문이다. 비용은 연 8.7GB, 디스크는 4.92TB 있다.
+- **compaction 의 역할은 이력 정리가 아니라 파일 통합이다.**
+  수집 1회에 파일 1,974개가 나왔다(실측). 작은 파일이 쌓이면 데이터 크기와
+  무관하게 Spark 가 느려진다. 수천 개 → 수십 개로 합친다.
+- **착수는 delta 가 쌓인 뒤에 한다.** 수집기가 없으면 시험할 데이터가 없다.
 
 ### 테이블 18개 — 2026-09-09 확정. `docs/db/schema.sql` 이 정본
 ```

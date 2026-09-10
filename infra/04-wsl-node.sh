@@ -17,7 +17,7 @@
 set -euo pipefail
 
 ROLE="${ROLE:-worker}"
-MASTER_IP="${MASTER_IP:-70.12.108.81}"     # 노트북1 (유선)
+MASTER_IP="${MASTER_IP:-70.12.108.85}"     # 노트북1 (유선 · 고정 IP)
 HADOOP_VER=3.5.0
 SPARK_VER=4.2.0
 # Hadoop 3.5.0 은 자바 17 바이트코드로 컴파일돼 있다 (major=61 실측).
@@ -156,7 +156,7 @@ if [ "$ROLE" = worker ]; then
   sudo sed -i "/[[:space:]]${NODE_NAME}\$/d" /etc/hosts
   FOREIGN=$(getent hosts "$MYIP_ONLY" 2>/dev/null | tr -s " " | cut -d" " -f2)
   if [ -n "$FOREIGN" ]; then
-    echo "  \u26a0 $MYIP_ONLY 가 '$FOREIGN' 로 역방향 조회됩니다 (우리가 넣은 이름이 아님)"
+    echo "  [주의] $MYIP_ONLY 가 '$FOREIGN' 로 역방향 조회됩니다 (우리가 넣은 이름이 아님)"
     echo "$MYIP_ONLY $NODE_NAME" | sudo tee -a /etc/hosts >/dev/null
     echo "  → $NODE_NAME 으로 덮었습니다."
     echo "  → 마스터에서 이걸 실행해야 합니다:"

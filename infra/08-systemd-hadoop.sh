@@ -21,6 +21,13 @@ RUN_USER="${RUN_USER:-${SUDO_USER:-$USER}}"
 HADOOP_HOME="${HADOOP_HOME:-/opt/hadoop}"
 JAVA_HOME_PATH="${JAVA_HOME:-$(ls -d /usr/lib/jvm/java-17-openjdk-* | head -1)}"
 
+if [ "$ROLE" = client ]; then
+  echo "client 노드에는 데몬을 띄우지 않습니다." >&2
+  echo "AI 노트북은 HDFS 클라이언트로만 쓰며, DataNode/NodeManager 를 띄우면" >&2
+  echo "GPU 작업 중에 YARN 컨테이너가 날아와 방해합니다." >&2
+  exit 1
+fi
+
 [ "$(id -u)" = 0 ] || { echo "sudo 로 실행하세요." >&2; exit 1; }
 if [ "$ROLE" != master ] && [ "$ROLE" != worker ]; then
   echo "ROLE=master 또는 ROLE=worker" >&2; exit 1

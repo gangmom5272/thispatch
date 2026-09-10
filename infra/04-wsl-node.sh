@@ -3,6 +3,11 @@
 #
 #   마스터(노트북1):  ROLE=master ./04-wsl-node.sh
 #   워커(노트북2~5):  ROLE=worker ./04-wsl-node.sh
+#   AI(노트북6):       ROLE=client ./04-wsl-node.sh
+#
+# client 는 설정과 클라이언트만 깔고 데몬을 띄우지 않는다.
+# HDFS 를 읽고 쓰지만 클러스터 노드로 참여하지는 않는다.
+# GPU 작업 중에 YARN 컨테이너가 날아오면 방해되기 때문이다.
 #
 # 전제
 #   · WSL2 미러링 모드 (%UserProfile%\.wslconfig 에 networkingMode=mirrored)
@@ -28,6 +33,7 @@ JAVA_VER="${JAVA_VER:-17}"
 # 합계 9.5G 를 빼야 하므로 컨테이너 몫을 10G 로 낮춘다.
 # 워커는 DataNode·NodeManager 2G 만 빠지므로 16G 를 준다.
 #   클러스터 합계 = 10 + 16x4 = 74GB · 30 vcore
+# client 는 NodeManager 를 안 띄우므로 이 값이 쓰이지 않는다.
 if [ "${ROLE:-worker}" = master ]; then
   NM_MEM_MB="${NM_MEM_MB:-10240}"
 else
@@ -39,9 +45,10 @@ DL=~/dl
 OPT=/opt
 DATA=/data
 
-if [ "$ROLE" != master ] && [ "$ROLE" != worker ]; then
-  echo "ROLE=master 또는 ROLE=worker 로 지정하세요." >&2; exit 1
-fi
+case "$ROLE" in
+  master|worker|client) ;;
+  *) echo "ROLE=master | worker | client 중 하나로 지정하세요." >&2; exit 1 ;;
+esac
 
 # 이 노드의 랜 IP.
 #
@@ -428,6 +435,13 @@ else
   echo "  ⚠ $DL 에 postgresql-*.jar 가 없습니다. Spark 의 PostgreSQL 적재가 실패합니다."
 fi
 
+# AI 노드는 GPU 로 직접 돌리므로 기본값을 local 로 둔다.
+# yarn 으로 두면 아무 생각 없이 돌렸을 때 클러스터로 나가고,
+# 그러면 GPU 가 없는 워커에서 돌아 목적을 잃는다.
+if [ "$ROLE" = client ]; then
+  sed -i "s|^spark.master  *yarn|spark.master                       local[*]|" "$OPT/spark/conf/spark-defaults.conf"
+  echo "  spark.master = local[*] (client)"
+fi
 echo "  spark-env.sh · spark-defaults.conf 작성 완료"
 
 # ── [8/8] 환경변수 ────────────────────────────────────
@@ -450,7 +464,19 @@ echo "  등록 완료"
 
 echo
 echo "✔ $ROLE 노드 구성 완료 — $(hostname) $MYIP"
-if [ "$ROLE" = master ]; then
+if [ "$ROLE" = client ]; then
+  echo
+  echo "  이 노드는 클라이언트입니다. 데몬을 띄우지 마세요."
+  echo "  08-systemd-hadoop.sh 를 돌리면 안 됩니다."
+  echo
+  echo "  확인:  source ~/.bashrc"
+  echo "         hdfs dfs -ls /"
+  echo
+  echo "  Spark 는 local[*] 로 설정돼 있습니다. HDFS 를 읽으면서"
+  echo "  이 노트북의 GPU 로 처리하는 용도입니다."
+  echo "  클러스터에 잡을 던지려면 --master yarn 을 주고,"
+  echo "  그 때는 06-firewall.ps1 도 실행해야 합니다 (드라이버 포트)."
+elif [ "$ROLE" = master ]; then
   echo
   echo "  다음:  source ~/.bashrc"
   echo "         hdfs namenode -format -force -nonInteractive"

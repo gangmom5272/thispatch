@@ -2,6 +2,8 @@ package com.ssafy.dispatch.collector.worker;
 
 import com.ssafy.dispatch.collector.partition.AppidPartitioner;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,11 +60,29 @@ public class CollectTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 
-    /** 어느 노트북에서 돌았는지. 분배가 실제로 퍼졌는지 눈으로 확인하려고 찍는다. */
+    /**
+     * 어느 노트북에서 돌았는지. 분배가 실제로 퍼졌는지 눈으로 확인하려고 찍는다.
+     *
+     * <p>{@code InetAddress.getLocalHost()} 로는 구분이 안 된다. 노트북 4대가
+     * 호스트명 {@code DESKTOP-MR7IIH9} 를 공유하고, 그게 {@code /etc/hosts} 에서
+     * {@code 127.0.1.1} 로 풀려서 어느 기계든 같은 값이 나온다(실측).
+     *
+     * <p>그래서 교육장 대역({@code 70.12.x})의 주소를 직접 찾는다.
+     */
     private static String whereAmI() {
         try {
-            InetAddress a = InetAddress.getLocalHost();
-            return a.getHostName() + "/" + a.getHostAddress();
+            for (NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!nic.isUp() || nic.isLoopback()) {
+                    continue;
+                }
+                for (InetAddress addr : Collections.list(nic.getInetAddresses())) {
+                    String ip = addr.getHostAddress();
+                    if (ip.startsWith("70.12.")) {
+                        return ip;
+                    }
+                }
+            }
+            return InetAddress.getLocalHost().getHostAddress();
         } catch (Exception e) {
             return "알 수 없음";
         }

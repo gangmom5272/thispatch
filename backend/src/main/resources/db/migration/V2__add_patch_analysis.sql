@@ -26,7 +26,7 @@ CREATE TABLE "patch_chunk" (
     "text" TEXT NOT NULL,
     "extraction_status" VARCHAR(10) NOT NULL,
     "embedding_status" VARCHAR(10) NOT NULL,
-    "embedding" vector(768) NULL,
+    "embedding" vector(512) NULL,
     "embedding_model" VARCHAR(50) NULL,
     "model_version" VARCHAR(50) NULL,
     "processed_at" TIMESTAMPTZ NULL

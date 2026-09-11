@@ -83,6 +83,14 @@ now)
   IMG=$(ls "$STAGE" | head -1)
   echo "  fsimage        $IMG  ($(du -h "$STAGE/$IMG" | cut -f1))"
 
+  # NameNode 는 기동할 때 fsimage 를 같은 이름의 .md5 와 대조한다.
+  # 없으면 "No MD5 file found corresponding to image file" 로 로드를 거부한다.
+  # fetchImage 는 .md5 를 만들어주지 않으므로 여기서 만든다.
+  # 형식은 하둡이 쓰는 것과 같아야 한다:  <md5> *<파일이름>
+  # 2026-09-11 복구 리허설에서 빠진 것을 발견했다.
+  printf "%s *%s\n" "$(md5sum "$STAGE/$IMG" | cut -d' ' -f1)" "$IMG" > "$STAGE/$IMG.md5"
+  echo "  md5            $(cut -d' ' -f1 < "$STAGE/$IMG.md5" | cut -c1-16)…"
+
   # 2) VERSION — clusterID 가 여기 있다. 없으면 DataNode 가 안 붙는다.
   if [ -f "$NAME_DIR/current/VERSION" ]; then
     cp "$NAME_DIR/current/VERSION" "$STAGE/VERSION"
@@ -232,6 +240,7 @@ restore)
   4) 디렉터리 복원
        sudo mkdir -p /data/hdfs/name/current
        sudo cp namenode-<시각>/fsimage_*        /data/hdfs/name/current/
+       # fsimage_*.md5 도 같이 들어 있다. 이게 없으면 NameNode 가 기동을 거부한다.
        sudo cp namenode-<시각>/VERSION          /data/hdfs/name/current/
        sudo chown -R $USER:$USER /data/hdfs/name
 

@@ -7,6 +7,7 @@ Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다
 
 - `compose.yaml`: `pgvector/pgvector:pg17` 기반 PostgreSQL 단일 서비스, 로컬 5432 포트, 상태 검사 및 데이터 볼륨.
 - `src/main/resources/db/migration/V1__init.sql`: Flyway 초기 migration. 최상단에서 `vector` 확장을 활성화하고 테이블과 PK/FK를 생성합니다. Docker의 `/docker-entrypoint-initdb.d`는 사용하지 않습니다.
+- `src/main/resources/db/migration/V2__add_patch_analysis.sql`: 패치 분석 테이블 5개, PK/FK와 기본 코드 데이터를 생성합니다.
 - `.env`: 로컬 DB 접속 정보. Git에 커밋하지 않습니다.
 - `.env.example`: 필요한 환경 변수의 예시 파일.
 - `src/main/resources/application.yaml`: 공통 JPA·Flyway 설정. Hibernate는 `ddl-auto: validate`로 스키마를 검증만 하고 생성·수정하지 않습니다. `open-in-view`는 비활성화하고 Flyway는 활성화하며 migration 위치는 `classpath:db/migration`입니다.
@@ -59,7 +60,7 @@ IntelliJ의 Working directory는 `.env`가 있는 `backend`로 지정합니다.
 
 ## 정상 실행 확인
 
-Spring Boot를 실행하여 Flyway V1 적용이 완료된 뒤 확인합니다.
+Spring Boot를 실행하여 Flyway V1, V2 적용이 완료된 뒤 확인합니다.
 
 ```powershell
 docker compose ps
@@ -83,6 +84,52 @@ Test-NetConnection localhost -Port 5432
 ```powershell
 docker compose logs --tail=100 postgres
 ```
+
+## PostgreSQL + Flyway 통합 테스트
+
+추가 테스트 라이브러리 없이 기존 JUnit, Spring Boot, JDBC를 사용합니다.
+기존 `compose.yaml`의 PostgreSQL 컨테이너를 재사용하고, 같은 서버 안에 테스트 전용
+`thispatch_test` DB를 생성합니다. `application-test.yaml`은 `.env`의 호스트·포트·계정을
+사용하며 DB명만 `thispatch_test`로 고정합니다. DB 생성 명령은 빈 DB만 준비하고,
+확장과 테이블 생성은 Spring Boot 시작 시 Flyway가 수행합니다.
+
+Docker Desktop과 `.env`를 준비한 뒤 다음 명령으로 빈 DB에서 검증합니다.
+
+```powershell
+docker compose up -d --wait
+if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL 시작 실패' }
+docker compose exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" thispatch_test'
+if ($LASTEXITCODE -ne 0) { throw '테스트 DB 생성 실패: 기존 thispatch_test DB가 있는지 확인하세요.' }
+try {
+    .\gradlew.bat test --rerun-tasks
+    if ($LASTEXITCODE -ne 0) { throw '통합 테스트 실패' }
+} finally {
+    docker compose exec -T postgres sh -c 'dropdb -U "$POSTGRES_USER" thispatch_test'
+}
+```
+
+macOS/Linux에서는 동일한 DB 생성·삭제 명령과 `./gradlew test --rerun-tasks`를 사용합니다.
+위 절차는 이번 실행에서 생성한 테스트 DB만 삭제하며, 기존 컨테이너와 개발 DB는 유지합니다.
+이미 `thispatch_test` DB가 있으면 생성 단계에서 중단합니다. 기존 테스트 DB를 재사용하려면
+Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용까지 확인하려면 위 절차를 사용합니다.
+외부에 설정한 `SPRING_DATASOURCE_*` 값은 테스트 설정보다 우선하므로 해제한 상태로 실행합니다.
+
+`ThispatchApplicationTests`의 한 테스트가 Spring Boot를 두 번 시작합니다.
+첫 번째 애플리케이션을 완전히 종료한 뒤 같은 DB에 두 번째 애플리케이션을 연결합니다.
+
+| 확인 항목 | 검증 방식 |
+| --- | --- |
+| PostgreSQL 연결 | 실제 Spring Boot DataSource로 `SELECT version()` 실행 |
+| V1 → V2 적용 및 성공 이력 | `flyway_schema_history`를 `installed_rank` 순으로 조회하여 버전, 파일명, 성공 여부, checksum 확인 |
+| 테이블 및 pgvector | PostgreSQL 카탈로그에서 V1 17개, V2 5개 테이블과 `vector` 확장 확인 |
+| V2 제약조건 | `pg_constraint`에서 PK 5개·FK 5개의 이름, 소속 테이블, 컬럼과 참조 대상을 포함한 정의 대조. 현재 V2에 없는 UNIQUE/CHECK가 생성되지 않았는지도 확인 |
+| 기본 코드 데이터 | 3개 코드 테이블의 19건에 대해 코드, 한글명, definition 확인 |
+| embedding 타입 | `format_type`으로 `patch_chunk.embedding = vector(768)` 확인 |
+| 재기동 시 중복 적용 방지 | 재기동 전후 migration 이력 전체 비교, Flyway validate 및 미적용 migration 0개, 코드 데이터 재확인 |
+
+테스트는 애플리케이션 기동으로 migration을 적용한 뒤 조회로 검증합니다. Entity, Controller, Service는 필요하지 않습니다.
+결과는 `build/reports/tests/test/index.html`에서 확인할 수 있습니다.
+이 테스트의 기대값은 현재 V1/V2 설계를 기준으로 하며, 새 migration을 추가할 때 함께 갱신합니다.
 
 ## 종료 및 데이터 유지
 

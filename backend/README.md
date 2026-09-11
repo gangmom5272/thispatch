@@ -6,16 +6,17 @@ Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다
 ## 구성
 
 - `compose.yaml`: `pgvector/pgvector:pg17` 기반 PostgreSQL 단일 서비스, 로컬 5432 포트, 상태 검사 및 데이터 볼륨.
-- `docker/postgres/init/01-pgvector.sql`: 최초 DB 초기화 시 `vector` 확장 활성화. Flyway migration이 아니며 테이블을 생성하지 않습니다.
+- `src/main/resources/db/migration/V1__init.sql`: Flyway 초기 migration. 최상단에서 `vector` 확장을 활성화하고 테이블과 PK/FK를 생성합니다. Docker의 `/docker-entrypoint-initdb.d`는 사용하지 않습니다.
 - `.env`: 로컬 DB 접속 정보. Git에 커밋하지 않습니다.
 - `.env.example`: 필요한 환경 변수의 예시 파일.
 - `src/main/resources/application.yaml`: 공통 JPA·Flyway 설정. Hibernate는 `ddl-auto: validate`로 스키마를 검증만 하고 생성·수정하지 않습니다. `open-in-view`는 비활성화하고 Flyway는 활성화하며 migration 위치는 `classpath:db/migration`입니다.
 - `src/main/resources/application-dev.yaml`: `dev` 프로필에서 `.env`를 읽어 Spring Boot 접속 설정에 사용합니다. Spring Batch 스키마 자동 생성은 비활성화합니다.
 
 기존 애플리케이션 이름, Gradle 의존성 및 저장소의 서버용 `infra` 설정은 유지합니다.
-JPA Entity와 Flyway migration은 추가하지 않습니다.
-현재는 migration SQL이 없으므로 적용할 migration은 0개입니다. Flyway는 자체 이력 관리용
-`flyway_schema_history` 테이블을 생성할 수 있습니다. Entity가 추가되면 그에 맞는 스키마가
+V1은 `src/ThisPatch_init_with_keys.sql`의 컬럼 정의와 PK/FK를 유지하며,
+`patch_change`, `code` 및 해당 테이블의 제약조건만 제외한 17개 테이블을 생성합니다.
+확장 활성화와 스키마 생성은 애플리케이션 시작 시 Flyway가 수행합니다.
+Flyway는 자체 이력 관리용 `flyway_schema_history` 테이블도 생성합니다. Entity가 추가되면 그에 맞는 스키마가
 migration으로 먼저 준비되어야 하며, 불일치하면 Hibernate 검증 단계에서 기동이 실패합니다.
 
 | 항목 | 값 |
@@ -58,6 +59,8 @@ IntelliJ의 Working directory는 `.env`가 있는 `backend`로 지정합니다.
 
 ## 정상 실행 확인
 
+Spring Boot를 실행하여 Flyway V1 적용이 완료된 뒤 확인합니다.
+
 ```powershell
 docker compose ps
 docker compose exec postgres pg_isready -h 127.0.0.1 -U thispatch -d thispatch
@@ -91,12 +94,10 @@ docker compose down
 다시 `docker compose up -d --wait`를 실행하면 기존 데이터를 사용합니다.
 `docker compose down -v`는 DB 데이터 볼륨까지 삭제하므로 데이터를 유지하려면 사용하지 마세요.
 
-초기화 SQL은 데이터 볼륨이 비어 있을 때만 실행됩니다. 기존 볼륨에 `vector` 확장이 없는 경우
-데이터를 삭제하지 않고 다음 명령으로 활성화할 수 있습니다.
-
-```powershell
-docker compose exec postgres psql -U thispatch -d thispatch -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
+Flyway는 DB 이력에 기록되지 않은 migration을 적용합니다. 기존 볼륨에 `vector` 확장이
+이미 있어도 V1의 `CREATE EXTENSION IF NOT EXISTS vector`는 그대로 실행할 수 있습니다.
+애플리케이션 테이블이 이미 있는 DB는 초기 migration 대상인 빈 스키마와 다르므로,
+기존 스키마와 migration 이력을 확인해야 합니다. 데이터 볼륨을 삭제하거나 자동 baseline을 설정하지 않습니다.
 
 참고: [pgvector Docker 이미지](https://github.com/pgvector/pgvector#docker),
 [PostgreSQL 공식 이미지의 볼륨 및 초기화 동작](https://hub.docker.com/_/postgres).

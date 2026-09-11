@@ -34,13 +34,32 @@ services:
     ports:
       - "127.0.0.1:18080:8080"
 
+    # 비밀값은 서버의 infra/.env 에서 온다 (.gitignore 로 막혀 있다).
+    # 템플릿은 infra/.env.example 참조.
+    env_file:
+      - .env
+
     environment:
       # nginx 가 /jenkins/ 로 접두어를 보존해 넘기므로 Jenkins 도 같은
       # 접두어를 알아야 한다. 없으면 링크를 / 기준으로 만들어 화면이 깨진다.
       JENKINS_OPTS: "--prefix=/jenkins"
       TZ: "Asia/Seoul"
 
+      # ⚠ 설정 마법사를 끈다. 설정은 JCasC 가 코드로 넣는다.
+      #   마법사를 켜두면 잠금 화면이 떠서 JCasC 설정이 적용되지 않는다.
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      CASC_JENKINS_CONFIG: "/var/jenkins_casc/jenkins.yaml"
+
+      # jenkins.yaml 이 ${...} 로 읽어간다. 값은 .env 에 있다.
+      # 비어 있으면 기동을 막는다 — 빈 비밀번호로 뜨는 것이 최악이다.
+      JENKINS_ADMIN_ID: "${JENKINS_ADMIN_ID:?infra/.env 에 JENKINS_ADMIN_ID 가 필요합니다}"
+      JENKINS_ADMIN_PASSWORD: "${JENKINS_ADMIN_PASSWORD:?infra/.env 에 JENKINS_ADMIN_PASSWORD 가 필요합니다}"
+      JENKINS_ADMIN_EMAIL: "${JENKINS_ADMIN_EMAIL:-admin@example.com}"
+
     volumes:
+      # JCasC 설정. 읽기전용으로 넣는다 — UI 에서 고친 것이 이 파일을
+      # 덮어쓰지 못하게 한다. 정본은 저장소다.
+      - ./jenkins/jenkins.yaml:/var/jenkins_casc/jenkins.yaml:ro
       # ⚠ 호스트와 컨테이너의 경로를 일부러 같게 맞췄다.
       #   소켓 마운트 방식이라 Jenkins 가 만드는 컨테이너는 '형제' 로 호스트에
       #   뜬다. 그때 -v 경로는 호스트 기준으로 해석되므로, 경로가 다르면

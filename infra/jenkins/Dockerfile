@@ -35,3 +35,8 @@ RUN if ! getent group "${DOCKER_GID}" >/dev/null; then \
  && usermod -aG "${DOCKER_GID}" jenkins
 
 USER jenkins
+
+# 플러그인을 이미지에 굽는다. 마법사의 "Install suggested plugins" 대신이다.
+# 기동 때 받게 하면 네트워크에 의존하고 재현성이 떨어진다.
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt

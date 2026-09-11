@@ -23,6 +23,8 @@ dependencies {
     // 원격 파티셔닝의 작업 분배 통로. 브로커는 마스터 노트북에 있다.
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework.integration:spring-integration-amqp'
+    // 원격 파티셔닝 전용. RemotePartitioning*StepBuilderFactory 가 여기 있다.
+    implementation 'org.springframework.batch:spring-batch-integration'
 
     // HDFS 에 .jsonl.gz 를 직접 쓴다. 마스터를 거치지 않는다.
     //

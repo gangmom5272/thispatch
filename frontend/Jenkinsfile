@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'thispatch-frontend'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        WORKDIR = 'frontend'
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install') {
+            steps {
+                dir(WORKDIR) {
+                    sh 'corepack enable'
+                    sh 'pnpm install --frozen-lockfile'
+                }
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                dir(WORKDIR) {
+                    sh 'pnpm lint'
+                    sh 'pnpm format:check'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir(WORKDIR) {
+                    sh 'pnpm build'
+                }
+            }
+        }
+
+        stage('E2E Test') {
+            steps {
+                dir(WORKDIR) {
+                    sh 'npx playwright install --with-deps chromium'
+                    sh 'pnpm test:e2e'
+                }
+            }
+            post {
+                always {
+                    dir(WORKDIR) {
+                        archiveArtifacts artifacts: 'playwright-report/**', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
+
+        stage('Lighthouse') {
+            steps {
+                dir(WORKDIR) {
+                    sh 'pnpm preview --port 4173 &'
+                    sh 'sleep 3'
+                    sh 'npx lhci autorun --collect.url=http://localhost:4173 || true'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            when { branch 'master' }
+            steps {
+                dir(WORKDIR) {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Push & Deploy to AWS') {
+            when { branch 'master' }
+            steps {
+                echo 'Push image to ECR and deploy (fill in registry/deploy target).'
+                // sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY"
+                // sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} $ECR_REGISTRY/${IMAGE_NAME}:${IMAGE_TAG}"
+                // sh "docker push $ECR_REGISTRY/${IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+    }
+}

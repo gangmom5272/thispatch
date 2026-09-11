@@ -64,6 +64,13 @@ $rules = @(
     # spark-defaults.conf 의 driver.port 17177 / driver.blockManager 17210 /
     # blockManager 17240 + port.maxRetries 30
     @{ n = 'spark-driver';       p = '17177-17270' }
+
+    # 마스터 전용 — 11-master-batch-infra.sh 로 깔린 것들.
+    # 워커에도 규칙이 생기지만 그쪽엔 서비스가 없어서 아무 일도 일어나지 않는다.
+    # Spring Batch 원격 파티셔닝에서 워커가 마스터의 이 둘에 붙는다.
+    @{ n = 'batch-postgres';     p = '5432' }   # 배치 메타데이터 DB
+    @{ n = 'batch-rabbitmq';     p = '5672' }   # 작업 분배 (AMQP)
+    @{ n = 'batch-rabbitmq-ui';  p = '15672' }  # 큐 상태를 눈으로 보는 관리 화면
 )
 
 if ($Remove) {

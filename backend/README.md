@@ -124,7 +124,7 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 | 테이블 및 pgvector | PostgreSQL 카탈로그에서 V1 17개, V2 5개 테이블과 `vector` 확장 확인 |
 | V2 제약조건 | `pg_constraint`에서 PK 5개·FK 5개의 이름, 소속 테이블, 컬럼과 참조 대상을 포함한 정의 대조. 현재 V2에 없는 UNIQUE/CHECK가 생성되지 않았는지도 확인 |
 | 기본 코드 데이터 | 3개 코드 테이블의 19건에 대해 코드, 한글명, definition 확인 |
-| embedding 타입 | `format_type`으로 `patch_chunk.embedding = vector(768)` 확인 |
+| embedding 타입 | `format_type`으로 `patch_chunk.embedding = vector(512)` 확인 |
 | 재기동 시 중복 적용 방지 | 재기동 전후 migration 이력 전체 비교, Flyway validate 및 미적용 migration 0개, 코드 데이터 재확인 |
 
 테스트는 애플리케이션 기동으로 migration을 적용한 뒤 조회로 검증합니다. Entity, Controller, Service는 필요하지 않습니다.

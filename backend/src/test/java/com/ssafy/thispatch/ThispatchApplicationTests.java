@@ -71,7 +71,7 @@ class ThispatchApplicationTests {
 		assertThat(jdbc.queryForObject("""
 			SELECT format_type(atttypid, atttypmod) FROM pg_attribute
 			WHERE attrelid = 'public.patch_chunk'::regclass AND attname = 'embedding' AND NOT attisdropped
-			""", String.class)).isEqualTo("vector(768)");
+			""", String.class)).isEqualTo("vector(512)");
 	}
 
 	private void assertConstraints(JdbcTemplate jdbc) {

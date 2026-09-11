@@ -1,0 +1,15 @@
+// 셋이 같이 쓰는 정의만 둔다.
+//
+// 여기에 Spring 이나 Spark 를 넣지 않는다. 넣는 순간 이 모듈에 의존하는
+// 모든 모듈이 그걸 같이 끌고 들어가고, spark 를 분리한 의미가 없어진다.
+//
+// Spark 의 StructType 같은 것이 필요하면 compileOnly 로 받는다.
+// 실행할 때는 spark-submit 이 제공한다.
+
+dependencies {
+    // 스키마 정의에 Spark 타입을 쓰기 위해서만 필요하다.
+    // 런타임에는 클러스터의 Spark 가 제공하므로 jar 에 넣지 않는다.
+    compileOnly "org.apache.spark:spark-sql_${rootProject.ext.scalaBinary}:${rootProject.ext.sparkVersion}"
+
+    testImplementation "org.apache.spark:spark-sql_${rootProject.ext.scalaBinary}:${rootProject.ext.sparkVersion}"
+}

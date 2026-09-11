@@ -63,3 +63,6 @@ application-local.yaml
 # ── 로그 ──────────────────────────────────────────
 *.log
 logs/
+
+# Gradle 작업 캐시 — 빌드할 때마다 새로 생긴다
+.gradle/

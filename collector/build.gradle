@@ -1,0 +1,41 @@
+// 스팀 수집 배치 — 노트북 5대에 같은 jar 를 올린다.
+//
+// 마스터에서 Manager 로, 워커에서 Worker 로 뜬다. 프로파일로 가른다.
+// 스팀 API 호출이 각 워커의 IP 에서 나가야 403 을 피할 수 있다.
+// 그래서 마스터가 대신 호출해주는 구조로 만들면 안 된다.
+//
+// 이 모듈이 보는 DB 는 배치 메타데이터 DB(마스터 노트북) 하나뿐이다.
+// 서비스 DB(서버1)는 쳐다보지 않는다.
+
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':common')
+
+    // Spring Batch — 워터마크와 재시작은 ExecutionContext 가 관리한다.
+    // collect_progress 같은 테이블을 직접 만들지 않는다.
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 원격 파티셔닝의 작업 분배 통로. 브로커는 마스터 노트북에 있다.
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    implementation 'org.springframework.integration:spring-integration-amqp'
+
+    // HDFS 에 .jsonl.gz 를 직접 쓴다. 마스터를 거치지 않는다.
+    //
+    // hadoop-client 대신 shaded 두 개를 쓴다. hadoop-client 는 의존성을
+    // 그대로 노출해서 Spring 과 충돌한다. Spark 도 이 두 개를 쓴다.
+    implementation "org.apache.hadoop:hadoop-client-api:${rootProject.ext.hadoopVersion}"
+    runtimeOnly "org.apache.hadoop:hadoop-client-runtime:${rootProject.ext.hadoopVersion}"
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}

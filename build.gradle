@@ -1,0 +1,52 @@
+// 루트는 아무것도 빌드하지 않는다. 공통 설정만 내려준다.
+//
+// 플러그인은 여기서 버전만 정하고 apply 하지 않는다(apply false).
+// 필요한 모듈에서만 적용한다 — spark 모듈에 Spring Boot 플러그인이
+// 붙으면 안 되기 때문이다.
+plugins {
+    id 'org.springframework.boot' version '3.5.16' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+// 버전은 한 곳에서 관리한다. 모듈마다 다른 버전을 쓰면
+// 같은 클래스가 두 벌 들어가 런타임에 터진다.
+ext {
+    hadoopVersion = '3.5.0'      // 클러스터와 같아야 한다
+    sparkVersion = '4.2.0'
+    scalaBinary = '2.13'         // Spark 4 는 2.13 전용
+}
+
+allprojects {
+    group = 'com.ssafy.dispatch'
+    version = '0.0.1-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            // Hadoop 3.5.0 이 자바 17 바이트코드(major 61)로 컴파일돼 있고
+            // Spark 4.2.0 도 17 을 요구한다. 클러스터도 17 이다.
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.11.4')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+}

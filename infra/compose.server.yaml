@@ -1,0 +1,67 @@
+# 서버1 배포용 compose
+#
+#   ssh -i ~/.ssh/J15A202T.pem ubuntu@j15a202.p.ssafy.io
+#   cd ~/infra && docker compose -f compose.server.yaml up -d
+#
+# ⚠ backend/compose.yaml 과 다른 파일이다
+#   그쪽은 로컬 개발용이고 PostgreSQL 컨테이너가 들어 있다. 서버1 에는
+#   PostgreSQL 17.11 이 네이티브로 이미 돌고 있어서(0.0.0.0:5432 점유)
+#   그대로 올리면 포트 충돌로 안 뜬다.
+#
+# ⚠ 여기에 DB 를 넣지 말 것
+#   CI/CD 가 붙으면 push 마다 이 파일로 up -d 가 돈다. DB 가 같이 있으면
+#   앱을 배포할 때마다 DB 가 사정권에 들어온다.
+#
+# ⚠ nginx 도 여기 없다
+#   네이티브로 깔았다 (15-server-nginx-https.sh). 배포가 실패해도 살아
+#   있어야 하는 물건이라 배포 단위 밖에 둔다.
+
+name: dispatch
+
+services:
+  jenkins:
+    build:
+      context: ./jenkins
+      args:
+        # 호스트 docker 그룹 GID. 안 맞으면 소켓을 못 읽는다.
+        DOCKER_GID: "${DOCKER_GID:-988}"
+    image: dispatch/jenkins:lts-jdk17
+    container_name: jenkins
+    restart: unless-stopped
+
+    # 127.0.0.1 바인딩 — 밖에서 직접 못 붙는다. UFW 에도 열지 않았다.
+    # 외부 진입은 nginx 의 /jenkins/ 프록시 하나뿐이다.
+    ports:
+      - "127.0.0.1:18080:8080"
+
+    environment:
+      # nginx 가 /jenkins/ 로 접두어를 보존해 넘기므로 Jenkins 도 같은
+      # 접두어를 알아야 한다. 없으면 링크를 / 기준으로 만들어 화면이 깨진다.
+      JENKINS_OPTS: "--prefix=/jenkins"
+      TZ: "Asia/Seoul"
+
+    volumes:
+      # ⚠ 호스트와 컨테이너의 경로를 일부러 같게 맞췄다.
+      #   소켓 마운트 방식이라 Jenkins 가 만드는 컨테이너는 '형제' 로 호스트에
+      #   뜬다. 그때 -v 경로는 호스트 기준으로 해석되므로, 경로가 다르면
+      #   워크스페이스를 마운트할 때 엉뚱한(없는) 경로를 가리킨다.
+      - /var/jenkins_home:/var/jenkins_home
+      # 호스트 Docker 데몬 창구. 이걸 쥔 쪽은 사실상 호스트 root 다.
+      # 그래서 Jenkins 를 인터넷에 노출하지 않는 결정이 중요하다.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    # ⚠ 서버1 은 서비스와 빌드를 같이 돌린다 (4 vCPU · 15Gi).
+    #   상한이 없으면 빌드가 도는 동안 사이트가 느려진다.
+    #   서비스와 PostgreSQL 몫으로 1.5 vCPU · 9Gi 를 남긴다.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.5"
+          memory: 6g
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/jenkins/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s

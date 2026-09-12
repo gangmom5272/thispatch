@@ -5,6 +5,7 @@ REST API 구현·수정 요청이면 [implement-api](.agents/skills/implement-ap
 
 ## 작업 시작 전
 
+- 현재 Git 브랜치를 먼저 확인한다. 브랜치가 `master`이면 변경·커밋을 진행하지 말고 작업 브랜치로 전환해야 한다고 사용자에게 알린다. 작업 브랜치가 확인된 뒤에만 작업을 시작한다.
 - `git status --short`, 실제 디렉터리·패키지 구조, 관련 기존 코드와 테스트를 확인한다.
 - API 작업은 [API index](docs/api/README.md), [공통 규칙](docs/api/conventions.md), 대상 도메인 문서를 읽는다.
 - 관련 Flyway migration을 확인한다. DB와 무관한 변경에는 해당 없음을 구분한다.

@@ -39,7 +39,7 @@ COMPOSE_FILE="$COMPOSE_DIR/compose.server.yaml"
 
 [ -f "$COMPOSE_FILE" ] || { echo "compose 파일 없음: $COMPOSE_FILE" >&2; exit 1; }
 
-echo "── [1/5] 선행 확인 ────────────────────────────────────"
+echo "── [1/6] 선행 확인 ────────────────────────────────────"
 command -v docker >/dev/null || { echo "docker 가 없습니다. 13-server-docker.sh 먼저." >&2; exit 1; }
 docker compose version >/dev/null || { echo "compose 플러그인이 없습니다." >&2; exit 1; }
 
@@ -56,7 +56,7 @@ export DOCKER_GID
 echo "    docker 그룹 GID = $DOCKER_GID"
 
 echo
-echo "── [1.5/5] .env 확인 ──────────────────────────────────"
+echo "── [1.5/6] .env 확인 ──────────────────────────────────"
 ENV_FILE="$COMPOSE_DIR/.env"
 [ -f "$ENV_FILE" ] || {
   echo "infra/.env 가 없습니다. 템플릿을 복사해 비밀번호를 넣으세요:" >&2
@@ -67,10 +67,16 @@ grep -q '^JENKINS_ADMIN_PASSWORD=.\+' "$ENV_FILE" || {
 grep -q '^JENKINS_ADMIN_PASSWORD=change-me$' "$ENV_FILE" && {
   echo "JENKINS_ADMIN_PASSWORD 가 템플릿 기본값(change-me)입니다. 바꾸세요." >&2; exit 1; }
 chmod 600 "$ENV_FILE"
-echo "    .env 확인 · 권한 600"
+
+# ⚠ 값을 이 쉘로 읽어 온다.
+#   compose 는 같은 폴더의 .env 를 알아서 읽지만, 이 스크립트 자신은
+#   읽지 않는다. [5/6] 에서 Jenkins 에 로그인해서 웹훅 시크릿을
+#   심으려면 JENKINS_ADMIN_* 와 GITLAB_WEBHOOK_SECRET 이 필요하다.
+set -a; . "$ENV_FILE"; set +a
+echo "    .env 확인 · 권한 600 · 값 읽음"
 
 echo
-echo "── [2/5] jenkins_home 준비 ────────────────────────────"
+echo "── [2/6] jenkins_home 준비 ────────────────────────────"
 # 마법사 모드로 뜬 적이 있으면 JCasC 가 안 먹는다. 비우고 다시 만든다.
 if [ "${RESET:-0}" = "1" ]; then
   echo "    RESET=1 — 기존 jenkins_home 을 비웁니다"
@@ -88,12 +94,12 @@ sudo install -d -o 1000 -g 1000 -m 755 /var/jenkins_home
 echo "    $(stat -c '%n  %U:%G (%u:%g)  %a' /var/jenkins_home)"
 
 echo
-echo "── [3/5] 이미지 빌드 (docker CLI 포함) ────────────────"
+echo "── [3/6] 이미지 빌드 (docker CLI 포함) ────────────────"
 # 공식 이미지에는 docker 명령이 없다. infra/jenkins/Dockerfile 이 CLI 만 넣는다.
 docker compose -f "$COMPOSE_FILE" build jenkins
 
 echo
-echo "── [4/5] 기동 ─────────────────────────────────────────"
+echo "── [4/6] 기동 ─────────────────────────────────────────"
 docker compose -f "$COMPOSE_FILE" up -d jenkins
 
 echo "    healthcheck 대기 (최대 3분)..."
@@ -105,7 +111,40 @@ for i in $(seq 1 36); do
 done
 
 echo
-echo "── [5/5] 검증 ─────────────────────────────────────────"
+echo "── [5/6] 웹훅 시크릿 심기 ────────────────────"
+# ⚠ 왜 여기서 따로 하는가
+#   웹훅 시크릿은 Jenkins 가 암호화해서 보관하는 값이라, jenkins.yaml 의
+#   잡 정의에서 XML 로 직접 넣으면 Jenkins 가 읽으면서 버린다. (실측)
+#   그래서 기동이 끝난 뒤에 Jenkins 에게 직접 시켜 넣는다.
+#
+# ⚠ 재기동할 때마다 다시 해야 한다.
+#   JCasC 가 부팅할 때마다 잡을 정의대로 다시 만들어서, 손으로 넣은 값은
+#   날아간다. 이 스크립트를 거쳐서 올리면 항상 맞춰진다.
+if [ -z "${GITLAB_WEBHOOK_SECRET:-}" ] || [ "${GITLAB_WEBHOOK_SECRET}" = "change-me" ]; then
+  echo "    ⚠ .env 의 GITLAB_WEBHOOK_SECRET 이 비어 있습니다. 웹훅이 모두 거부됩니다."
+  echo "      openssl rand -hex 24 로 만들어 .env 에 넣고 다시 실행하세요."
+else
+  JB=http://127.0.0.1:18080/jenkins
+  CJ="$(mktemp)"
+  CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ"             "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
+  if [ -z "$CRUMB" ]; then
+    echo "    ⚠ Jenkins 로그인 실패 — JENKINS_ADMIN_ID/PASSWORD 를 확인하세요." >&2
+  else
+    GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
+def job = jenkins.model.Jenkins.get().getItemByFullName('dispatch-deploy')
+if (job == null) { println '    잡을 아직 못 찾았다'; return }
+def t = job.getTriggers().values().find { it instanceof GitLabPushTrigger }
+if (t == null) { println '    GitLabPushTrigger 가 없다'; return }
+t.setSecretToken('$GITLAB_WEBHOOK_SECRET')
+job.save()
+println '    시크릿 심음: ' + (t.getSecretToken() == '$GITLAB_WEBHOOK_SECRET')"
+    curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ"       -H "Jenkins-Crumb: $CRUMB" --data-urlencode "script=$GROOVY" "$JB/scriptText"
+  fi
+  rm -f "$CJ"
+fi
+
+echo
+echo "── [6/6] 검증 ─────────────────────────────────────────"
 docker compose -f "$COMPOSE_FILE" ps
 echo
 echo "    컨테이너 안에서 docker 가 되는가 (소켓 마운트 확인)"

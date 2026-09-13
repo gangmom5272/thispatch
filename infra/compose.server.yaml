@@ -34,11 +34,15 @@ services:
     ports:
       - "127.0.0.1:18080:8080"
 
-    # 비밀값은 서버의 infra/.env 에서 온다 (.gitignore 로 막혀 있다).
-    # 템플릿은 infra/.env.example 참조.
-    env_file:
-      - .env
-
+    # ⚠ env_file 을 쓰지 않는다.
+    #   env_file 은 .env 의 모든 값을 컨테이너에 넣는다. 그러면
+    #   POSTGRES_* 와 SPRING_PROFILES_ACTIVE 까지 Jenkins 에 들어가고,
+    #   파이프라인이 돌리는 테스트 JVM 이 그걸 그대로 물려받는다.
+    #   실제로 테스트가 테스트 DB 가 아닌 '서비스 DB' 를 보려고 했다. (실측)
+    #   그래서 Jenkins 가 진짜로 필요한 값만 아래에 적는다.
+    #
+    # 값은 여전히 infra/.env 에서 온다 — compose 가 같은 폴더의 .env 를
+    # ${...} 치환용으로 자동으로 읽는다. .env 는 .gitignore 로 막혀 있다.
     environment:
       # nginx 가 /jenkins/ 로 접두어를 보존해 넘기므로 Jenkins 도 같은
       # 접두어를 알아야 한다. 없으면 링크를 / 기준으로 만들어 화면이 깨진다.
@@ -56,6 +60,12 @@ services:
       JENKINS_ADMIN_PASSWORD: "${JENKINS_ADMIN_PASSWORD:?infra/.env 에 JENKINS_ADMIN_PASSWORD 가 필요합니다}"
       JENKINS_ADMIN_EMAIL: "${JENKINS_ADMIN_EMAIL:-admin@example.com}"
 
+      # GitLab 연동. 없으면 기동을 막지 않고 클론 단계에서 실패하게 둔다 —
+      # 원인을 찾기가 더 쉽다.
+      GITLAB_REPO_USER: "${GITLAB_REPO_USER:-not-set}"
+      GITLAB_REPO_TOKEN: "${GITLAB_REPO_TOKEN:-not-set}"
+      GITLAB_WEBHOOK_SECRET: "${GITLAB_WEBHOOK_SECRET:-not-set}"
+
     volumes:
       # JCasC 설정. 읽기전용으로 넣는다 — UI 에서 고친 것이 이 파일을
       # 덮어쓰지 못하게 한다. 정본은 저장소다.
@@ -68,6 +78,13 @@ services:
       # 호스트 Docker 데몬 창구. 이걸 쥔 쪽은 사실상 호스트 root 다.
       # 그래서 Jenkins 를 인터넷에 노출하지 않는 결정이 중요하다.
       - /var/run/docker.sock:/var/run/docker.sock
+      # 배포 정본. 파이프라인이 여기를 갱신하고 이 compose 파일로 backend 를 올린다.
+      #
+      # ⚠ 호스트와 경로를 똑같게 맞추었다 (위 jenkins_home 과 같은 이유).
+      #   빌드 컨텍스트 경로는 호스트 기준으로 해석된다.
+      # ⚠ 여기에 .env 가 들어 있다. 그래도 새로 생기는 위험은 없다 —
+      #   도커 소켓을 준 시점에 Jenkins 는 이미 호스트 전체를 볼 수 있다.
+      - /home/ubuntu/dispatch:/home/ubuntu/dispatch
 
     # ⚠ 서버1 은 서비스와 빌드를 같이 돌린다 (4 vCPU · 15Gi).
     #   상한이 없으면 빌드가 도는 동안 사이트가 느려진다.

@@ -84,3 +84,72 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+
+  backend:
+    build:
+      # ⚠ 컨텍스트가 저장소 루트다. 멀티모듈이라 settings.gradle 과
+      #   common/ 이 있어야 :backend 가 빌드된다.
+      context: ..
+      dockerfile: infra/backend/Dockerfile
+    image: dispatch/backend:latest
+    container_name: backend
+    restart: unless-stopped
+
+    # 127.0.0.1 바인딩 — 밖에서 직접 못 붙는다. UFW 에도 열지 않았다.
+    # 외부 진입은 nginx 의 /api/ 프록시 하나뿐이다.
+    #
+    # nginx 가 /api 접두어를 벗겨서 넘긴다. 여기 앱은 /games 로 받는다.
+    # (S15P21A202-65 · API 계약이 접두어 없이 정의돼 있다)
+    ports:
+      - "127.0.0.1:18081:8080"
+
+    env_file:
+      - .env
+
+    environment:
+      # 서버의 .env 에서 바꿀 수 있게 둔다.
+      # backend/src/main/resources 에 아직 application-prod.yaml 이 없다.
+      # 그 파일이 들어오기 전까지는 .env 에 SPRING_PROFILES_ACTIVE=dev 로
+      # 두면 된다 — dev 프로파일도 DB 접속을 전부 환경변수로 받고,
+      # .env 파일 읽기가 optional: 이라 없어도 안 죽는다.
+      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE:-prod}"
+      TZ: "Asia/Seoul"
+
+      # ⚠ DB 는 컨테이너가 아니라 '호스트' 의 PostgreSQL 이다.
+      #   서버1 에는 PostgreSQL 17.11 이 네이티브로 돌고 있다.
+      #   backend/compose.yaml 의 DB 컨테이너는 로컬 개발용이고 여기선 쓰지 않는다.
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: "${POSTGRES_DB:-thispatch}"
+      POSTGRES_USER: "${POSTGRES_USER:?infra/.env 에 POSTGRES_USER 가 필요합니다}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?infra/.env 에 POSTGRES_PASSWORD 가 필요합니다}"
+
+    # 리눅스에서 host.docker.internal 은 기본 제공되지 않는다. 직접 이어준다.
+    # 이게 없으면 컨테이너가 DB 주소를 못 찾는다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # ⚠ 서버1 은 4 vCPU · 15Gi 를 서비스 · 빌드 · DB 가 나눠 쓴다.
+    #   Jenkins 가 2.5 vCPU · 6g 를 쓰므로 여기는 1 vCPU · 2g 로 둔다.
+    #   PostgreSQL 과 nginx 몫이 남아야 한다.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2g
+
+    # Spring Boot Actuator 가 없으므로 포트가 열렸는지만 본다.
+    # Actuator 를 넣으면 /actuator/health 로 바꾸는 게 낫다.
+    #
+    # ⚠ -f 를 쓰지 않는다.
+    #   지금 상태에서 / 는 401 을 돌려준다(Spring Security 기본값).
+    #   -f 는 4xx 를 실패로 치기 때문에 컨테이너가 영원히 unhealthy 로
+    #   남고, 배포 스크립트가 성공을 판정하지 못한다.
+    #   여기서 보고 싶은 것은 '응답을 하느냐' 지 '상태 코드가 뭐냐' 가 아니다.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS -o /dev/null http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # Flyway 가 마이그레이션을 적용하는 시간을 준다.
+      start_period: 90s

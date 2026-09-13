@@ -14,11 +14,15 @@
 #   띄울 이유가 없다. 초기 설정은 SSH 터널로 한다.
 #     ssh -i ~/.ssh/J15A202T.pem -L 18080:localhost:18080 ubuntu@j15a202.p.ssafy.io
 #
-# ⚠ 5432 는 절대 열지 않는다
+# ⚠ 5432 를 '전체 공개' 로 열지 않는다
 #   SSAFY 공지 — AWS 클라우드 방화벽이 tcp/udp 1024~65535 를 이미 허용한다.
 #   즉 AWS 쪽은 5432 가 이미 통과 상태이고, 막고 있는 것은 UFW 하나뿐이다.
-#   여기서 여는 순간 전 세계에서 우리 DB 에 붙을 수 있다.
+#   Anywhere 로 여는 순간 전 세계에서 우리 DB 에 붙을 수 있다.
 #   노트북 클러스터가 서버1 DB 에 붙어야 할 일이 생기면 SSH 터널을 쓴다.
+#
+#   다만 출발지를 도커 대역으로 제한한 규칙은 예외다 (17-server-backend.sh).
+#   백엔드 컨테이너가 호스트 PostgreSQL 에 붙으려면 필요하고,
+#   172.17/172.18 은 이 서버 안의 컨테이너들뿐이라 밖으로 새지 않는다.
 #
 # ⚠ 22 를 잃으면 서버를 못 살린다
 #   SSAFY 공지 — "SSH 포트 차단, 공개키 삭제, 퍼미션 임의 변경 등으로 접속
@@ -73,8 +77,11 @@ sudo ufw status | grep -qE '^80/tcp[[:space:]]+ALLOW'  || { echo "80 개방 실�
 sudo ufw status | grep -qE '^443/tcp[[:space:]]+ALLOW' || { echo "443 개방 실패" >&2; fail=1; }
 
 # 열려 있으면 안 되는 것
-if sudo ufw status | grep -qE '^5432'; then
-  echo "5432 가 열려 있습니다. 즉시 'sudo ufw delete allow 5432' 로 닫으세요." >&2
+# 5432 가 Anywhere 로 열렸는지만 본다.
+# 출발지가 172.17/172.18 로 제한된 줄은 정상이다 (백엔드 컨테이너용).
+if sudo ufw status | grep -E '^5432' | grep -qE 'Anywhere'; then
+  echo "5432 가 Anywhere 로 열려 있습니다. 즉시 닫으세요." >&2
+  sudo ufw status numbered | grep 5432 >&2
   fail=1
 fi
 if sudo ufw status | grep -qE '^18080'; then

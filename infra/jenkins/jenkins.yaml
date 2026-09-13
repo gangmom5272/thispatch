@@ -1,0 +1,69 @@
+# Jenkins Configuration as Code (JCasC)
+#
+# 설정 마법사를 끄고(-Djenkins.install.runSetupWizard=false) 이 파일로 기동한다.
+# 컨테이너에 /var/jenkins_casc/jenkins.yaml 로 읽기전용 마운트된다.
+#
+# 왜 마법사를 안 쓰는가
+#   지금까지 모든 인프라 작업을 스크립트로 남겼다(13~16). Jenkins 설정만
+#   브라우저 클릭으로 두면 거기만 재현이 안 된다. SSAFY 공지에 접속 불가 시
+#   초기화 요청만 가능하다고 돼 있어, 서버가 날아가면 손으로 다시 클릭해야 한다.
+#
+# ⚠ 비밀번호는 여기 없다
+#   ${JENKINS_ADMIN_PASSWORD} 는 서버의 infra/.env 에서 온다.
+#   .env 는 .gitignore 로 막혀 있고 저장소에 올라가지 않는다.
+#   값을 이 파일에 적지 말 것.
+
+jenkins:
+  systemMessage: |
+    디스패치 (Dispatch) — S15P21A202
+    설정은 infra/jenkins/jenkins.yaml 이 정본이다. UI 에서 고친 것은 재기동 시 덮인다.
+
+  # 서버1 은 서비스와 빌드를 같이 돌린다. 컨테이너 상한이 2.5 vCPU 라
+  # 실행기를 2 로 둔다. 더 올리면 서로 CPU 를 뺏는다.
+  numExecutors: 2
+  mode: NORMAL
+
+  securityRealm:
+    local:
+      allowsSignup: false          # 아무나 가입 못 한다
+      users:
+        - id: "${JENKINS_ADMIN_ID}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false    # 익명 조회도 막는다
+
+  # ⚠ 리버스 프록시 뒤라서 필요하다
+  #   nginx 를 거치면 Jenkins 가 보는 클라이언트 IP 가 nginx 의 것이 된다.
+  #   CSRF 토큰에 IP 를 섞으면 로그인·폼 제출이 403 으로 깨진다.
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+
+unclassified:
+  location:
+    # ⚠ 이 값이 틀리면 Jenkins 가 만드는 링크와 GitLab 웹훅 주소가 전부 깨진다.
+    #   nginx 가 /jenkins/ 접두어를 보존해 넘기므로 끝의 슬래시까지 맞춘다.
+    url: "https://j15a202.p.ssafy.io/jenkins/"
+    adminAddress: "${JENKINS_ADMIN_EMAIL}"
+
+  # GitLab 연결. 토큰은 S15P21A202-20 에서 Credentials 로 넣는다.
+  gitLabConnectionConfig:
+    connections:
+      - name: "ssafy-gitlab"
+        url: "https://lab.ssafy.com"
+        clientBuilderId: "autodetect"
+        ignoreCertificateErrors: false
+        connectionTimeout: 10
+        readTimeout: 20
+
+# security: 블록은 두지 않는다.
+#   globalJobDslSecurityConfiguration 을 넣었다가 부팅이 실패했다 —
+#   그건 job-dsl 플러그인의 설정인데 우리는 그 플러그인을 안 쓴다.
+#   JCasC 는 모르는 속성을 만나면 경고가 아니라 기동 실패로 처리한다.
+#     UnknownAttributesException: Invalid configuration elements for type ...
+#
+#   스크립트 보안은 Jenkins 기본값이 이미 켜져 있어 따로 적을 필요가 없다.
+#   여기에 뭔가 추가할 때는 아래로 유효한 속성을 먼저 확인할 것.
+#     docker exec jenkins ... 또는 /jenkins/manage/configuration-as-code/reference

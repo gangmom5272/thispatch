@@ -1,0 +1,28 @@
+# Jenkins 플러그인 — 이미지 빌드 시점에 설치된다 (jenkins-plugin-cli)
+#
+# 「Install suggested plugins」 를 클릭하는 대신 여기에 적는다.
+# 버전을 고정하지 않는 이유 — lts 이미지가 올라갈 때 호환 버전이 같이
+# 따라오게 둔다. 특정 버전이 필요해지면 plugin:1.2.3 형태로 고정한다.
+
+# JCasC 자체. 이게 없으면 jenkins.yaml 을 못 읽는다
+configuration-as-code
+
+# 파이프라인
+workflow-aggregator
+pipeline-stage-view
+timestamper
+ws-cleanup
+
+# SCM — GitLab
+git
+gitlab-plugin
+
+# 빌드
+gradle
+junit
+
+# 배포 — Jenkinsfile 에서 docker.build 를 쓴다
+docker-workflow
+
+# 비밀값 (GitLab 토큰 · 레지스트리 자격증명)
+credentials-binding

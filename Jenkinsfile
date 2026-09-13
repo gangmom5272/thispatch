@@ -64,7 +64,44 @@ pipeline {
             }
         }
 
+        stage('변경 범위 확인') {
+            steps {
+                // 프론트만 바뀐 push 에서는 백엔드를 다시 빌드·배포하지 않는다.
+                //
+                // 기준점은 Jenkins 가 넣어 주는 GIT_PREVIOUS_SUCCESSFUL_COMMIT 이다.
+                // '마지막으로 성공한 빌드의 커밋' 이라, 지난 빌드가 실패했으면
+                // 그때 못 본 변경까지 함께 비교된다. 실패를 건너뛰고 넘어가지 않는다.
+                //
+                // ⚠ 판단을 셸에서 하고 결과만 파일로 넘긴다.
+                //   Groovy 로 하면 Jenkins 스크립트 보안 승인이 걸릴 수 있다.
+                sh '''
+                    BASE="${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-}"
+                    RUN=yes
+                    REASON="처음이거나 직전 빌드가 실패했다 — 전부 돌린다"
+                    if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+                      CHANGED=$(git diff --name-only "$BASE" HEAD)
+                      OUTSIDE=$(echo "$CHANGED" | grep -v "^frontend/" || true)
+                      if [ -z "$CHANGED" ]; then
+                        RUN=no;  REASON="바뀐 파일이 없다"
+                      elif [ -z "$OUTSIDE" ]; then
+                        RUN=no;  REASON="frontend/ 만 바뀌었다"
+                      else
+                        RUN=yes; REASON="백엔드 쪽 변경이 있다"
+                      fi
+                      echo "기준 커밋 $(git rev-parse --short "$BASE")"
+                      echo "바뀐 파일 $(echo "$CHANGED" | grep -c . || true) 개"
+                      echo "$CHANGED" | head -10 | sed "s/^/  /"
+                    fi
+                    echo
+                    echo "판단: $RUN  ($REASON)"
+                    printf %s "$RUN" > .run_flag
+                '''
+                script { env.RUN_BUILD = readFile('.run_flag').trim() }
+            }
+        }
+
         stage('테스트') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 // ⚠ 비밀번호를 소스에 적어도 되는 유일한 자리다.
                 //   이 DB 는 빌드가 끝나면 지워지고, 도커 내부 네트워크에만 있으며,
@@ -138,6 +175,7 @@ pipeline {
         }
 
         stage('이미지 빌드') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 sh '''
                     set -e
@@ -149,6 +187,7 @@ pipeline {
         }
 
         stage('배포') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 // ⚠ --no-deps 를 반드시 붙인다.
                 //   빼면 jenkins 서비스까지 다시 만들려 들고, 그건 지금 이 빌드를
@@ -172,6 +211,7 @@ pipeline {
         }
 
         stage('검증') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 sh '''
                     set -e

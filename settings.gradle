@@ -1,0 +1,16 @@
+rootProject.name = 'dispatch'
+
+// 모듈을 나눈 이유는 배포 대상과 의존성이 다르기 때문이다.
+//
+//   common     정의만. Spring 도 Spark 도 모른다
+//   backend    서비스 API        서버1 에 배포   서비스 DB 만 본다
+//   collector  수집 배치          노트북 5대      배치 DB 만 본다
+//   spark      집계 · compaction  노트북          DB 를 안 본다
+//
+// spark 를 backend 와 한 jar 로 묶으면 안 된다.
+// Spark 4.2.0 과 Spring Boot 3.5 는 Jackson · Netty · Guava 버전이 겹쳐서,
+// 빌드는 통과하는데 실행할 때 NoSuchMethodError 로 터진다.
+include 'common'
+include 'backend'
+include 'collector'
+include 'spark'

@@ -25,3 +25,7 @@
 *.tar.gz        binary
 *.tgz           binary
 *.zip           binary
+
+# Gradle 래퍼 — gradlew 는 WSL/리눅스에서 실행되므로 LF
+/gradlew        text eol=lf
+*.bat           text eol=crlf

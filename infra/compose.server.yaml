@@ -1,0 +1,172 @@
+# 서버1 배포용 compose
+#
+#   ssh -i ~/.ssh/J15A202T.pem ubuntu@j15a202.p.ssafy.io
+#   cd ~/infra && docker compose -f compose.server.yaml up -d
+#
+# ⚠ backend/compose.yaml 과 다른 파일이다
+#   그쪽은 로컬 개발용이고 PostgreSQL 컨테이너가 들어 있다. 서버1 에는
+#   PostgreSQL 17.11 이 네이티브로 이미 돌고 있어서(0.0.0.0:5432 점유)
+#   그대로 올리면 포트 충돌로 안 뜬다.
+#
+# ⚠ 여기에 DB 를 넣지 말 것
+#   CI/CD 가 붙으면 push 마다 이 파일로 up -d 가 돈다. DB 가 같이 있으면
+#   앱을 배포할 때마다 DB 가 사정권에 들어온다.
+#
+# ⚠ nginx 도 여기 없다
+#   네이티브로 깔았다 (15-server-nginx-https.sh). 배포가 실패해도 살아
+#   있어야 하는 물건이라 배포 단위 밖에 둔다.
+
+name: dispatch
+
+services:
+  jenkins:
+    build:
+      context: ./jenkins
+      args:
+        # 호스트 docker 그룹 GID. 안 맞으면 소켓을 못 읽는다.
+        DOCKER_GID: "${DOCKER_GID:-988}"
+    image: dispatch/jenkins:lts-jdk17
+    container_name: jenkins
+    restart: unless-stopped
+
+    # 127.0.0.1 바인딩 — 밖에서 직접 못 붙는다. UFW 에도 열지 않았다.
+    # 외부 진입은 nginx 의 /jenkins/ 프록시 하나뿐이다.
+    ports:
+      - "127.0.0.1:18080:8080"
+
+    # ⚠ env_file 을 쓰지 않는다.
+    #   env_file 은 .env 의 모든 값을 컨테이너에 넣는다. 그러면
+    #   POSTGRES_* 와 SPRING_PROFILES_ACTIVE 까지 Jenkins 에 들어가고,
+    #   파이프라인이 돌리는 테스트 JVM 이 그걸 그대로 물려받는다.
+    #   실제로 테스트가 테스트 DB 가 아닌 '서비스 DB' 를 보려고 했다. (실측)
+    #   그래서 Jenkins 가 진짜로 필요한 값만 아래에 적는다.
+    #
+    # 값은 여전히 infra/.env 에서 온다 — compose 가 같은 폴더의 .env 를
+    # ${...} 치환용으로 자동으로 읽는다. .env 는 .gitignore 로 막혀 있다.
+    environment:
+      # nginx 가 /jenkins/ 로 접두어를 보존해 넘기므로 Jenkins 도 같은
+      # 접두어를 알아야 한다. 없으면 링크를 / 기준으로 만들어 화면이 깨진다.
+      JENKINS_OPTS: "--prefix=/jenkins"
+      TZ: "Asia/Seoul"
+
+      # ⚠ 설정 마법사를 끈다. 설정은 JCasC 가 코드로 넣는다.
+      #   마법사를 켜두면 잠금 화면이 떠서 JCasC 설정이 적용되지 않는다.
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      CASC_JENKINS_CONFIG: "/var/jenkins_casc/jenkins.yaml"
+
+      # jenkins.yaml 이 ${...} 로 읽어간다. 값은 .env 에 있다.
+      # 비어 있으면 기동을 막는다 — 빈 비밀번호로 뜨는 것이 최악이다.
+      JENKINS_ADMIN_ID: "${JENKINS_ADMIN_ID:?infra/.env 에 JENKINS_ADMIN_ID 가 필요합니다}"
+      JENKINS_ADMIN_PASSWORD: "${JENKINS_ADMIN_PASSWORD:?infra/.env 에 JENKINS_ADMIN_PASSWORD 가 필요합니다}"
+      JENKINS_ADMIN_EMAIL: "${JENKINS_ADMIN_EMAIL:-admin@example.com}"
+
+      # GitLab 연동. 없으면 기동을 막지 않고 클론 단계에서 실패하게 둔다 —
+      # 원인을 찾기가 더 쉽다.
+      GITLAB_REPO_USER: "${GITLAB_REPO_USER:-not-set}"
+      GITLAB_REPO_TOKEN: "${GITLAB_REPO_TOKEN:-not-set}"
+      GITLAB_WEBHOOK_SECRET: "${GITLAB_WEBHOOK_SECRET:-not-set}"
+
+    volumes:
+      # JCasC 설정. 읽기전용으로 넣는다 — UI 에서 고친 것이 이 파일을
+      # 덮어쓰지 못하게 한다. 정본은 저장소다.
+      - ./jenkins/jenkins.yaml:/var/jenkins_casc/jenkins.yaml:ro
+      # ⚠ 호스트와 컨테이너의 경로를 일부러 같게 맞췄다.
+      #   소켓 마운트 방식이라 Jenkins 가 만드는 컨테이너는 '형제' 로 호스트에
+      #   뜬다. 그때 -v 경로는 호스트 기준으로 해석되므로, 경로가 다르면
+      #   워크스페이스를 마운트할 때 엉뚱한(없는) 경로를 가리킨다.
+      - /var/jenkins_home:/var/jenkins_home
+      # 호스트 Docker 데몬 창구. 이걸 쥔 쪽은 사실상 호스트 root 다.
+      # 그래서 Jenkins 를 인터넷에 노출하지 않는 결정이 중요하다.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 배포 정본. 파이프라인이 여기를 갱신하고 이 compose 파일로 backend 를 올린다.
+      #
+      # ⚠ 호스트와 경로를 똑같게 맞추었다 (위 jenkins_home 과 같은 이유).
+      #   빌드 컨텍스트 경로는 호스트 기준으로 해석된다.
+      # ⚠ 여기에 .env 가 들어 있다. 그래도 새로 생기는 위험은 없다 —
+      #   도커 소켓을 준 시점에 Jenkins 는 이미 호스트 전체를 볼 수 있다.
+      - /home/ubuntu/dispatch:/home/ubuntu/dispatch
+
+    # ⚠ 서버1 은 서비스와 빌드를 같이 돌린다 (4 vCPU · 15Gi).
+    #   상한이 없으면 빌드가 도는 동안 사이트가 느려진다.
+    #   서비스와 PostgreSQL 몫으로 1.5 vCPU · 9Gi 를 남긴다.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.5"
+          memory: 6g
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/jenkins/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  backend:
+    build:
+      # ⚠ 컨텍스트가 저장소 루트다. 멀티모듈이라 settings.gradle 과
+      #   common/ 이 있어야 :backend 가 빌드된다.
+      context: ..
+      dockerfile: infra/backend/Dockerfile
+    image: dispatch/backend:latest
+    container_name: backend
+    restart: unless-stopped
+
+    # 127.0.0.1 바인딩 — 밖에서 직접 못 붙는다. UFW 에도 열지 않았다.
+    # 외부 진입은 nginx 의 /api/ 프록시 하나뿐이다.
+    #
+    # nginx 가 /api 접두어를 벗겨서 넘긴다. 여기 앱은 /games 로 받는다.
+    # (S15P21A202-65 · API 계약이 접두어 없이 정의돼 있다)
+    ports:
+      - "127.0.0.1:18081:8080"
+
+    env_file:
+      - .env
+
+    environment:
+      # 서버의 .env 에서 바꿀 수 있게 둔다.
+      # backend/src/main/resources 에 아직 application-prod.yaml 이 없다.
+      # 그 파일이 들어오기 전까지는 .env 에 SPRING_PROFILES_ACTIVE=dev 로
+      # 두면 된다 — dev 프로파일도 DB 접속을 전부 환경변수로 받고,
+      # .env 파일 읽기가 optional: 이라 없어도 안 죽는다.
+      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE:-prod}"
+      TZ: "Asia/Seoul"
+
+      # ⚠ DB 는 컨테이너가 아니라 '호스트' 의 PostgreSQL 이다.
+      #   서버1 에는 PostgreSQL 17.11 이 네이티브로 돌고 있다.
+      #   backend/compose.yaml 의 DB 컨테이너는 로컬 개발용이고 여기선 쓰지 않는다.
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: "${POSTGRES_DB:-thispatch}"
+      POSTGRES_USER: "${POSTGRES_USER:?infra/.env 에 POSTGRES_USER 가 필요합니다}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?infra/.env 에 POSTGRES_PASSWORD 가 필요합니다}"
+
+    # 리눅스에서 host.docker.internal 은 기본 제공되지 않는다. 직접 이어준다.
+    # 이게 없으면 컨테이너가 DB 주소를 못 찾는다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # ⚠ 서버1 은 4 vCPU · 15Gi 를 서비스 · 빌드 · DB 가 나눠 쓴다.
+    #   Jenkins 가 2.5 vCPU · 6g 를 쓰므로 여기는 1 vCPU · 2g 로 둔다.
+    #   PostgreSQL 과 nginx 몫이 남아야 한다.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2g
+
+    # Spring Boot Actuator 가 없으므로 포트가 열렸는지만 본다.
+    # Actuator 를 넣으면 /actuator/health 로 바꾸는 게 낫다.
+    #
+    # ⚠ -f 를 쓰지 않는다.
+    #   지금 상태에서 / 는 401 을 돌려준다(Spring Security 기본값).
+    #   -f 는 4xx 를 실패로 치기 때문에 컨테이너가 영원히 unhealthy 로
+    #   남고, 배포 스크립트가 성공을 판정하지 못한다.
+    #   여기서 보고 싶은 것은 '응답을 하느냐' 지 '상태 코드가 뭐냐' 가 아니다.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS -o /dev/null http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # Flyway 가 마이그레이션을 적용하는 시간을 준다.
+      start_period: 90s

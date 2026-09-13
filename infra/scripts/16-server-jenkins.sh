@@ -135,7 +135,36 @@ else
   if [ -z "$CRUMB" ]; then
     echo "    ⚠ Jenkins 로그인 실패 — JENKINS_ADMIN_ID/PASSWORD 를 확인하세요." >&2
   else
+  # ⚠ JCasC 가 '이번 부팅에 새로 만든' 잡은 디스크에만 쓰이고 메모리에 안 올라온다.
+  #   config.xml 은 있는데 /job/<이름>/ 이 404 로 나온다. 웹훅도 거부된다.
+  #   전에 만들어 둔 잡은 부팅할 때 디스크에서 읽히므로 멀쩡하다 — 그래서
+  #   새 잡을 추가한 그 한 번만 이 증상이 난다. (실측)
+  #   설정을 디스크에서 다시 읽게 하면 올라온다.
+  NEED_RELOAD=0
+  for J in $JOBS; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/job/$J/api/json")
+    if [ "$code" != 200 ] && sudo test -f "/var/jenkins_home/jobs/$J/config.xml"; then NEED_RELOAD=1; fi
+  done
+  if [ "$NEED_RELOAD" = 1 ]; then
+    echo "    새 잡이 아직 메모리에 없습니다. 설정을 다시 읽습니다."
+    curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ" -H "Jenkins-Crumb: $CRUMB" -X POST "$JB/reload" -o /dev/null
+    for i in $(seq 1 20); do
+      [ "$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/api/json")" = 200 ] && break
+      sleep 3
+    done
+    # 다시 읽으면 crumb 이 무효가 된다. 새로 받는다.
+    CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ" "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
+  fi
+
+    # ⚠ 잡이 생길 때까지 기다린다.
+    #   healthcheck(/jenkins/login 응답)는 JCasC 가 잡을 만들기 전에 이미
+    #   통과한다. 그대로 진행하면 "잡을 못 찾았다" 가 뜬다. (실측)
     for J in $JOBS; do
+      for i in $(seq 1 24); do
+        code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/job/$J/api/json")
+        [ "$code" = 200 ] && break
+        sleep 5
+      done
       GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
 def job = jenkins.model.Jenkins.get().getItemByFullName('$J')
 if (job == null) { println '    $J : 잡을 못 찾았다'; return }

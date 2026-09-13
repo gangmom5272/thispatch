@@ -120,25 +120,32 @@ echo "── [5/6] 웹훅 시크릿 심기 ────────────�
 # ⚠ 재기동할 때마다 다시 해야 한다.
 #   JCasC 가 부팅할 때마다 잡을 정의대로 다시 만들어서, 손으로 넣은 값은
 #   날아간다. 이 스크립트를 거쳐서 올리면 항상 맞춰진다.
+#
+# 두 잡 모두에 같은 값을 넣는다. GitLab 웹훅도 두 개 걸어야 한다.
+#   .../jenkins/project/dispatch-deploy     백엔드
+#   .../jenkins/project/dispatch-frontend   프론트
+JOBS="dispatch-deploy dispatch-frontend"
 if [ -z "${GITLAB_WEBHOOK_SECRET:-}" ] || [ "${GITLAB_WEBHOOK_SECRET}" = "change-me" ]; then
   echo "    ⚠ .env 의 GITLAB_WEBHOOK_SECRET 이 비어 있습니다. 웹훅이 모두 거부됩니다."
   echo "      openssl rand -hex 24 로 만들어 .env 에 넣고 다시 실행하세요."
 else
   JB=http://127.0.0.1:18080/jenkins
   CJ="$(mktemp)"
-  CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ"             "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
+  CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ" "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
   if [ -z "$CRUMB" ]; then
     echo "    ⚠ Jenkins 로그인 실패 — JENKINS_ADMIN_ID/PASSWORD 를 확인하세요." >&2
   else
-    GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
-def job = jenkins.model.Jenkins.get().getItemByFullName('dispatch-deploy')
-if (job == null) { println '    잡을 아직 못 찾았다'; return }
+    for J in $JOBS; do
+      GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
+def job = jenkins.model.Jenkins.get().getItemByFullName('$J')
+if (job == null) { println '    $J : 잡을 못 찾았다'; return }
 def t = job.getTriggers().values().find { it instanceof GitLabPushTrigger }
-if (t == null) { println '    GitLabPushTrigger 가 없다'; return }
+if (t == null) { println '    $J : GitLabPushTrigger 가 없다'; return }
 t.setSecretToken('$GITLAB_WEBHOOK_SECRET')
 job.save()
-println '    시크릿 심음: ' + (t.getSecretToken() == '$GITLAB_WEBHOOK_SECRET')"
-    curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ"       -H "Jenkins-Crumb: $CRUMB" --data-urlencode "script=$GROOVY" "$JB/scriptText"
+println '    $J : ' + (t.getSecretToken() == '$GITLAB_WEBHOOK_SECRET' ? '시크릿 심음' : '실패')"
+      curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ" -H "Jenkins-Crumb: $CRUMB" --data-urlencode "script=$GROOVY" "$JB/scriptText"
+    done
   fi
   rm -f "$CJ"
 fi

@@ -141,14 +141,36 @@ jobs:
           }
         }
 
-        // ⚠ 웹훅 시크릿은 위 DSL 이 다루지 못해서 XML 에 직접 넣는다.
-        //   이게 없으면 주소만 아는 사람이 배포를 돌릴 수 있다.
-        //   ${...} 는 JCasC 가 .env 값으로 먼저 바꿔준다 (job-dsl 이 보기 전에).
-        configure { node ->
-          def trigger = node / 'properties' /
-            'org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty' /
-            'triggers' / 'com.dabsquared.gitlabjenkins.GitLabPushTrigger'
-          trigger.children().removeAll { it instanceof Node && it.name() == 'secretToken' }
-          trigger.appendNode('secretToken', '${GITLAB_WEBHOOK_SECRET:-not-set}')
+      }
+
+  # 프론트. 백엔드와 다른 잡이다 — 프론트만 바뀌었는데 백엔드까지
+  # 재배포할 이유가 없다. 웹훅도 GitLab 에 따로 하나 더 걸어야 한다.
+  - script: |
+      pipelineJob('dispatch-frontend') {
+        description('develop 에 push 되면 프론트를 빌드해 /var/www/dispatch 에 배포한다. 정의는 frontend/Jenkinsfile 이다. (S15P21A202-20)')
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://lab.ssafy.com/s15-bigdata-dist-sub1/S15P21A202.git')
+                  credentials('gitlab-repo')
+                }
+                branch('*/develop')
+              }
+            }
+            scriptPath('frontend/Jenkinsfile')
+            lightweight(false)
+          }
+        }
+
+        triggers {
+          gitlabPush {
+            buildOnPushEvents(true)
+            buildOnMergeRequestEvents(false)
+            enableCiSkip(true)
+            includeBranches('develop')
+          }
         }
       }

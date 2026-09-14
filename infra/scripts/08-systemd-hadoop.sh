@@ -49,7 +49,7 @@ Requires=$after"
   cat > /etc/systemd/system/"$name".service <<UEOF
 [Unit]
 Description=$desc
-After=network-online.target dispatch-route.service
+After=network-online.target thispatch-route.service
 Wants=network-online.target
 $extra
 
@@ -98,7 +98,7 @@ else
 fi
 
 # 묶어서 켜고 끌 수 있게 타깃을 하나 만든다
-cat > /etc/systemd/system/dispatch-cluster.target <<TEOF
+cat > /etc/systemd/system/thispatch-cluster.target <<TEOF
 [Unit]
 Description=디스패치 클러스터 ($ROLE)
 Wants=$(for u in $UNITS; do printf "%s.service " "$u"; done)
@@ -106,13 +106,13 @@ Wants=$(for u in $UNITS; do printf "%s.service " "$u"; done)
 [Install]
 WantedBy=multi-user.target
 TEOF
-echo "  dispatch-cluster.target"
+echo "  thispatch-cluster.target"
 
 echo
 echo "── 기존 수동 기동 데몬 정지 ───────────────────────"
 # start-dfs.sh 로 띄운 게 남아 있으면 포트가 겹친다
 # stop-dfs.sh 는 워커에서 돌리면 안 된다.
-#   내부적으로 hdfs getconf -namenodes 로 dispatch-master 를 찾아낸 뒤
+#   내부적으로 hdfs getconf -namenodes 로 thispatch-master 를 찾아낸 뒤
 #   거기로 SSH 해서 마스터의 NameNode 를 정지시킨다.
 #   워커가 자기 데몬을 정리하려다 클러스터 전체를 내리는 셈이다.
 #   지금은 워커 키가 마스터 authorized_keys 에 없어서 SSH 가 실패해 우연히
@@ -128,7 +128,7 @@ echo "  정리 완료 ($ROLE)"
 echo
 echo "── 등록 · 기동 ────────────────────────────────────"
 systemctl daemon-reload
-systemctl enable dispatch-cluster.target >/dev/null
+systemctl enable thispatch-cluster.target >/dev/null
 for u in $UNITS; do systemctl enable "$u" >/dev/null; done
 
 # NameNode 가 먼저 떠야 DataNode 등록이 깔끔하다
@@ -149,6 +149,6 @@ for u in $UNITS; do
 done
 echo
 echo "다루는 방법"
-echo "  전체 정지    sudo systemctl stop  dispatch-cluster.target"
-echo "  전체 기동    sudo systemctl start dispatch-cluster.target"
+echo "  전체 정지    sudo systemctl stop  thispatch-cluster.target"
+echo "  전체 기동    sudo systemctl start thispatch-cluster.target"
 echo "  로그 보기    journalctl -u yarn-resourcemanager -f"

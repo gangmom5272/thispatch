@@ -1,87 +1,188 @@
+// 디스패치 프론트 배포 파이프라인 — S15P21A202-20
+//
+// develop 에 push 되면 Jenkins 가 이 파일을 읽어 아래를 돌린다.
+//   설치 → 검사 → 빌드 → 정적 배포 → 확인
+//
+// ⚠ 백엔드(루트 Jenkinsfile)와 다른 잡이다.
+//   프론트만 바뀌었는데 백엔드까지 재배포할 이유가 없다.
+//   젠킨스 잡 이름 — thispatch-frontend / thispatch-deploy
+//
+// ⚠ Jenkins 컨테이너에는 node 가 없다. 일부러 안 넣었다.
+//   넣으면 Jenkins 이미지가 무거워지고, node 버전을 올릴 때마다
+//   Jenkins 를 다시 만들어야 한다. 대신 빌드를 node 컨테이너 안에서 돌린다.
+//   docker 는 호스트 데몬에게 가므로 여기서 뜨는 컨테이너는 '형제' 다.
+//
+// ⚠ 왜 컨테이너로 서빙하지 않는가
+//   frontend/Dockerfile 이 nginx 이미지를 만들도록 돼 있지만 쓰지 않는다.
+//   서버1 의 nginx 가 이미 /var/www/thispatch 를 root 로 잡고 SPA 라우팅까지
+//   하고 있다. 여기에 dist 만 놓으면 끝이고, 컨테이너를 띄우면 nginx 가
+//   두 겹이 되면서 프록시만 한 번 더 타게 된다. 얻는 게 없다.
+//   (2026-09-13 · 용진님과 합의)
+
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = 'thispatch-frontend'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
-        WORKDIR = 'frontend'
-    }
+    // ⚠ 트리거는 여기 없다. infra/jenkins/jenkins.yaml 의 잡 정의에 있다.
+    //   웹훅 시크릿을 저장소에 적지 않으려는 것이다. 백엔드 쪽과 같은 이유.
 
     options {
         timestamps()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    environment {
+        WORKDIR   = 'frontend'
+        // nginx 가 서빙하는 자리. compose 가 Jenkins 컨테이너에 같은 경로로 마운트한다.
+        WEB_ROOT  = '/var/www/thispatch'
+        // node 버전은 frontend/Dockerfile 과 맞춘다.
+        NODE_IMG  = 'node:24-alpine'
+        // pnpm 이 받은 패키지를 빌드마다 다시 받지 않게 한다.
+        PNPM_STORE = '/var/jenkins_home/.pnpm-store'
     }
 
     stages {
-        stage('Install') {
+
+        stage('준비') {
             steps {
-                dir(WORKDIR) {
-                    sh 'corepack enable'
-                    sh 'pnpm install --frozen-lockfile'
-                }
+                sh '''
+                    echo "커밋   $(git rev-parse --short HEAD)"
+                    echo "메시지 $(git log -1 --pretty=%s)"
+                    test -d "$WORKDIR" || { echo "$WORKDIR 가 없습니다."; exit 1; }
+                    test -w "$WEB_ROOT" || { echo "$WEB_ROOT 에 쓸 수 없습니다. compose 의 마운트와 소유자를 확인하세요."; exit 1; }
+                    mkdir -p "$PNPM_STORE" "$WEB_ROOT/releases"
+                    echo "서빙 경로 $WEB_ROOT/current -> $(readlink -f "$WEB_ROOT/current" 2>/dev/null || echo '(아직 없음)')"
+                '''
             }
         }
 
-        stage('Lint') {
+        stage('변경 범위 확인') {
             steps {
-                dir(WORKDIR) {
-                    sh 'pnpm lint'
-                    sh 'pnpm format:check'
-                }
+                // 백엔드·인프라만 바뀐 push 에서는 프론트를 다시 빌드하지 않는다.
+                // 판단 기준은 백엔드 쪽 Jenkinsfile 과 같다 —
+                // GIT_PREVIOUS_SUCCESSFUL_COMMIT 과 비교한다.
+                sh '''
+                    BASE="${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-}"
+                    RUN=yes
+                    REASON="처음이거나 직전 빌드가 실패했다 — 전부 돌린다"
+                    if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+                      CHANGED=$(git diff --name-only "$BASE" HEAD)
+                      MINE=$(echo "$CHANGED" | grep "^frontend/" || true)
+                      if [ -z "$CHANGED" ]; then
+                        RUN=no;  REASON="바뀐 파일이 없다"
+                      elif [ -z "$MINE" ]; then
+                        RUN=no;  REASON="frontend/ 는 그대로다"
+                      else
+                        RUN=yes; REASON="프론트 변경이 있다"
+                      fi
+                      echo "기준 커밋 $(git rev-parse --short "$BASE")"
+                      echo "바뀐 파일 $(echo "$CHANGED" | grep -c . || true) 개"
+                      echo "$CHANGED" | head -10 | sed "s/^/  /"
+                    fi
+                    echo
+                    echo "판단: $RUN  ($REASON)"
+                    printf %s "$RUN" > .run_flag
+                '''
+                script { env.RUN_BUILD = readFile('.run_flag').trim() }
             }
         }
 
-        stage('Build') {
+        stage('설치 · 검사 · 빌드') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
-                dir(WORKDIR) {
-                    sh 'pnpm build'
-                }
+                // 한 컨테이너 안에서 끝낸다. 단계마다 컨테이너를 새로 띄우면
+                // node_modules 를 매번 다시 만들어야 해서 훨씬 느리다.
+                //
+                // ⚠ 마지막에 chown 을 한다.
+                //   컨테이너가 root 로 돌아서 node_modules 가 root 소유로 남는데,
+                //   그러면 다음 빌드에서 Jenkins(uid 1000)가 워크스페이스를 못 지운다.
+                sh '''
+                    set -e
+                    docker run --rm -u 0:0 -v "$WORKSPACE/$WORKDIR":/app -v "$PNPM_STORE":/pnpm-store -w /app -e CI=true "$NODE_IMG" sh -c "corepack enable && pnpm config set store-dir /pnpm-store && pnpm install --frozen-lockfile && pnpm lint && pnpm format:check && pnpm build && chown -R 1000:1000 /app"
+                '''
             }
         }
 
-        stage('E2E Test') {
+        stage('산출물 확인') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
-                dir(WORKDIR) {
-                    sh 'npx playwright install --with-deps chromium'
-                    sh 'pnpm test:e2e'
-                }
-            }
-            post {
-                always {
-                    dir(WORKDIR) {
-                        archiveArtifacts artifacts: 'playwright-report/**', allowEmptyArchive: true
-                    }
-                }
+                // ⚠ 빈 dist 를 배포하면 사이트가 통째로 사라진다.
+                //   index.html 이 있고 파일이 몇 개는 되는지 본 뒤에 옮긴다.
+                sh '''
+                    set -e
+                    D="$WORKSPACE/$WORKDIR/dist"
+                    test -f "$D/index.html" || { echo "dist/index.html 이 없습니다. 빌드가 실패한 것입니다."; exit 1; }
+                    N=$(find "$D" -type f | wc -l)
+                    echo "파일 $N 개  $(du -sh "$D" | cut -f1)"
+                    [ "$N" -ge 2 ] || { echo "파일이 너무 적습니다. 배포하지 않습니다."; exit 1; }
+                    find "$D" -maxdepth 1 -type f -printf "  %f  %s bytes\n" | head -10
+                '''
             }
         }
 
-        stage('Lighthouse') {
+        stage('배포') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
-                dir(WORKDIR) {
-                    sh 'pnpm preview --port 4173 &'
-                    sh 'sleep 3'
-                    sh 'npx lhci autorun --collect.url=http://localhost:4173 || true'
-                }
+                // 릴리스를 새 폴더에 만들고 심링크만 바꾼다.
+                //
+                // ⚠ 폴더를 mv 로 통째로 바꾸면 안 된다.
+                //   /var/www/thispatch 는 Jenkins 컨테이너에 마운트된 지점이라
+                //   컨테이너 안에서 옮기려 하면 Device or resource busy 가 난다.
+                //
+                // 심링크 교체는 rename 한 번이라 중간 상태가 없다.
+                // 배포 도중에 들어온 요청도 옛 버전 아니면 새 버전을 보지,
+                // 빈 폴더를 보는 일이 없다.
+                sh '''
+                    set -e
+                    D="$WORKSPACE/$WORKDIR/dist"
+                    R="$WEB_ROOT/releases/$BUILD_NUMBER"
+
+                    rm -rf "$R"
+                    mkdir -p "$R"
+                    cp -a "$D"/. "$R"/
+                    chmod -R a+rX "$R"
+
+                    ln -sfn "$R" "$WEB_ROOT/current.tmp"
+                    mv -Tf "$WEB_ROOT/current.tmp" "$WEB_ROOT/current"
+                    echo "current -> $(readlink -f "$WEB_ROOT/current")"
+
+                    # 최근 5개만 남긴다. 되돌릴 때 쓸 만큼은 남겨 둔다.
+                    ls -1dt "$WEB_ROOT"/releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
+                    echo "남은 릴리스: $(ls -1 "$WEB_ROOT/releases" | tr '\n' ' ')"
+                '''
             }
         }
 
-        stage('Docker Build') {
-            when { branch 'master' }
+        stage('확인') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
-                dir(WORKDIR) {
-                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                }
+                sh '''
+                    set -e
+                    echo "-- nginx 경유 --"
+                    code=$(curl -sS -o /tmp/fe.html -w '%{http_code}' -m 15 https://j15a202.p.ssafy.io/ || echo 000)
+                    echo "  / → $code"
+                    if [ "$code" != 200 ]; then echo "200 이 아닙니다."; exit 1; fi
+                    head -c 200 /tmp/fe.html | sed "s/^/  /"
+                    echo
+                    echo "-- SPA 라우팅 (없는 경로도 index.html 을 돌려줘야 한다) --"
+                    sub=$(curl -sS -o /dev/null -w '%{http_code}' -m 15 https://j15a202.p.ssafy.io/some/deep/route || echo 000)
+                    echo "  /some/deep/route → $sub"
+                    if [ "$sub" != 200 ]; then echo "SPA 라우팅이 안 됩니다. nginx 의 try_files 를 확인하세요."; exit 1; fi
+                '''
             }
         }
+    }
 
-        stage('Push & Deploy to AWS') {
-            when { branch 'master' }
-            steps {
-                echo 'Push image to ECR and deploy (fill in registry/deploy target).'
-                // sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY"
-                // sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} $ECR_REGISTRY/${IMAGE_NAME}:${IMAGE_TAG}"
-                // sh "docker push $ECR_REGISTRY/${IMAGE_NAME}:${IMAGE_TAG}"
-            }
+    post {
+        failure {
+            // 심링크 교체는 마지막 단계이고 rename 한 번이다.
+            // 그 전에 실패하면 current 는 여전히 직전 릴리스를 가리킨다.
+            // 되돌릴 것이 없다 — 사이트는 계속 옛 버전으로 떠 있다.
+            sh '''
+                echo "실패했다. 사이트는 직전 버전으로 계속 떠 있다."
+                echo "  current -> $(readlink -f "$WEB_ROOT/current" 2>/dev/null || echo 없음)"
+            '''
         }
     }
 }

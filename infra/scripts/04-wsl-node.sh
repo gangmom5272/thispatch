@@ -126,8 +126,8 @@ echo "  sshd $(systemctl is-active ssh 2>/dev/null || echo unknown)"
 # ── [3/8] /etc/hosts · 디렉터리 ────────────────────────
 echo "── [3/8] 호스트 · 디렉터리 ────────────────────────"
 # WSL 은 기본적으로 부팅할 때마다 /etc/hosts 를 새로 만든다.
-# 그러면 dispatch-master 항목이 매번 사라지고 HDFS 가 이름 해석에 실패한다.
-# (실측: WSL 재시작 후 fs.defaultFS 의 dispatch-master 가 UnknownHostException)
+# 그러면 thispatch-master 항목이 매번 사라지고 HDFS 가 이름 해석에 실패한다.
+# (실측: WSL 재시작 후 fs.defaultFS 의 thispatch-master 가 UnknownHostException)
 if ! grep -q "generateHosts" /etc/wsl.conf 2>/dev/null; then
   printf "
 [network]
@@ -148,11 +148,11 @@ fi
 # /etc/hosts 가 DNS 보다 먼저 조회된다(nsswitch: files dns). 우리 이름을
 # 넣어 이긴다. 마스터에도 같은 줄이 필요하며, 07-cluster.sh addworker 가 넣는다.
 
-sudo sed -i "/dispatch-master/d" /etc/hosts
-echo "$MASTER_IP dispatch-master" | sudo tee -a /etc/hosts >/dev/null
-grep dispatch /etc/hosts | sed "s/^/  /"
+sudo sed -i "/thispatch-master/d" /etc/hosts
+echo "$MASTER_IP thispatch-master" | sudo tee -a /etc/hosts >/dev/null
+grep thispatch /etc/hosts | sed "s/^/  /"
 if [ "$ROLE" = worker ]; then
-  NODE_NAME="dispatch-w${MYIP_ONLY##*.}"
+  NODE_NAME="thispatch-w${MYIP_ONLY##*.}"
   sudo sed -i "/[[:space:]]${NODE_NAME}\$/d" /etc/hosts
   FOREIGN=$(getent hosts "$MYIP_ONLY" 2>/dev/null | tr -s " " | cut -d" " -f2)
   if [ -n "$FOREIGN" ]; then
@@ -221,7 +221,7 @@ cat > "$HC/core-site.xml" <<XEOF
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
-  <property><name>fs.defaultFS</name><value>hdfs://dispatch-master:9000</value></property>
+  <property><name>fs.defaultFS</name><value>hdfs://thispatch-master:9000</value></property>
   <property><name>hadoop.tmp.dir</name><value>$DATA/hadoop/tmp</value></property>
   <property><name>io.file.buffer.size</name><value>131072</value></property>
   <!-- 팀원마다 WSL 사용자명이 달라서 프록시 사용자를 열어 둔다 -->
@@ -271,7 +271,7 @@ XEOF
 cat > "$HC/yarn-site.xml" <<XEOF
 <?xml version="1.0"?>
 <configuration>
-  <property><name>yarn.resourcemanager.hostname</name><value>dispatch-master</value></property>
+  <property><name>yarn.resourcemanager.hostname</name><value>thispatch-master</value></property>
   <property><name>yarn.resourcemanager.bind-host</name><value>0.0.0.0</value></property>
   <property><name>yarn.nodemanager.bind-host</name><value>0.0.0.0</value></property>
 
@@ -329,9 +329,11 @@ cat > "$HC/mapred-site.xml" <<XEOF
 XEOF
 
 # hadoop-env.sh
+# 옛 이름(dispatch)으로 넣어 둔 블록도 같이 지운다.
 sed -i "/# === dispatch ===/,/# === dispatch end ===/d" "$HC/hadoop-env.sh"
+sed -i "/# === thispatch ===/,/# === thispatch end ===/d" "$HC/hadoop-env.sh"
 cat >> "$HC/hadoop-env.sh" <<XEOF
-# === dispatch ===
+# === thispatch ===
 export JAVA_HOME=$JAVA_HOME_PATH
 export HADOOP_HOME=$OPT/hadoop
 export HADOOP_LOG_DIR=$DATA/logs/hadoop
@@ -341,7 +343,7 @@ export HDFS_NAMENODE_OPTS="-Xmx2g"
 export HDFS_DATANODE_OPTS="-Xmx1g"
 export YARN_RESOURCEMANAGER_OPTS="-Xmx1500m"
 export YARN_NODEMANAGER_OPTS="-Xmx1g"
-# === dispatch end ===
+# === thispatch end ===
 XEOF
 
 # workers — start-dfs.sh / start-yarn.sh 가 SSH 로 붙는 대상.
@@ -398,8 +400,8 @@ spark.sql.parquet.compression.codec zstd
 spark.serializer                   org.apache.spark.serializer.KryoSerializer
 
 spark.eventLog.enabled             true
-spark.eventLog.dir                 hdfs://dispatch-master:9000/spark-logs
-spark.history.fs.logDirectory      hdfs://dispatch-master:9000/spark-logs
+spark.eventLog.dir                 hdfs://thispatch-master:9000/spark-logs
+spark.history.fs.logDirectory      hdfs://thispatch-master:9000/spark-logs
 
 # Spark 4 는 ANSI SQL 모드가 기본 켜짐이다. 잘못된 캐스팅·숫자 넘침에서
 # null 대신 예외를 던진다. 스팀 JSON 은 필드 타입이 흔들려서(is_early_access
@@ -447,8 +449,9 @@ echo "  spark-env.sh · spark-defaults.conf 작성 완료"
 # ── [8/8] 환경변수 ────────────────────────────────────
 echo "── [8/8] ~/.bashrc ───────────────────────────────"
 sed -i "/# === dispatch env ===/,/# === dispatch env end ===/d" ~/.bashrc
+sed -i "/# === thispatch env ===/,/# === thispatch env end ===/d" ~/.bashrc
 cat >> ~/.bashrc <<XEOF
-# === dispatch env ===
+# === thispatch env ===
 export JAVA_HOME=$JAVA_HOME_PATH
 export HADOOP_HOME=$OPT/hadoop
 export HADOOP_CONF_DIR=$HC
@@ -458,7 +461,7 @@ export HADOOP_LOG_DIR=$DATA/logs/hadoop
 export PDSH_RCMD_TYPE=ssh
 export PYSPARK_PYTHON=python3
 export PATH=\$PATH:\$HADOOP_HOME/bin:\$HADOOP_HOME/sbin:\$SPARK_HOME/bin
-# === dispatch env end ===
+# === thispatch env end ===
 XEOF
 echo "  등록 완료"
 

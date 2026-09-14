@@ -44,17 +44,26 @@ function prepareMessage(messagePath) {
     return
   }
 
-  const { type, issueKey } = getBranchParts()
-  const role = getRole()
-  const subject = firstLine.replace(new RegExp(`^${COMMIT_TYPES}:\\s*`), "").trim()
+  const prefix = firstLine.match(new RegExp(`^(${COMMIT_TYPES}):\\s*`, "i"))
+  let subject = firstLine.slice(prefix?.[0].length ?? 0).trim()
+  const issue = subject.match(/^\[([A-Z][A-Z0-9]*-[0-9]+)\]\s*/)
+  if (issue) subject = subject.slice(issue[0].length)
+  const rolePrefix = subject.match(/^\[([^\]]+)\]\s*/)
+  if (rolePrefix) subject = subject.slice(rolePrefix[0].length)
+  subject = subject.trim()
 
   if (!subject) {
     throw new Error("커밋 메시지를 입력해 주세요.")
   }
 
+  const branch = !prefix || !issue ? getBranchParts() : undefined
+  const type = prefix?.[1].toLowerCase() ?? branch.type
+  const issueKey = issue?.[1] ?? branch.issueKey
+  const role = rolePrefix?.[1] ?? getRole()
   const lines = message.split("\n")
   lines[0] = `${type}: [${issueKey}] [${role}] ${subject}`
   writeFileSync(messagePath, lines.join("\n"))
+  console.log(`커밋 메시지 자동 수정: ${lines[0]}`)
 }
 
 function validateMessage(messagePath, messageLabel = messagePath) {
@@ -126,11 +135,11 @@ function readStdin() {
   }
 }
 
+
 try {
   const [command, messagePath] = process.argv.slice(2)
   if (command === "prepare") prepareMessage(messagePath)
   else if (command === "validate") validateMessage(messagePath)
-  else if (command === "validate-push") validatePush()
   else throw new Error(`알 수 없는 명령입니다: ${command}`)
 } catch (error) {
   console.error(`\n${error.message}`)

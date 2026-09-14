@@ -45,6 +45,7 @@ venv/
 # ── 편집기 · OS ───────────────────────────────────
 .idea/
 .vscode/
+.cursor/
 *.iml
 *.swp
 *.swo

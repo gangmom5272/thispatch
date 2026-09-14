@@ -148,3 +148,10 @@ Flyway는 DB 이력에 기록되지 않은 migration을 적용합니다. 기존 
 
 참고: [pgvector Docker 이미지](https://github.com/pgvector/pgvector#docker),
 [PostgreSQL 공식 이미지의 볼륨 및 초기화 동작](https://hub.docker.com/_/postgres).
+
+## API 구현과 하네스 지침
+
+- API를 구현하는 팀원은 [API index](docs/api/README.md)와 [공통 오류 응답 계약](docs/api/conventions.md#error-response)을 기준으로 작업합니다. 오류 응답 형식과 검증 예시는 공통 계약 문서에서 관리합니다.
+- 공통 오류 처리는 `src/main/java/com/ssafy/thispatch/global/exception/`에 구현되어 있습니다. 도메인 오류는 `ErrorCode`와 `BusinessException`으로 연결하고, 오류 DTO나 전역 핸들러를 중복 구현하지 않습니다.
+- AI 코딩 하네스의 작업 규칙은 [AGENTS.md](AGENTS.md), API 구현 절차는 [implement-api 스킬](.agents/skills/implement-api/SKILL.md)에 있습니다. 두 파일은 Git으로 관리하므로 커밋을 받아 팀원과 하네스가 같은 지침을 확인할 수 있습니다.
+- 공통 계약·구현 방식이 바뀌면 관련 API 문서와 하네스 지침도 같은 변경에서 맞춥니다. 이미 실행 중인 하네스 작업에는 변경된 지침을 다시 읽도록 전달합니다.

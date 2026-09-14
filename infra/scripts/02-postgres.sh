@@ -5,8 +5,8 @@
 # 외부(SSAFY 랜)에서 접속이 되어야 한다.
 set -euo pipefail
 
-DB_NAME=dispatch
-DB_USER=dispatch
+DB_NAME=thispatch
+DB_USER=thispatch
 DB_PASS="${DB_PASS:-}"          # 호출할 때 환경변수로 넘긴다
 
 if [ -z "$DB_PASS" ]; then
@@ -37,7 +37,7 @@ PGDIR=/etc/postgresql/17/main
 echo "── [3/6] 접속 허용 · 메모리 설정 ───────────────────────"
 # 노트북 클러스터(SSAFY 랜)에서 붙어야 하므로 외부 리슨.
 # 16GB 중 PostgreSQL 에 4GB 를 준다 (shared_buffers 2G).
-sudo tee $PGDIR/conf.d/dispatch.conf >/dev/null <<'EOF'
+sudo tee $PGDIR/conf.d/thispatch.conf >/dev/null <<'EOF'
 listen_addresses = '*'
 port = 5432
 max_connections = 120
@@ -63,9 +63,9 @@ grep -q "conf.d" $PGDIR/postgresql.conf || \
 
 echo "── [4/6] pg_hba — SSAFY 랜에서 접속 허용 ───────────────"
 # 70.12.0.0/16 = SSAFY 교육장 대역. 노트북 IP 가 바뀌어도 커버된다.
-sudo sed -i '/dispatch-rule/d' $PGDIR/pg_hba.conf
+sudo sed -i '/thispatch-rule/d' $PGDIR/pg_hba.conf
 sudo tee -a $PGDIR/pg_hba.conf >/dev/null <<EOF
-# dispatch-rule
+# thispatch-rule
 host    $DB_NAME    $DB_USER    70.12.0.0/16      scram-sha-256
 host    $DB_NAME    $DB_USER    172.26.0.0/20     scram-sha-256
 host    $DB_NAME    $DB_USER    127.0.0.1/32      scram-sha-256

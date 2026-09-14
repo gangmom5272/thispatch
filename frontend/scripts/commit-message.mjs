@@ -82,6 +82,59 @@ function validateMessage(messagePath, messageLabel = messagePath) {
   }
 }
 
+const ZERO_SHA = "0".repeat(40)
+
+/**
+ * New remote branch: only commits not already on any remote.
+ * Existing remote branch: only commits in the push range.
+ */
+function getPushLogArgs(localSha, remoteSha) {
+  if (remoteSha !== ZERO_SHA) {
+    return ["log", "--format=%H%x00%s", `${remoteSha}..${localSha}`]
+  }
+  return ["log", "--format=%H%x00%s", localSha, "--not", "--remotes"]
+}
+
+function validatePush() {
+  const input = process.stdin ? readStdin() : ""
+  const refs = input.split("\n").filter(Boolean)
+  const commits = new Set()
+
+  for (const ref of refs) {
+    const parts = ref.trim().split(/\s+/)
+    const localSha = parts[1]
+    const remoteSha = parts[3]
+    if (!localSha || localSha === ZERO_SHA) continue
+
+    const messages = runGit(getPushLogArgs(localSha, remoteSha || ZERO_SHA))
+      .split("\n")
+      .filter(Boolean)
+
+    for (const entry of messages) {
+      const separator = entry.indexOf("\0")
+      const sha = entry.slice(0, separator)
+      if (commits.has(sha)) continue
+      commits.add(sha)
+      const subject = entry.slice(separator + 1)
+      if (
+        !COMMIT_MESSAGE_PATTERN.test(subject) &&
+        !subject.startsWith("Merge ") &&
+        !subject.startsWith("Revert ")
+      ) {
+        throw new Error(`${sha}: '${subject}'\n푸시할 커밋 메시지가 규칙에 맞지 않습니다.`)
+      }
+    }
+  }
+}
+
+function readStdin() {
+  try {
+    return readFileSync(0, "utf8")
+  } catch {
+    return ""
+  }
+}
+
 try {
   const [command, messagePath] = process.argv.slice(2)
   if (command === "prepare") prepareMessage(messagePath)

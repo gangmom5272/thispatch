@@ -6,9 +6,10 @@ import "./index.css"
 import { queryClient } from "./lib/queryClient"
 import { router } from "./router"
 import { reportWebVitals } from "./lib/reportWebVitals"
+import { mocksEnabled } from "./lib/mockConfig"
 
 async function enableMocking() {
-  if (import.meta.env.MODE !== "development") return
+  if (!mocksEnabled) return
   const { worker } = await import("./mocks/browser")
   return worker.start({ onUnhandledRequest: "bypass" })
 }

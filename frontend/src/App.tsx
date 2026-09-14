@@ -44,7 +44,7 @@ function StackCheck() {
 
 function App() {
   return (
-    <>
+    <div className="starter">
       <section id="center">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
@@ -129,7 +129,7 @@ function App() {
 
       <div className="ticks"></div>
       <section id="spacer"></section>
-    </>
+    </div>
   )
 }
 

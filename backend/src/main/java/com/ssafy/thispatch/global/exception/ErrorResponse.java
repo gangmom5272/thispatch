@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.ssafy.dispatch.common.TimeRule;
+import com.ssafy.thispatch.common.TimeRule;
 
 public record ErrorResponse(
 	String code,

@@ -11,3 +11,15 @@ spring:
   sql:
     init:
       mode: never
+
+app:
+  frontend-base-url: http://localhost:5173
+  backend-public-url: http://localhost:8080
+  cors:
+    allowed-origins: http://localhost:5173
+  jwt:
+    algorithm: HS256
+    # 테스트 전용 공개 fixture. 개발·운영 서명키로 사용하지 않는다.
+    secret: dGVzdC1vbmx5LWp3dC1zZWNyZXQtbmV2ZXItdXNlLWluLXByb2Q=
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d

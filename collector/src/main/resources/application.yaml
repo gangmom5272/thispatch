@@ -66,8 +66,16 @@ thispatch:
     partition-size: ${COLLECT_PARTITION_SIZE:500}
     # 워커 노트북 수. 조각을 이만큼 나눈다.
     grid-size: ${COLLECT_GRID_SIZE:4}
-    # 뼈대 확인용 고정 목록. 실제로는 game 테이블에서 가져온다 (수집 담당).
-    appids: ${COLLECT_APPIDS:2868840,1016800,413150,1245620,892970}
+    # ⚠ 비워 둔다. 비어 있어야 매니저가 game 테이블에서 목록을 읽는다.
+    #
+    #   여기에 값이 있으면 ManagerConfig 의 @Value 기본값을 덮어써서,
+    #   코드에서 기본값을 비워도 소용이 없다. 2026-09-14 에 실제로 겪었다 —
+    #   전량 수집을 돌렸는데 game 테이블 116,618 개 대신 여기 적혀 있던
+    #   5개만 수집했다. 조각이 234 개가 아니라 4 개인 것으로 드러났다.
+    #
+    #   리허설·디버깅에는 실행할 때 넘긴다:
+    #     COLLECT_APPIDS=730,570  또는  --thispatch.collect.appids=730,570
+    appids: ${COLLECT_APPIDS:}
     # 워커의 Hadoop 설정. HDFS 주소/landing 경로는 common의 HdfsPaths를 따른다.
     hadoop-conf-dir: ${HADOOP_CONF_DIR:/opt/hadoop/etc/hadoop}
     # 워커 프로세스당 요청 간격. Steam의 공인 일일 한도를 보장하는 값은 아니다.

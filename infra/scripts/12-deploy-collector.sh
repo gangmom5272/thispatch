@@ -212,15 +212,20 @@ stop)
   banner "워커 정지"
   for w in $(workers); do
     printf "  %-16s " "$w"
+    # ⚠ 둘 다 끈다. systemd 로 옮기는 중에는 두 가지가 같이 떠 있을 수 있다.
+    #   유닛만 멈추면 ssh 로 띄운 옛 프로세스가 살아남아 큐를 계속 집어간다.
+    #   2026-09-14 실제로 겪었다 — "정지" 라고 나왔는데 수집이 계속 돌았다.
     out=$(timeout 30 ssh -n $SSH_OPTS "$w" "
+      MSG=''
       if [ -f /etc/systemd/system/thispatch-collector.service ]; then
-        sudo -n systemctl stop thispatch-collector.service
-        echo \"systemd \$(systemctl is-active thispatch-collector.service)\"
-        exit 0
+        sudo -n systemctl stop thispatch-collector.service 2>/dev/null
+        MSG=\"systemd \$(systemctl is-active thispatch-collector.service)\"
       fi
-      cd $REMOTE_DIR 2>/dev/null || { echo '배포 안 됨'; exit 0; }
-      if [ -f $PID_NAME ] && kill \$(cat $PID_NAME) 2>/dev/null; then rm -f $PID_NAME; echo 정지
-      else echo '떠 있지 않음'; fi
+      cd $REMOTE_DIR 2>/dev/null || { echo \"\${MSG:-배포 안 됨}\"; exit 0; }
+      if [ -f $PID_NAME ] && kill \$(cat $PID_NAME) 2>/dev/null; then
+        rm -f $PID_NAME; MSG=\"\$MSG · 옛 프로세스 정지\"
+      fi
+      echo \"\${MSG:-떠 있지 않음}\"
     " 2>&1 | tail -1)
     echo "${out:-SSH 안 됨}"
   done
@@ -282,7 +287,8 @@ run)
     --thispatch.collect.grid-size="${GRID:-4}" \
     ${APPIDS:+--thispatch.collect.appids="$APPIDS"} \
     "dt=${DT:-$(date +%Y-%m-%d)}" 2>&1 \
-    | grep -E "Job: |Step: |수집 대상|appid 를|ERROR|Exception" | sed 's/^/  /'
+    | grep --line-buffered -E "Job: |Step: |수집 대상|appid 를|ERROR|Exception" \
+    | sed -u 's/^/  /'
   close_service_tunnel
   ;;
 

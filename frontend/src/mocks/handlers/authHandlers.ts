@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw"
-import { accessToUserId, issueTokens, refreshToUserId, users } from "@/mocks/lib/authStore"
+import { issueAccessToken, issueTokens, userIdFromToken, users } from "@/mocks/lib/authStore"
 import { errorBody, okEnvelope, okMessage } from "@/mocks/lib/envelope"
 
 export const authHandlers = [
@@ -58,15 +58,14 @@ export const authHandlers = [
       })
     }
 
-    const userId = refreshToUserId.get(body.refreshToken)
+    const userId = userIdFromToken(body.refreshToken, "refresh")
     if (userId === undefined) {
       return HttpResponse.json(errorBody("401", "Refresh Token이 유효하지 않습니다."), {
         status: 401,
       })
     }
 
-    const accessToken = `access-${userId}-${crypto.randomUUID()}`
-    accessToUserId.set(accessToken, userId)
+    const accessToken = issueAccessToken(userId)
     return HttpResponse.json(okEnvelope({ accessToken }, "토큰 재발급에 성공했습니다."))
   }),
 ]

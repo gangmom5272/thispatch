@@ -5,6 +5,7 @@ import NotFound from "@/pages/NotFound"
 import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import { paths, routeSegment } from "@/router/paths"
+import GameListPage from "@/pages/GameList/GameListPage"
 
 export const router = createBrowserRouter([
   {
@@ -17,7 +18,7 @@ export const router = createBrowserRouter([
       },
       {
         path: routeSegment(paths.games),
-        element: <PlaceholderPage title="게임 목록" />,
+        element: <GameListPage />,
       },
       {
         path: routeSegment(paths.gameDetailPattern),

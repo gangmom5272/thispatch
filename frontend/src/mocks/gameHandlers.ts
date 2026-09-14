@@ -1,8 +1,8 @@
 import { delay, http, HttpResponse } from "msw"
 import { DEFAULT_GAME_SORT, isGameSort } from "../constants/games"
-import { MOCK_ACCESS_TOKEN } from "../lib/mockConfig"
 import type { Game, GameSort } from "../types"
 import { mockGames } from "./games"
+import { userFromAuthHeader } from "./lib/authStore"
 
 const baseURL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "")
 const registeredGames = new Set(mockGames.filter((game) => game.isMine).map((game) => game.id))
@@ -22,7 +22,7 @@ function respond(status: number, message: string, data?: unknown) {
 }
 
 function isAuthorized(request: Request) {
-  return request.headers.get("Authorization") === `Bearer ${MOCK_ACCESS_TOKEN}`
+  return userFromAuthHeader(request) !== null
 }
 
 function readCursor(cursor: string, filterKey: string): number {

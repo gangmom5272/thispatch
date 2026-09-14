@@ -6,7 +6,8 @@ import "./index.css"
 import { queryClient } from "./lib/queryClient"
 import { router } from "./router"
 import { reportWebVitals } from "./lib/reportWebVitals"
-import { mocksEnabled } from "./lib/mockConfig"
+
+const mocksEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS !== "false"
 
 async function enableMocking() {
   if (!mocksEnabled) return

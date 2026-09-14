@@ -101,4 +101,8 @@
 - 현재 접근 규칙은 공개 endpoint의 HTTP Method·URL과 `GET /session`을 허용하고, 나머지 요청에 인증을 요구한다. 역할별 권한 규칙은 추가하지 않는다.
 - 서버 내부 `ERROR` dispatch는 원래 오류 처리를 위해 허용한다. 클라이언트가 직접 보내는 `/error` 요청은 공개하지 않는다.
 - Bearer 인증을 기준으로 HTTP 세션 인증, form login, HTTP Basic, Security 기본 로그아웃과 요청 저장을 사용하지 않는다. CSRF 필터는 비활성화하며, CORS는 기존 서블릿 필터가 처리한다.
-- 이 단계에서는 접근 규칙과 오류 처리만 연결한다. JWT 검증 및 `/session`의 토큰 만료 시 비로그인 응답 처리는 후속 인증 구현에서 연결한다.
+- `JwtAuthenticationFilter`는 Authorization 헤더의 Access Token을 검증하고 회원 ID를 담은 `MemberPrincipal`을 SecurityContext에 등록한다. Refresh Token은 일반 API 인증에 사용할 수 없다.
+- 인증 필수 경로의 토큰 누락·만료·무효, Bearer 형식 오류·중복 Authorization 헤더는 `401 UNAUTHORIZED`로 처리한다. 토큰은 Query Parameter나 Cookie에서 읽지 않는다.
+- `GET /session`은 토큰 누락 또는 정상 Access Token의 만료 시 인증 없이 통과한다. 위조·형식 오류·용도 불일치 등 나머지 오류는 `401 UNAUTHORIZED`다. 로그인 상태 응답과 닉네임 조회는 회원 API에서 처리한다.
+- Auth가 None인 공개 endpoint에서는 Access Token 헤더를 검사하지 않는다. 로그인·회원가입·갱신 등 각 API가 자체 자격 증명과 Request Body를 검증한다.
+- 현재 필터는 JWT 자체의 유효성을 확인한다. 회원 존재·탈퇴 상태 확인과 Refresh Token 저장·폐기는 회원 인증 기능에서 별도로 구현한다.

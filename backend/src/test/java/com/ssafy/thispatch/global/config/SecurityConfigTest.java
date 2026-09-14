@@ -2,7 +2,6 @@ package com.ssafy.thispatch.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -23,22 +22,28 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.thispatch.global.security.SecurityErrorHandler;
+import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.RequestDispatcher;
 
 @WebMvcTest(SecurityConfigTest.ProbeController.class)
-@Import({SecurityConfig.class, SecurityErrorHandler.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, JwtConfig.class, SecurityErrorHandler.class, SecurityConfigTest.ProbeController.class})
+@ActiveProfiles("test")
 class SecurityConfigTest {
 
 	@Autowired
 	private MockMvc mvc;
+
+	@Autowired
+	private JwtTokenProvider tokenProvider;
 
 	@ParameterizedTest
 	@CsvSource({
@@ -73,7 +78,8 @@ class SecurityConfigTest {
 			.andExpect(jsonPath("$.errors").doesNotExist()).andReturn();
 		assertThat(rejected.getRequest().getSession(false)).isNull();
 
-		mvc.perform(request(HttpMethod.valueOf(method), path).with(user("member")))
+		mvc.perform(request(HttpMethod.valueOf(method), path)
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenProvider.issueAccessToken(1)))
 			.andExpect(status().isNoContent());
 	}
 
@@ -89,7 +95,8 @@ class SecurityConfigTest {
 
 	@Test
 	void sessionAllowsAuthenticatedUserAsWell() throws Exception {
-		mvc.perform(get("/session").with(user("member"))).andExpect(status().isNoContent());
+		mvc.perform(get("/session").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenProvider.issueAccessToken(1)))
+			.andExpect(status().isNoContent());
 	}
 
 	@Test

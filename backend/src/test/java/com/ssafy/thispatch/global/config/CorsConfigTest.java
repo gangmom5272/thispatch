@@ -3,6 +3,9 @@ package com.ssafy.thispatch.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
@@ -16,6 +19,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.ssafy.thispatch.global.security.SecurityErrorHandler;
 
@@ -26,6 +30,7 @@ import com.ssafy.thispatch.global.security.SecurityErrorHandler;
 		"app.backend-public-url=http://localhost:8080",
 		"app.cors.allowed-origins=http://localhost:5173,https://thispatch.example"
 	})
+@ActiveProfiles("test")
 class CorsConfigTest {
 
 	@Autowired
@@ -60,11 +65,16 @@ class CorsConfigTest {
 		}
 	}
 
-	@Test
-	void actualRequestStillRequiresAuthenticationAndIncludesCorsHeader() {
+	@ParameterizedTest
+	@NullSource
+	@ValueSource(strings = "Bearer invalid-token")
+	void actualRequestStillRequiresAuthenticationAndIncludesCorsHeader(String authorization) {
 		var headers = new HttpHeaders();
 		headers.setOrigin("https://thispatch.example");
 		headers.set(HttpHeaders.ACCEPT, "application/json");
+		if (authorization != null) {
+			headers.set(HttpHeaders.AUTHORIZATION, authorization);
+		}
 		var response = rest.exchange("/games", HttpMethod.GET, new HttpEntity<>(headers), String.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		assertThat(response.getHeaders().getAccessControlAllowOrigin()).isEqualTo("https://thispatch.example");
@@ -83,7 +93,7 @@ class CorsConfigTest {
 	@Configuration(proxyBeanMethods = false)
 	@EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
 		FlywayAutoConfiguration.class})
-	@Import({AppConfig.class, CorsConfig.class, SecurityConfig.class, SecurityErrorHandler.class})
+	@Import({AppConfig.class, CorsConfig.class, SecurityConfig.class, JwtConfig.class, SecurityErrorHandler.class})
 	static class TestApplication {
 	}
 }

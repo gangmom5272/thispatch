@@ -1,6 +1,7 @@
 package com.ssafy.thispatch.collector.config;
 
 import com.ssafy.thispatch.collector.partition.AppidPartitioner;
+import lombok.extern.slf4j.Slf4j;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.amqp.core.AmqpTemplate;
@@ -27,6 +28,7 @@ import org.springframework.integration.dsl.IntegrationFlow;
  *
  * <p>마스터는 스팀 API 를 직접 호출하지 않는다. 나누고 지켜보기만 한다.
  */
+@Slf4j
 @Configuration
 @Profile("manager")
 @EnableBatchIntegration
@@ -47,13 +49,41 @@ public class ManagerConfig {
     private long managerTimeoutMillis;
 
     /**
-     * 수집 대상 게임.
+     * 수집 대상을 손으로 지정할 때만 쓴다. 비워 두면 {@code game} 테이블에서 읽는다.
      *
-     * <p>지금은 뼈대 확인용으로 고정 목록이다. 실제로는 {@code game} 테이블이나
-     * 스팀 카탈로그에서 가져온다 — 수집 담당이 붙인다.
+     * <pre>
+     *   --thispatch.collect.appids=730,570    이 두 개만 (리허설·디버깅)
+     * </pre>
      */
-    @Value("${thispatch.collect.appids:2868840,1016800,413150,1245620,892970}")
+    @Value("${thispatch.collect.appids:}")
     private String appidsRaw;
+
+    /**
+     * 조각 하나에 담을 게임 수.
+     *
+     * <p>⚠ 조각 수를 워커 수(4)에 맞추면 안 된다. 그러면 조각 하나가 29,000 개
+     * 게임이 되어, 하나 실패할 때 29,000 개를 다시 해야 하고 그 목록이 통째로
+     * 배치 DB 의 ExecutionContext 한 행에 들어간다.
+     *
+     * <p>잘게 나누면 워커가 큐에서 하나씩 집어가므로, 리뷰가 많은 게임이 몰린
+     * 조각을 맡은 워커가 먼저 끝낸 워커를 기다리게 하지 않는다. 부하가 저절로
+     * 고르게 퍼진다. 116,618 개 기준 약 234 조각이다.
+     */
+    @Value("${thispatch.collect.partition-size:500}")
+    private int partitionSize;
+
+    // ── 서비스 DB (서버1) — 게임 목록을 읽을 때만 쓴다 ──────────────
+    //
+    // ⚠ 이 모듈에서 서비스 DB 를 보는 곳은 여기 하나뿐이고 마스터에서만 쓴다.
+    //   워커는 서버1 에 닿지 않는다. SSH 터널을 지나므로 기본값이 127.0.0.1 이다.
+    @Value("${thispatch.collect.service-db.url:jdbc:postgresql://127.0.0.1:15432/thispatch}")
+    private String serviceDbUrl;
+
+    @Value("${thispatch.collect.service-db.username:thispatch}")
+    private String serviceDbUser;
+
+    @Value("${thispatch.collect.service-db.password:}")
+    private String serviceDbPassword;
 
     /** 마스터가 보낸 것이 AMQP 로 나가는 통로. */
     @Bean
@@ -74,19 +104,46 @@ public class ManagerConfig {
     @Bean
     public Step collectManagerStep(RemotePartitioningManagerStepBuilderFactory factory,
                                    DirectChannel requests) {
-        List<Long> appids = Arrays.stream(appidsRaw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Long::valueOf)
-                .toList();
+        List<Long> appids = resolveAppids();
+
+        // 조각 수는 목록 길이에서 정한다. grid-size 는 최소치로만 쓴다 —
+        // 리허설처럼 게임이 몇 개뿐일 때 조각이 0 이 되지 않게 한다.
+        int partitions = Math.max(gridSize, (appids.size() + partitionSize - 1) / partitionSize);
+        log.info("수집 대상 {} 개 게임 · {} 조각 (조각당 최대 {} 개)",
+                appids.size(), partitions, partitionSize);
 
         return factory.get("collect.manager")
                 .partitioner(WorkerConfig.STEP_NAME, new AppidPartitioner(appids))
-                .gridSize(gridSize)
+                .gridSize(partitions)
                 .outputChannel(requests)
                 .pollInterval(2000)        // 2초마다 DB 를 본다
                 .timeout(managerTimeoutMillis)
                 .build();
+    }
+
+    /**
+     * 수집 대상을 정한다. 속성으로 직접 준 것이 있으면 그것을 쓰고,
+     * 없으면 서비스 DB 의 {@code game} 테이블에서 읽는다.
+     */
+    private List<Long> resolveAppids() {
+        if (appidsRaw != null && !appidsRaw.isBlank()) {
+            List<Long> given = Arrays.stream(appidsRaw.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Long::valueOf)
+                    .toList();
+            log.info("appid 를 속성에서 받았습니다 ({} 개). game 테이블을 읽지 않습니다.",
+                    given.size());
+            return given;
+        }
+        if (serviceDbPassword == null || serviceDbPassword.isBlank()) {
+            throw new IllegalStateException(
+                    "서비스 DB 비밀번호가 없습니다."
+                            + " thispatch.collect.service-db.password 또는"
+                            + " SERVICE_DB_PASSWORD 를 주세요."
+                            + " (리허설이면 --thispatch.collect.appids=730,570 처럼 직접 지정해도 됩니다)");
+        }
+        return new GameCatalogReader(serviceDbUrl, serviceDbUser, serviceDbPassword).targetAppids();
     }
 
     @Bean

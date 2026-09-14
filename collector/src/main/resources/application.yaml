@@ -50,6 +50,20 @@ spring:
 
 thispatch:
   collect:
+    # 수집 대상 게임 목록을 어디서 읽는가.
+    #
+    # ⚠ 이 모듈에서 서비스 DB(서버1)를 보는 곳은 매니저의 이 설정 하나뿐이다.
+    #   워커는 서버1 에 닿지 않는다 — EC2 에서 노트북 대역으로 나가는 경로가 없다.
+    #   워커는 마스터가 보내준 appid 목록만 받는다.
+    #
+    # 서버1 의 5432 는 밖에서 막혀 있어 SSH 터널을 지난다. 터널은 배치를 돌리는
+    # 쪽이 연다 (오케스트레이션 · 21-catalog.sh 와 같은 방식).
+    service-db:
+      url: ${SERVICE_DB_URL:jdbc:postgresql://127.0.0.1:15432/thispatch}
+      username: ${SERVICE_DB_USER:thispatch}
+      password: ${SERVICE_DB_PASSWORD:}
+    # 조각 하나에 담을 게임 수. 워커 수에 맞추면 조각이 너무 커진다.
+    partition-size: ${COLLECT_PARTITION_SIZE:500}
     # 워커 노트북 수. 조각을 이만큼 나눈다.
     grid-size: ${COLLECT_GRID_SIZE:4}
     # 뼈대 확인용 고정 목록. 실제로는 game 테이블에서 가져온다 (수집 담당).

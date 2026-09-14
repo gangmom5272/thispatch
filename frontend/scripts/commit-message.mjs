@@ -73,17 +73,33 @@ function validateMessage(messagePath, messageLabel = messagePath) {
   }
 }
 
+const ZERO_SHA = "0".repeat(40)
+
+/**
+ * New remote branch: only commits not already on any remote.
+ * Existing remote branch: only commits in the push range.
+ */
+function getPushLogArgs(localSha, remoteSha) {
+  if (remoteSha !== ZERO_SHA) {
+    return ["log", "--format=%H%x00%s", `${remoteSha}..${localSha}`]
+  }
+  return ["log", "--format=%H%x00%s", localSha, "--not", "--remotes"]
+}
+
 function validatePush() {
   const input = process.stdin ? readStdin() : ""
   const refs = input.split("\n").filter(Boolean)
   const commits = new Set()
 
   for (const ref of refs) {
-    const [localRef, localSha, remoteRef, remoteSha] = ref.split(" ")
-    if (localSha === "0".repeat(40)) continue
+    const parts = ref.trim().split(/\s+/)
+    const localSha = parts[1]
+    const remoteSha = parts[3]
+    if (!localSha || localSha === ZERO_SHA) continue
 
-    const range = remoteSha === "0".repeat(40) ? localSha : `${remoteSha}..${localSha}`
-    const messages = runGit(["log", "--format=%H%x00%s", range]).split("\n").filter(Boolean)
+    const messages = runGit(getPushLogArgs(localSha, remoteSha || ZERO_SHA))
+      .split("\n")
+      .filter(Boolean)
 
     for (const entry of messages) {
       const separator = entry.indexOf("\0")

@@ -364,6 +364,16 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 
 ## 토큰 재발급
 
+### Refresh Token 공통 저장 정책
+
+- PostgreSQL의 `member.refresh_token_hash`, `member.refresh_token_expires_at`에 회원당 현재 Refresh Token 하나만 저장한다. 토큰 원문 대신 SHA-256 해시를 보관한다.
+- 로그인·회원가입·Steam 인증 완료에서 발급된 토큰을 저장할 때 기존 값을 대체한다. 이전 Refresh Token은 더 이상 재발급에 사용할 수 없다.
+- 동시 로그인 제한은 Refresh Token 기준이다. 기존 Access Token은 만료까지 유효하며 즉시 차단하지 않는다.
+- Rotation은 사용하지 않는다. `POST /auth/refresh`는 현재 Refresh Token을 유지하고 기존 계약대로 새 Access Token만 반환한다.
+- 재발급 검증은 기존 JWT 검증(서명·용도·필수 claim·만료) 후 JWT 회원 ID로 조회한 회원의 저장 해시와 만료 시각을 대조한다. 미저장·교체·폐기된 토큰은 사용할 수 없다.
+- 폐기는 해당 회원의 현재 저장 해시가 전달된 토큰과 일치할 때 두 컬럼을 `NULL`로 바꾼다. 폐기 이력·기기 정보·token family는 보관하지 않으며 재사용 탐지에 따른 연관 토큰 폐기도 하지 않는다.
+- 회원 상태는 조회할 수 있지만 상태별 인증 허용 여부는 후속 API 정책에서 결정한다.
+
 ### `POST /auth/refresh`
 
 **Auth**
@@ -440,11 +450,13 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 
 1. Authorization Bearer Access Token으로 현재 사용자를 식별한다.
 2. 전달된 Refresh Token이 해당 사용자에게 발급된 토큰인지 확인한다.
-3. 서버에 저장된 해당 Refresh Token을 삭제하거나 무효화한다.
+3. 회원 ID와 토큰 해시가 모두 일치하는 현재 저장값만 제거한다.
 
 - Access Token blacklist는 사용하지 않는다. 기존 Access Token은 만료 시점까지 유효하며 자연 만료된다.
 - 유효한 Access Token과 소유자 확인을 전제로, 이미 해당 Refresh Token이 무효화된 경우에도 성공하도록 멱등하게 처리한다.
-- 삭제·무효화 이후에도 동일 사용자의 재요청 여부를 확인할 수 있어야 한다. 구체적인 Refresh Token 저장·소유자 확인 방식은 구현 시 정한다.
+- 폐기 이력을 보관하지 않으므로 반복 요청의 소유자는 서명·용도·만료 검증을 통과한 JWT의 회원 ID와 현재 인증된 회원 ID를 비교해 확인한다.
+- 위 검증을 통과하고 소유자가 같으면 저장값이 이미 없거나 다른 토큰으로 교체되었어도 성공한다. 과거 토큰으로 새 로그인 토큰을 폐기하지 않는다. 미저장 토큰과 폐기된 토큰의 이력은 구분하지 않는다.
+- 만료된 Refresh Token은 기존 JWT 검증에서 `EXPIRED`로 구분된다. 이를 포함한 로그아웃 검증 실패의 HTTP 상태·코드·메시지는 위 미정 오류 정책을 따른다.
 
 ## 회원탈퇴
 
@@ -510,6 +522,5 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 - 닉네임 상세 검증 규칙: 미정.
 - `loginCode`의 정확한 TTL: 미정. 짧은 수명의 1회용 코드로 사용한다.
 - `signupToken`의 정확한 TTL: 미정. 짧은 수명의 가입 전용 1회용 토큰으로 사용한다.
-- Refresh Token rotation 여부: 미정. 기존 `POST /auth/refresh` 요청·응답 계약은 유지한다.
 - 탈퇴한 Steam 계정의 재가입 정책: 미정.
 - 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

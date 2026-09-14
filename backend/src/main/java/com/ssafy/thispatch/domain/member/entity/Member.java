@@ -57,6 +57,13 @@ public class Member {
 	@Column(name = "updated_at")
 	private Instant updatedAt;
 
+	// 저장소의 조건부 UPDATE로만 변경한다. 오래된 Member 저장으로 폐기된 토큰이 복구되지 않게 한다.
+	@Column(name = "refresh_token_hash", length = 64, insertable = false, updatable = false)
+	private String refreshTokenHash;
+
+	@Column(name = "refresh_token_expires_at", insertable = false, updatable = false)
+	private Instant refreshTokenExpiresAt;
+
 	@Builder
 	public Member(LoginType loginType, String email, String password, BigInteger steamId, String nickname,
 		String status, Instant createdAt, Instant updatedAt) {

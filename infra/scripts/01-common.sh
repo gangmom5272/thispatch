@@ -6,6 +6,19 @@ set -euo pipefail
 MASTER_IP=172.26.7.158     # j15a202a — NameNode / ResourceManager
 WORKER_IP=172.26.8.198     # j15a202  — DataNode / NodeManager / PostgreSQL
 
+echo "── [0/5] 시간대 ────────────────────────────────────────"
+# ⚠ EC2 는 기본이 UTC 다. 그대로 두면 서버 로그와 노트북 로그가 9시간
+#   어긋나서, 같은 사건을 두 곳에서 맞춰 보려 할 때 매번 계산해야 한다.
+#   알림 메시지만 KST 로 강제해 두면 그 한 곳만 맞고 journalctl ·
+#   systemctl list-timers · nginx 로그는 계속 UTC 다. (2026-09-14 겪음)
+#
+#   systemd 타이머는 OnCalendar 에 Asia/Seoul 을 박아 두었으므로
+#   시스템 시간대를 바꿔도 실행 시각이 흔들리지 않는다.
+if [ "$(timedatectl show -p Timezone --value)" != "Asia/Seoul" ]; then
+  sudo timedatectl set-timezone Asia/Seoul
+fi
+echo "  $(date)"
+
 echo "── [1/5] apt 갱신 · Java 17 ────────────────────────────"
 sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \

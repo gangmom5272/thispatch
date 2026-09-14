@@ -10,7 +10,7 @@
 //
 // ⚠ 그래서 경로가 중요하다
 //   docker 에게 넘기는 경로는 전부 '호스트 기준' 으로 해석된다.
-//   compose.server.yaml 이 /var/jenkins_home 과 /home/ubuntu/dispatch 를
+//   compose.server.yaml 이 /var/jenkins_home 과 /home/ubuntu/thispatch 를
 //   컨테이너 안에도 똑같은 경로로 마운트해 둔 이유가 이것이다.
 //   경로를 다르게 잡으면 빌드 컨텍스트가 '없는 디렉터리' 를 가리킨다.
 
@@ -36,16 +36,16 @@ pipeline {
 
     environment {
         // 서버1 의 배포 정본. 여기 있는 것이 지금 돌고 있는 것이다.
-        DEPLOY_DIR   = '/home/ubuntu/dispatch'
-        COMPOSE_FILE = '/home/ubuntu/dispatch/infra/compose.server.yaml'
+        DEPLOY_DIR   = '/home/ubuntu/thispatch'
+        COMPOSE_FILE = '/home/ubuntu/thispatch/infra/compose.server.yaml'
 
         // 테스트용 임시 DB. 서비스 DB 와 완전히 다른 컨테이너다.
         // ⚠ 서비스 DB(thispatch) 에 테스트를 돌리면 안 된다.
         //   ThispatchApplicationTests 가 테이블 목록과 시드 데이터를 '정확히'
         //   비교해서, 실제 데이터가 있으면 통과할 수 없다.
         TEST_DB_NAME = 'thispatch_test'
-        TEST_DB_CONT = 'dispatch-test-db'
-        NETWORK      = 'dispatch_default'
+        TEST_DB_CONT = 'thispatch-test-db'
+        NETWORK      = 'thispatch_default'
     }
 
     stages {
@@ -64,7 +64,44 @@ pipeline {
             }
         }
 
+        stage('변경 범위 확인') {
+            steps {
+                // 프론트만 바뀐 push 에서는 백엔드를 다시 빌드·배포하지 않는다.
+                //
+                // 기준점은 Jenkins 가 넣어 주는 GIT_PREVIOUS_SUCCESSFUL_COMMIT 이다.
+                // '마지막으로 성공한 빌드의 커밋' 이라, 지난 빌드가 실패했으면
+                // 그때 못 본 변경까지 함께 비교된다. 실패를 건너뛰고 넘어가지 않는다.
+                //
+                // ⚠ 판단을 셸에서 하고 결과만 파일로 넘긴다.
+                //   Groovy 로 하면 Jenkins 스크립트 보안 승인이 걸릴 수 있다.
+                sh '''
+                    BASE="${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-}"
+                    RUN=yes
+                    REASON="처음이거나 직전 빌드가 실패했다 — 전부 돌린다"
+                    if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+                      CHANGED=$(git diff --name-only "$BASE" HEAD)
+                      OUTSIDE=$(echo "$CHANGED" | grep -v "^frontend/" || true)
+                      if [ -z "$CHANGED" ]; then
+                        RUN=no;  REASON="바뀐 파일이 없다"
+                      elif [ -z "$OUTSIDE" ]; then
+                        RUN=no;  REASON="frontend/ 만 바뀌었다"
+                      else
+                        RUN=yes; REASON="백엔드 쪽 변경이 있다"
+                      fi
+                      echo "기준 커밋 $(git rev-parse --short "$BASE")"
+                      echo "바뀐 파일 $(echo "$CHANGED" | grep -c . || true) 개"
+                      echo "$CHANGED" | head -10 | sed "s/^/  /"
+                    fi
+                    echo
+                    echo "판단: $RUN  ($REASON)"
+                    printf %s "$RUN" > .run_flag
+                '''
+                script { env.RUN_BUILD = readFile('.run_flag').trim() }
+            }
+        }
+
         stage('테스트') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 // ⚠ 비밀번호를 소스에 적어도 되는 유일한 자리다.
                 //   이 DB 는 빌드가 끝나면 지워지고, 도커 내부 네트워크에만 있으며,
@@ -94,7 +131,7 @@ pipeline {
                     echo
                     echo "── 테스트 실행 ──"
                     # ⚠ 컨테이너 이름이 곧 호스트명이다. 같은 도커 네트워크라 DNS 로 찾는다.
-                    #   Jenkins 컨테이너도 dispatch_default 에 붙어 있어서 가능하다.
+                    #   Jenkins 컨테이너도 thispatch_default 에 붙어 있어서 가능하다.
                     export POSTGRES_HOST="$TEST_DB_CONT"
                     export POSTGRES_PORT=5432
                     export POSTGRES_USER=postgres
@@ -138,17 +175,19 @@ pipeline {
         }
 
         stage('이미지 빌드') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 sh '''
                     set -e
                     cd "$DEPLOY_DIR/infra"
                     docker compose -f "$COMPOSE_FILE" build backend
-                    docker images dispatch/backend --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}'
+                    docker images thispatch/backend --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}'
                 '''
             }
         }
 
         stage('배포') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 // ⚠ --no-deps 를 반드시 붙인다.
                 //   빼면 jenkins 서비스까지 다시 만들려 들고, 그건 지금 이 빌드를
@@ -172,6 +211,7 @@ pipeline {
         }
 
         stage('검증') {
+            when { expression { env.RUN_BUILD == 'yes' } }
             steps {
                 sh '''
                     set -e

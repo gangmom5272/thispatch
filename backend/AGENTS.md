@@ -23,6 +23,13 @@ REST API 구현·수정 요청이면 [implement-api](.agents/skills/implement-ap
 - HTTP Method, URL, Path Variable, Query Parameter, Request/Response 필드, 타입, 상태 코드, Authorization 요구사항을 임의로 바꾸지 않는다.
 - 설계·REST 스타일·네이밍 정리를 이유로 계약을 수정하지 않는다. 명세와 DB·기존 코드의 충돌로 구현할 수 없으면 충돌 근거와 영향을 사용자에게 보고한다.
 
+## 공통 오류 처리
+
+- 오류 응답은 [공통 오류 계약](docs/api/conventions.md#error-response)을 따른다. 문자열 `code`, `message`, 한국 시간 `responsedAt`, 필드 오류가 있을 때만 `errors`를 사용하며 `data`·`success`는 넣지 않는다. 이 형식은 확정된 사항이므로 다시 결정받지 않는다.
+- `src/main/java/com/ssafy/thispatch/global/exception/`의 `ErrorResponse`, `ErrorCode`, `CommonErrorCode`, `BusinessException`, `GlobalExceptionHandler`를 재사용한다. 도메인 오류는 `ErrorCode` 구현과 `BusinessException`으로 연결하고 해당 API 문서에 코드·메시지를 기록한다. 기존 HTTP 상태 코드와 오류 의미는 유지한다.
+- 예상하지 못한 예외의 상세는 서버 로그에만 남긴다. 공통 핸들러가 처리하는 예외를 컨트롤러마다 중복 처리하거나 별도 오류 응답 형식을 만들지 않는다.
+- `GlobalExceptionHandler`의 적용 범위는 Spring MVC다. Security 필터의 인증·권한 오류까지 처리한다고 가정하지 말고, 인증 작업 시 같은 응답 형식으로 별도 연결한다.
+
 ## 사용자 결정
 
 - 명세·DB schema·기존 코드·테스트로 확정되지 않고 계약·비즈니스 의미·권한·정합성에 영향을 주는 사항은 구현 전에 사용자에게 확인한다. 새로운 schema/migration도 사전 확인 대상이다.

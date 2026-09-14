@@ -8,6 +8,7 @@
 #   ./07-cluster.sh verify     쓰기/읽기 + Spark 잡 실전 검증
 #   ./07-cluster.sh addworker 70.12.xxx.xxx    워커 등록
 #   ./07-cluster.sh setmaster 70.12.xxx.xxx    마스터 IP 변경 (전 노드에서 실행)
+#   ./07-cluster.sh synchosts                  전 노드의 /etc/hosts 를 똑같이 맞춘다
 set -uo pipefail
 
 export HADOOP_HOME=${HADOOP_HOME:-/opt/hadoop}
@@ -177,6 +178,64 @@ addworker)
     echo
     cat ~/.ssh/id_ed25519.pub
   fi
+  echo
+  echo "⚠ 이 노드에만 이름을 넣었습니다. 다른 워커들은 아직 이 이름을 모릅니다."
+  echo "  ./07-cluster.sh synchosts 를 이어서 돌리세요."
+  ;;
+
+synchosts)
+  # 전 노드의 /etc/hosts 를 workers 파일 기준으로 똑같이 맞춘다.
+  #
+  # 왜 필요한가
+  #   YARN 은 NodeManager 가 '자기 IP 를 역으로 조회한 이름' 으로 등록한다.
+  #   노드마다 /etc/hosts 가 달라서 어떤 노드는 이름으로, 어떤 노드는 IP 로
+  #   등록된다. 이름으로 등록한 노드의 이름을 모르는 노드에 AM 이 뜨면
+  #   컨테이너 실행이 UnknownHostException 으로 실패하고, 잡이 50% 에서
+  #   영원히 멈춘다. (2026-09-14 실측 — dispatch-w103 을 못 찾았다)
+  #
+  #   호스트명(DESKTOP-MR7IIH9)은 5대 중 4대가 겹쳐서 쓸 수 없다.
+  #   그래서 IP 에서 만든 고유한 이름을 5대에 똑같이 깐다.
+  W=$HADOOP_CONF_DIR/workers
+  MASTER_IP=$(getent hosts thispatch-master | awk '{print $1}')
+  [ -n "$MASTER_IP" ] || { echo "thispatch-master 를 못 찾습니다." >&2; exit 1; }
+
+  TBL=$(mktemp)
+  {
+    echo "# === thispatch 클러스터 (전 노드 동일) — 07-cluster.sh synchosts 가 관리 ==="
+    echo "$MASTER_IP   thispatch-master"
+    grep -oE '^[0-9]+(\.[0-9]+){3}' "$W" | sort -u | while read -r ip; do
+      [ "$ip" = "$MASTER_IP" ] && continue
+      echo "$ip   thispatch-w${ip##*.}"
+    done
+  } > "$TBL"
+  echo "── 깔 표 ─────────────────────────────────────────"
+  sed 's/^/  /' "$TBL"
+
+  PUSH=$(mktemp)
+  {
+    echo 'set -e'
+    echo 'sudo cp /etc/hosts /etc/hosts.bak-synchosts'
+    # 우리가 관리하는 줄만 지운다. 다른 항목은 건드리지 않는다.
+    echo "sudo sed -i '/thispatch-/d; /=== thispatch 클러스터/d' /etc/hosts"
+    echo "sudo tee -a /etc/hosts >/dev/null <<'HOSTSEOF'"
+    cat "$TBL"
+    echo "HOSTSEOF"
+    echo 'echo "  $(hostname -I | awk "{print \$1}") 적용"'
+  } > "$PUSH"
+
+  echo
+  echo "── 배포 ─────────────────────────────────────────"
+  bash "$PUSH"
+  grep -oE '^[0-9]+(\.[0-9]+){3}' "$W" | sort -u | while read -r ip; do
+    [ "$ip" = "$MASTER_IP" ] && continue
+    if ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$ip" "bash -s" < "$PUSH" 2>/dev/null; then :
+    else echo "  $ip 실패 — 이 노드는 손으로 맞춰야 합니다"; fi
+  done
+  rm -f "$TBL" "$PUSH"
+
+  echo
+  echo "⚠ NodeManager 를 다시 띄워야 새 이름으로 등록합니다."
+  echo "  sudo systemctl restart yarn-nodemanager   (전 노드)"
   ;;
 
 verify)

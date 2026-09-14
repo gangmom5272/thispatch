@@ -1,6 +1,6 @@
 spring:
   application:
-    name: dispatch-collector
+    name: thispatch-collector
 
   # 웹 서버가 필요 없다. 워커는 큐만 듣고, 마스터는 잡을 돌리고 끝난다.
   main:
@@ -9,8 +9,8 @@ spring:
   # 배치 메타데이터 DB — 마스터 노트북에 있다 (11-master-batch-infra.sh).
   # 서비스 DB(서버1)와 다른 DB 다. 워커가 EC2 를 볼 일이 없게 하려고 나눴다.
   datasource:
-    url: jdbc:postgresql://${BATCH_DB_HOST:70.12.108.85}:${BATCH_DB_PORT:5432}/${BATCH_DB_NAME:dispatch_batch}
-    username: ${BATCH_DB_USER:dispatch}
+    url: jdbc:postgresql://${BATCH_DB_HOST:70.12.108.85}:${BATCH_DB_PORT:5432}/${BATCH_DB_NAME:thispatch_batch}
+    username: ${BATCH_DB_USER:thispatch}
     password: ${BATCH_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -40,22 +40,30 @@ spring:
   rabbitmq:
     host: ${MQ_HOST:70.12.108.85}
     port: ${MQ_PORT:5672}
-    username: ${MQ_USER:dispatch}
+    username: ${MQ_USER:thispatch}
     password: ${MQ_PASSWORD}
-    virtual-host: ${MQ_VHOST:dispatch}
+    virtual-host: ${MQ_VHOST:thispatch}
     listener:
       simple:
         # 워커가 죽어서 못 받은 조각은 큐에 남아 다른 워커가 가져간다.
         acknowledge-mode: auto
 
-dispatch:
+thispatch:
   collect:
     # 워커 노트북 수. 조각을 이만큼 나눈다.
     grid-size: ${COLLECT_GRID_SIZE:4}
     # 뼈대 확인용 고정 목록. 실제로는 game 테이블에서 가져온다 (수집 담당).
     appids: ${COLLECT_APPIDS:2868840,1016800,413150,1245620,892970}
+    # 워커의 Hadoop 설정. HDFS 주소/landing 경로는 common의 HdfsPaths를 따른다.
+    hadoop-conf-dir: ${HADOOP_CONF_DIR:/opt/hadoop/etc/hadoop}
+    # 워커 프로세스당 요청 간격. Steam의 공인 일일 한도를 보장하는 값은 아니다.
+    request-interval: ${COLLECT_REQUEST_INTERVAL:1s}
+    # 네트워크·408·5xx·API 일시 실패 재시도 횟수. 403/429는 별도 백오프.
+    max-retries: ${COLLECT_MAX_RETRIES:5}
+    # 최초 전체 수집 및 403 백오프가 1시간을 넘을 수 있다. -1은 제한 없음.
+    manager-timeout-ms: ${COLLECT_MANAGER_TIMEOUT_MS:-1}
 
 logging:
   level:
-    com.ssafy.dispatch: INFO
+    com.ssafy.thispatch: INFO
     org.springframework.batch.integration.partition: INFO

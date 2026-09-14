@@ -30,7 +30,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $cfg     = "$env:USERPROFILE\.wslconfig"
 $startup = [Environment]::GetFolderPath('Startup')
-$vbs     = Join-Path $startup 'dispatch-wsl-keepalive.vbs'
+$vbs     = Join-Path $startup 'thispatch-wsl-keepalive.vbs'
+# 옛 이름으로 만들어 둔 항목. 그대로 두면 두 개가 같이 돈다.
+$vbsOld  = Join-Path $startup 'dispatch-wsl-keepalive.vbs'
+if (Test-Path $vbsOld) { Remove-Item $vbsOld -Force }
 
 if ($Remove) {
     Write-Host "── 되돌리기 ──────────────────────────────────"

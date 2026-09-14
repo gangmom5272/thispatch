@@ -120,25 +120,61 @@ echo "── [5/6] 웹훅 시크릿 심기 ────────────�
 # ⚠ 재기동할 때마다 다시 해야 한다.
 #   JCasC 가 부팅할 때마다 잡을 정의대로 다시 만들어서, 손으로 넣은 값은
 #   날아간다. 이 스크립트를 거쳐서 올리면 항상 맞춰진다.
+#
+# 두 잡 모두에 같은 값을 넣는다. GitLab 웹훅도 두 개 걸어야 한다.
+#   .../jenkins/project/thispatch-deploy     백엔드
+#   .../jenkins/project/thispatch-frontend   프론트
+JOBS="thispatch-deploy thispatch-frontend"
 if [ -z "${GITLAB_WEBHOOK_SECRET:-}" ] || [ "${GITLAB_WEBHOOK_SECRET}" = "change-me" ]; then
   echo "    ⚠ .env 의 GITLAB_WEBHOOK_SECRET 이 비어 있습니다. 웹훅이 모두 거부됩니다."
   echo "      openssl rand -hex 24 로 만들어 .env 에 넣고 다시 실행하세요."
 else
   JB=http://127.0.0.1:18080/jenkins
   CJ="$(mktemp)"
-  CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ"             "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
+  CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ" "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
   if [ -z "$CRUMB" ]; then
     echo "    ⚠ Jenkins 로그인 실패 — JENKINS_ADMIN_ID/PASSWORD 를 확인하세요." >&2
   else
-    GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
-def job = jenkins.model.Jenkins.get().getItemByFullName('dispatch-deploy')
-if (job == null) { println '    잡을 아직 못 찾았다'; return }
+  # ⚠ JCasC 가 '이번 부팅에 새로 만든' 잡은 디스크에만 쓰이고 메모리에 안 올라온다.
+  #   config.xml 은 있는데 /job/<이름>/ 이 404 로 나온다. 웹훅도 거부된다.
+  #   전에 만들어 둔 잡은 부팅할 때 디스크에서 읽히므로 멀쩡하다 — 그래서
+  #   새 잡을 추가한 그 한 번만 이 증상이 난다. (실측)
+  #   설정을 디스크에서 다시 읽게 하면 올라온다.
+  NEED_RELOAD=0
+  for J in $JOBS; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/job/$J/api/json")
+    if [ "$code" != 200 ] && sudo test -f "/var/jenkins_home/jobs/$J/config.xml"; then NEED_RELOAD=1; fi
+  done
+  if [ "$NEED_RELOAD" = 1 ]; then
+    echo "    새 잡이 아직 메모리에 없습니다. 설정을 다시 읽습니다."
+    curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ" -H "Jenkins-Crumb: $CRUMB" -X POST "$JB/reload" -o /dev/null
+    for i in $(seq 1 20); do
+      [ "$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/api/json")" = 200 ] && break
+      sleep 3
+    done
+    # 다시 읽으면 crumb 이 무효가 된다. 새로 받는다.
+    CRUMB="$(curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -c "$CJ" "$JB/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')"
+  fi
+
+    # ⚠ 잡이 생길 때까지 기다린다.
+    #   healthcheck(/jenkins/login 응답)는 JCasC 가 잡을 만들기 전에 이미
+    #   통과한다. 그대로 진행하면 "잡을 못 찾았다" 가 뜬다. (실측)
+    for J in $JOBS; do
+      for i in $(seq 1 24); do
+        code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" "$JB/job/$J/api/json")
+        [ "$code" = 200 ] && break
+        sleep 5
+      done
+      GROOVY="import com.dabsquared.gitlabjenkins.GitLabPushTrigger
+def job = jenkins.model.Jenkins.get().getItemByFullName('$J')
+if (job == null) { println '    $J : 잡을 못 찾았다'; return }
 def t = job.getTriggers().values().find { it instanceof GitLabPushTrigger }
-if (t == null) { println '    GitLabPushTrigger 가 없다'; return }
+if (t == null) { println '    $J : GitLabPushTrigger 가 없다'; return }
 t.setSecretToken('$GITLAB_WEBHOOK_SECRET')
 job.save()
-println '    시크릿 심음: ' + (t.getSecretToken() == '$GITLAB_WEBHOOK_SECRET')"
-    curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ"       -H "Jenkins-Crumb: $CRUMB" --data-urlencode "script=$GROOVY" "$JB/scriptText"
+println '    $J : ' + (t.getSecretToken() == '$GITLAB_WEBHOOK_SECRET' ? '시크릿 심음' : '실패')"
+      curl -s -u "$JENKINS_ADMIN_ID:$JENKINS_ADMIN_PASSWORD" -b "$CJ" -c "$CJ" -H "Jenkins-Crumb: $CRUMB" --data-urlencode "script=$GROOVY" "$JB/scriptText"
+    done
   fi
   rm -f "$CJ"
 fi

@@ -42,6 +42,10 @@ public class ManagerConfig {
     @Value("${dispatch.collect.grid-size:4}")
     private int gridSize;
 
+    // 최초 전량 수집과 403의 1시간 이상 백오프를 허용한다. -1은 제한 없음.
+    @Value("${dispatch.collect.manager-timeout-ms:-1}")
+    private long managerTimeoutMillis;
+
     /**
      * 수집 대상 게임.
      *
@@ -81,7 +85,7 @@ public class ManagerConfig {
                 .gridSize(gridSize)
                 .outputChannel(requests)
                 .pollInterval(2000)        // 2초마다 DB 를 본다
-                .timeout(1000L * 60 * 60)  // 한 시간. 최초 전량 수집이 오래 걸린다
+                .timeout(managerTimeoutMillis)
                 .build();
     }
 

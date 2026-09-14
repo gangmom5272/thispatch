@@ -1,14 +1,26 @@
 package com.ssafy.dispatch.collector.config;
 
 import com.ssafy.dispatch.collector.worker.CollectTasklet;
+import com.ssafy.dispatch.collector.client.SteamReviewClient;
+import com.ssafy.dispatch.collector.writer.ReviewLandingWriter;
+import com.ssafy.dispatch.common.HdfsPaths;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.time.Duration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.integration.config.annotation.EnableBatchIntegration;
 import org.springframework.batch.integration.partition.RemotePartitioningWorkerStepBuilderFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.integration.amqp.dsl.Amqp;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -34,6 +46,39 @@ public class WorkerConfig {
 
     /** 마스터의 partitioner 가 가리키는 이름과 같아야 한다. */
     public static final String STEP_NAME = "collect.worker";
+
+    @Bean
+    public SteamReviewClient steamReviewClient() {
+        return new SteamReviewClient();
+    }
+
+    /** 워커에 설치된 Hadoop 설정을 사용한다. 이 FileSystem 인스턴스는 앱 종료 시 닫는다. */
+    @Bean(destroyMethod = "close")
+    public FileSystem reviewFileSystem(@Value("${dispatch.collect.hadoop-conf-dir}") String configDirectory)
+            throws IOException {
+        var configuration = new org.apache.hadoop.conf.Configuration();
+        for (String filename : new String[] {"core-site.xml", "hdfs-site.xml"}) {
+            var file = java.nio.file.Path.of(configDirectory, filename);
+            if (!Files.isRegularFile(file)) {
+                throw new IOException("Missing Hadoop configuration: " + file);
+            }
+            configuration.addResource(new Path(file.toUri()));
+        }
+        return FileSystem.newInstance(URI.create(HdfsPaths.HDFS), configuration);
+    }
+
+    @Bean
+    public ReviewLandingWriter reviewLandingWriter(FileSystem reviewFileSystem) {
+        return new ReviewLandingWriter(reviewFileSystem);
+    }
+
+    @Bean
+    public CollectTasklet collectTasklet(SteamReviewClient client, ReviewLandingWriter writer,
+                                        JobExplorer jobExplorer,
+                                        @Value("${dispatch.collect.request-interval}") Duration interval,
+                                        @Value("${dispatch.collect.max-retries}") int maxRetries) {
+        return new CollectTasklet(client, writer, jobExplorer, interval, maxRetries);
+    }
 
     /** AMQP 로 들어온 작업 요청을 채널로 흘려보낸다. */
     @Bean
@@ -69,10 +114,12 @@ public class WorkerConfig {
     @Bean(name = STEP_NAME)
     public Step collectWorkerStep(RemotePartitioningWorkerStepBuilderFactory factory,
                                   PlatformTransactionManager transactionManager,
-                                  DirectChannel requests) {
+                                  DirectChannel requests,
+                                  CollectTasklet collectTasklet) {
         return factory.get(STEP_NAME)
                 .inputChannel(requests)
-                .tasklet(new CollectTasklet(), transactionManager)
+                .tasklet(collectTasklet, transactionManager)
+                .listener((ChunkListener) collectTasklet)
                 .build();
     }
 }

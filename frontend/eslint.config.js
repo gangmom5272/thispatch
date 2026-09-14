@@ -20,7 +20,11 @@ export default tseslint.config(
     ],
   },
   {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended, reactPlugin.configs.flat.recommended],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      reactPlugin.configs.flat.recommended,
+    ],
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2023,
@@ -38,12 +42,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
-      'prettier/prettier': ['error', { singleQuote: true }],
+      'prettier/prettier': ['error', { doubleQuote: true }],
       'no-implicit-coercion': 'error',
 
       'no-undef': 'off',
@@ -97,10 +98,7 @@ export default tseslint.config(
       ],
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { ignoreRestSiblings: true },
-      ],
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
       '@typescript-eslint/member-ordering': [
         'error',
         {

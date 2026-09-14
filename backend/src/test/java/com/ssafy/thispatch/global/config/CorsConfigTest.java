@@ -17,6 +17,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
+import com.ssafy.thispatch.global.security.SecurityErrorHandler;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	classes = CorsConfigTest.TestApplication.class,
 	properties = {
@@ -66,6 +68,8 @@ class CorsConfigTest {
 		var response = rest.exchange("/games", HttpMethod.GET, new HttpEntity<>(headers), String.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		assertThat(response.getHeaders().getAccessControlAllowOrigin()).isEqualTo("https://thispatch.example");
+		assertThat(response.getHeaders().getFirst(HttpHeaders.WWW_AUTHENTICATE)).isEqualTo("Bearer");
+		assertThat(response.getBody()).contains("\"code\":\"UNAUTHORIZED\"").doesNotContain("\"success\"", "\"data\"");
 	}
 
 	private HttpHeaders preflightHeaders(String origin, String method, String requestedHeaders) {
@@ -79,7 +83,7 @@ class CorsConfigTest {
 	@Configuration(proxyBeanMethods = false)
 	@EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
 		FlywayAutoConfiguration.class})
-	@Import({AppConfig.class, CorsConfig.class})
+	@Import({AppConfig.class, CorsConfig.class, SecurityConfig.class, SecurityErrorHandler.class})
 	static class TestApplication {
 	}
 }

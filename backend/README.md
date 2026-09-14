@@ -148,10 +148,20 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 - CORS 허용 주소는 `https://thispatch.com,http://localhost:5173`처럼 쉼표로 구분한다. 각 주소에는 경로·끝 슬래시를 넣지 않으며 `*` 패턴도 허용하지 않는다.
 - CORS 허용 메서드는 현재 API 계약의 `GET`, `POST`, `DELETE`와 사전 요청용 `OPTIONS`다. 허용 요청 헤더는 `Authorization`, `Content-Type`, `Accept`다.
 - 서비스 인증은 Bearer Token 방식이므로 CORS의 `allowCredentials`는 `false`다.
-- `CorsFilter`는 서블릿 필터로 한 번 등록하며 Security 필터보다 먼저 실행된다. 이후 `SecurityFilterChain` 작업에서 CORS 필터를 중복 등록하지 않는다.
-- CORS 설정은 공개·보호 API의 인증 규칙을 바꾸지 않는다. 실제 인증 경로와 JWT 필터는 후속 Security 작업에서 연결한다.
+- `CorsFilter`는 서블릿 필터로 한 번 등록하며 Security 필터보다 먼저 실행된다. `SecurityFilterChain`에는 CORS 필터를 중복 등록하지 않는다.
+- CORS 설정은 공개·보호 API의 인증 규칙을 바꾸지 않는다. 접근 규칙은 `SecurityConfig`에서 관리하고, 실제 JWT 검증 필터는 후속 작업에서 연결한다.
 - 운영 배포 전 `FRONTEND_BASE_URL`, `BACKEND_PUBLIC_URL`, `CORS_ALLOWED_ORIGINS`를 서버 환경에 추가해야 한다. 현재 서버 Compose의 `env_file`로 주입할 수 있다.
 - `test` 프로필은 URL·CORS 값을 테스트 설정에서 지정하므로 로컬 `.env`의 해당 값에 의존하지 않는다. Spring의 `APP_*` 환경변수·시스템 속성 직접 지정은 테스트 설정도 덮어쓸 수 있다.
+
+## Security 접근 규칙
+
+- `SecurityConfig`는 API 명세의 공개 경로를 HTTP Method까지 일치시켜 허용한다. `GET /session`은 비로그인 접근을 허용하며 나머지 요청은 인증을 요구한다.
+- HTTP 세션의 인증 상태를 읽거나 저장하지 않는 `STATELESS` 방식이다. form login, HTTP Basic, Security 기본 로그아웃, 요청 저장은 비활성화한다.
+- 브라우저 자동 전송 인증을 사용하지 않는 Bearer 방식에 맞춰 CSRF 필터를 비활성화한다. CORS는 기존 서블릿 필터가 먼저 처리하며 Security 체인에는 중복 등록하지 않는다.
+- Security의 인증 실패는 `401 UNAUTHORIZED`, 권한 거부는 `403 FORBIDDEN`이며 기존 `ErrorResponse`를 사용한다. 상세 계약은 [공통 오류 규칙](docs/api/conventions.md#security-인증권한-오류)을 따른다.
+- 내부 `ERROR` dispatch는 원래 오류 응답을 유지하기 위해 허용한다. 직접 요청한 `/error`는 인증을 요구한다.
+- 현재는 JWT 검증 필터·회원 API가 없으므로 실제 Bearer Token으로 로그인할 수 없다. 테스트용 인증으로 접근 규칙을 검증하며, `/session` 응답과 토큰 만료 처리도 후속 작업이다.
+- 역할별 권한 규칙은 정의하지 않는다. `403` 핸들러는 Security에서 권한 거부가 발생할 때 사용하도록 준비한다.
 
 ## JWT 설정
 

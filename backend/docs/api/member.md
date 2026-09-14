@@ -429,7 +429,7 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 **Error Responses**
 
 - `400`: 필드 검증 실패 (`VALIDATION_FAILED`), 잘못된 JSON·요청 본문 누락 (`INVALID_REQUEST`). 코드·메시지는 공통 오류 계약을 따른다.
-- `401`: Access Token 인증 필요·무효·만료. 상세 코드·메시지는 미정이다.
+- `401`: Access Token 인증 필요·무효·만료. Security에서 인증된 사용자가 없는 경우 `UNAUTHORIZED`, `인증이 필요합니다.`를 반환한다. 토큰 검증은 후속 인증 구현에서 연결한다.
 - `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
 - Refresh Token 소유자 불일치·검증 불가 시 오류 상태 코드·메시지는 미정이다. 다른 사용자의 토큰을 무효화해서는 안 된다.
 
@@ -509,4 +509,4 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 - `signupToken`의 정확한 TTL: 미정. 짧은 수명의 가입 전용 1회용 토큰으로 사용한다.
 - Refresh Token rotation 여부: 미정. 기존 `POST /auth/refresh` 요청·응답 계약은 유지한다.
 - 탈퇴한 Steam 계정의 재가입 정책: 미정.
-- 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류 및 Access Token 인증 오류의 상세 코드·메시지: 미정.
+- 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

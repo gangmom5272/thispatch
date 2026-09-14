@@ -86,4 +86,19 @@
 - 잘못된 경로·HTTP Method·Content-Type 등 Spring MVC 자체 오류는 기존 HTTP 상태와 헤더를 유지한다. 위 `400`·`500` 이외에는 상태의 이름을 코드로 사용한다(예: `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `UNSUPPORTED_MEDIA_TYPE`). 메시지는 `요청을 처리할 수 없습니다.`이며, `5xx`는 `서버 내부 오류가 발생했습니다.`를 사용한다. 표준 상태 이름이 없는 경우 코드는 `HTTP_ERROR`다.
 - 객체 전체에 대한 검증 실패처럼 필드를 특정할 수 없는 경우에는 `VALIDATION_FAILED`와 공통 메시지만 반환한다. `errors`의 항목 순서는 보장하지 않는다.
 - 비즈니스 오류는 `global.exception.ErrorCode`를 구현한 코드와 `BusinessException`으로 연결한다. 예외 원인의 메시지를 응답 메시지로 사용하지 않는다.
-- 이번 공통 핸들러는 Spring MVC 영역에 적용한다. Spring Security 필터에서 발생하는 인증·권한 오류는 이후 Security 구현에서 같은 응답 형식으로 연결한다.
+- `GlobalExceptionHandler`는 Spring MVC 영역에 적용한다. Spring Security 필터의 인증·권한 오류는 `SecurityErrorHandler`가 같은 `ErrorResponse` 형식으로 반환한다.
+
+### Security 인증·권한 오류
+
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 필수 요청에 인증된 사용자가 없음 |
+| `403` | `FORBIDDEN` | 접근 권한이 없습니다. | 인증된 사용자가 Security 권한 검사에서 거부됨 |
+
+- `401` 응답은 `WWW-Authenticate: Bearer` 헤더를 포함하며 로그인 페이지로 Redirect하지 않는다.
+- 응답에는 `code`, `message`, `responsedAt`만 포함한다. 토큰·자격 증명·예외 상세는 포함하지 않는다.
+- 자체 로그인 자격 증명 불일치, Steam 임시 코드·토큰 오류, Refresh Token 오류 등 API별 비즈니스 오류는 각 endpoint의 계약을 유지한다.
+- 현재 접근 규칙은 공개 endpoint의 HTTP Method·URL과 `GET /session`을 허용하고, 나머지 요청에 인증을 요구한다. 역할별 권한 규칙은 추가하지 않는다.
+- 서버 내부 `ERROR` dispatch는 원래 오류 처리를 위해 허용한다. 클라이언트가 직접 보내는 `/error` 요청은 공개하지 않는다.
+- Bearer 인증을 기준으로 HTTP 세션 인증, form login, HTTP Basic, Security 기본 로그아웃과 요청 저장을 사용하지 않는다. CSRF 필터는 비활성화하며, CORS는 기존 서블릿 필터가 처리한다.
+- 이 단계에서는 접근 규칙과 오류 처리만 연결한다. JWT 검증 및 `/session`의 토큰 만료 시 비로그인 응답 처리는 후속 인증 구현에서 연결한다.

@@ -1,19 +1,44 @@
 import { createBrowserRouter } from "react-router"
-import App from "../App"
-import GameListPage from "../pages/GameList/GameListPage"
-import NotFound from "../pages/NotFound"
+import { AppShell } from "@/components/layout/AppShell"
+import LoginPage from "@/pages/login/LoginPage"
+import NotFound from "@/pages/NotFound"
+import { PlaceholderPage } from "@/pages/PlaceholderPage"
+import SignupPage from "@/pages/signup/SignupPage"
+import { paths, routeSegment } from "@/router/paths"
 
 export const router = createBrowserRouter([
   {
-    path: "/",
-    element: <App />,
-  },
-  {
-    path: "/list",
-    element: <GameListPage />,
-  },
-  {
-    path: "*",
-    element: <NotFound />,
+    path: paths.home,
+    element: <AppShell />,
+    children: [
+      {
+        index: true,
+        element: <PlaceholderPage title="홈" />,
+      },
+      {
+        path: routeSegment(paths.games),
+        element: <PlaceholderPage title="게임 목록" />,
+      },
+      {
+        path: routeSegment(paths.gameDetailPattern),
+        element: <PlaceholderPage title="게임 상세" />,
+      },
+      {
+        path: routeSegment(paths.methodology),
+        element: <PlaceholderPage title="방법론" />,
+      },
+      {
+        path: routeSegment(paths.login),
+        element: <LoginPage />,
+      },
+      {
+        path: routeSegment(paths.signup),
+        element: <SignupPage />,
+      },
+      {
+        path: "*",
+        element: <NotFound />,
+      },
+    ],
   },
 ])

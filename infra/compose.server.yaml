@@ -16,7 +16,7 @@
 #   네이티브로 깔았다 (15-server-nginx-https.sh). 배포가 실패해도 살아
 #   있어야 하는 물건이라 배포 단위 밖에 둔다.
 
-name: dispatch
+name: thispatch
 
 services:
   jenkins:
@@ -25,7 +25,7 @@ services:
       args:
         # 호스트 docker 그룹 GID. 안 맞으면 소켓을 못 읽는다.
         DOCKER_GID: "${DOCKER_GID:-988}"
-    image: dispatch/jenkins:lts-jdk17
+    image: thispatch/jenkins:lts-jdk17
     container_name: jenkins
     restart: unless-stopped
 
@@ -84,7 +84,13 @@ services:
       #   빌드 컨텍스트 경로는 호스트 기준으로 해석된다.
       # ⚠ 여기에 .env 가 들어 있다. 그래도 새로 생기는 위험은 없다 —
       #   도커 소켓을 준 시점에 Jenkins 는 이미 호스트 전체를 볼 수 있다.
-      - /home/ubuntu/dispatch:/home/ubuntu/dispatch
+      - /home/ubuntu/thispatch:/home/ubuntu/thispatch
+      # 프론트 정적 파일 자리. nginx 가 이 폴더를 서빙한다.
+      # frontend/Jenkinsfile 이 빌드 결과를 여기에 넣는다.
+      #
+      # ⚠ 호스트에서 소유자를 ubuntu 로 바꿔야 한다. 기본은 www-data 라
+      #   Jenkins(uid 1000)가 쓸 수 없다. 17 번이 아니라 19 번이 한다.
+      - /var/www/thispatch:/var/www/thispatch
 
     # ⚠ 서버1 은 서비스와 빌드를 같이 돌린다 (4 vCPU · 15Gi).
     #   상한이 없으면 빌드가 도는 동안 사이트가 느려진다.
@@ -108,7 +114,7 @@ services:
       #   common/ 이 있어야 :backend 가 빌드된다.
       context: ..
       dockerfile: infra/backend/Dockerfile
-    image: dispatch/backend:latest
+    image: thispatch/backend:latest
     container_name: backend
     restart: unless-stopped
 

@@ -1,9 +1,5 @@
-import { http, HttpResponse } from "msw"
-import { gameHandlers } from "./gameHandlers"
+import { authHandlers } from "./handlers/authHandlers"
+import { healthHandlers } from "./handlers/healthHandlers"
+import { sessionHandlers } from "./handlers/sessionHandlers"
 
-export const handlers = [
-  ...gameHandlers,
-  http.get("/api/health", () => {
-    return HttpResponse.json({ status: "ok" })
-  }),
-]
+export const handlers = [...healthHandlers, ...sessionHandlers, ...authHandlers]

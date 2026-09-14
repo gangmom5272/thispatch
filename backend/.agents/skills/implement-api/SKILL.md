@@ -15,6 +15,8 @@ backend 루트의 [AGENTS.md](../../../AGENTS.md)를 상위 규칙으로 따른�
 4. `src/test/java/`의 관련 테스트와 `src/test/resources/application-test.yaml`을 확인한다. DB 접근이 필요하면 `src/main/resources/db/migration/`에서 관련 테이블·컬럼·제약과 변경 이력을 확인한다.
 5. 파일이 없거나 `.gitkeep`만 있으면 기존 구현·패턴이 있다고 가정하지 않는다. 읽은 근거와 미확인 사항을 구분한다.
 
+오류 처리에는 기존 `src/main/java/com/ssafy/thispatch/global/exception/` 구현과 `src/test/java/com/ssafy/thispatch/global/exception/GlobalExceptionHandlerTest.java`를 확인한다. 응답 형식의 기준은 [공통 오류 계약](../../../docs/api/conventions.md#error-response)이며, 이미 확정된 필드·시간대·오류 상세 노출 정책은 다시 질문하지 않는다.
+
 ## 2. 계약 추출
 
 구현 전에 작업할 endpoint마다 다음 항목을 명세에서 추출한다. 별도 산출물 파일은 만들 필요 없다.
@@ -53,12 +55,20 @@ backend 루트의 [AGENTS.md](../../../AGENTS.md)를 상위 규칙으로 따른�
 3. 요청한 기능과 정상·오류·경계 동작을 검증하는 관련 테스트를 최소 범위로 구현한다. 명세에 없는 기능이나 테스트 통과만을 위한 계약 변경은 하지 않는다.
 4. 구현 중 새 충돌이나 schema·권한·정합성 결정이 발견되면 해당 변경 전에 Decision Gate를 다시 적용한다.
 
+오류 처리 시 적용할 사항:
+
+- `ErrorResponse`와 `GlobalExceptionHandler`를 재사용한다. 요청 검증은 기존 핸들러로 연결하고, 컨트롤러별 포괄적 catch나 중복 오류 DTO를 추가하지 않는다.
+- 도메인 비즈니스 오류는 `ErrorCode`를 구현한 코드와 `BusinessException`으로 연결한다. 기존 `CommonErrorCode`와 도메인 코드를 먼저 확인하고, 새 코드·메시지는 대상 API 문서에 반영한다. 명세로 확정되지 않은 오류 조건·HTTP 상태·비즈니스 의미는 Decision Gate 대상이다.
+- Spring MVC가 정한 상태 코드와 프로토콜 헤더를 유지한다. Security 필터 오류는 공통 advice가 처리하지 않으므로, 해당 인증 작업에서 `ErrorResponse`를 사용하는 별도 핸들러로 연결한다.
+
 ## 5. 검증
 
 1. **Compile:** AGENTS.md의 실제 `:backend:compileJava` 명령을 실행하고 결과를 확인한다.
 2. **Test:** AGENTS.md의 테스트 준비 조건을 확인하고 `:backend:test`를 실행한다. 새 API 동작에 대한 관련 테스트 결과도 확인한다.
 3. **계약 재검증:** 2단계에서 추출한 계약과 구현·테스트를 대조한다. Method·URL·Authorization·Path/Query·Request/Response·타입·상태 코드 및 Processing Rules가 모두 일치해야 한다.
 4. **Diff:** AGENTS.md의 변경 범위·Diff 규칙에 따라 실제 수정·추가 파일을 확인한다.
+
+오류 동작을 추가·수정했다면 관련 테스트에서 HTTP 상태와 문자열 코드, `data`·`success` 생략, 필드 오류가 있을 때만 `errors` 포함, 입력값·내부 예외 정보 비노출을 확인한다. 한국 시간 응답 및 MVC 기본 오류의 회귀 검증은 기존 `GlobalExceptionHandlerTest`를 활용한다.
 
 승인된 migration 변경 시 관련 테스트 기대값도 확인한다. 테스트를 통과시키기 위해 기존 검증을 임의로 삭제하지 않는다.
 

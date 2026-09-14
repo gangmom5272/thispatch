@@ -25,13 +25,13 @@
 set -uo pipefail
 
 PG_VER="${PG_VER:-17}"          # 서버1 과 같은 계열로 맞춘다
-DB_NAME="${DB_NAME:-dispatch_batch}"
-DB_USER="${DB_USER:-dispatch}"
+DB_NAME="${DB_NAME:-thispatch_batch}"
+DB_USER="${DB_USER:-thispatch}"
 DB_PASS="${DB_PASS:-dispatch-batch-local}"
 
-MQ_USER="${MQ_USER:-dispatch}"
+MQ_USER="${MQ_USER:-thispatch}"
 MQ_PASS="${MQ_PASS:-dispatch-mq-local}"
-MQ_VHOST="${MQ_VHOST:-dispatch}"
+MQ_VHOST="${MQ_VHOST:-thispatch}"
 
 LAN="${LAN:-70.12.0.0/16}"      # 교육장 대역. 이 밖에서는 못 붙는다
 
@@ -75,7 +75,7 @@ sudo sed -i "s/^#\?listen_addresses.*/listen_addresses = '*'/" "$PGCONF/postgres
 
 # 배치 메타데이터는 쓰기가 잦지만 양이 작다. 기본값으로 충분하다.
 # 노트북이라 메모리를 크게 잡지 않는다 — YARN 이 10GB 를 쓰고 있다.
-sudo tee "$PGCONF/conf.d/dispatch-batch.conf" >/dev/null <<'PGEOF'
+sudo tee "$PGCONF/conf.d/thispatch-batch.conf" >/dev/null <<'PGEOF'
 shared_buffers       = 256MB
 work_mem             = 8MB
 max_connections      = 60
@@ -86,8 +86,8 @@ PGEOF
 HBA="$PGCONF/pg_hba.conf"
 # pg_hba.conf 는 root 만 읽을 수 있다. sudo 없이 grep 하면 항상 실패해서
 # 다시 돌릴 때마다 같은 줄이 쌓인다. (2026-09-11 실제로 겪음)
-if ! sudo grep -q "dispatch-batch" "$HBA"; then
-  echo "# dispatch-batch — 워커 노트북이 랜에서 붙는다" | sudo tee -a "$HBA" >/dev/null
+if ! sudo grep -q "thispatch-batch" "$HBA"; then
+  echo "# thispatch-batch — 워커 노트북이 랜에서 붙는다" | sudo tee -a "$HBA" >/dev/null
   echo "host    $DB_NAME    $DB_USER    $LAN    scram-sha-256" | sudo tee -a "$HBA" >/dev/null
 fi
 

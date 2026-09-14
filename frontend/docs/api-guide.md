@@ -74,7 +74,7 @@ export function uploadPropertyImage(propertyId: number, file: File): Promise<str
 export function reissuedToken(refreshToken: string): Promise<Token> {
   return api.post<Token>({
     path: "/auth/refresh",
-    headers: { RefreshToken: refreshToken },
+    body: { refreshToken },
   })
 }
 ```
@@ -192,8 +192,10 @@ export function useToggleSaved() {
 - `useEffect` + `useState`로 서버 데이터 보관 금지 — 서버 상태는 TanStack Query가 소유
 - envelope 타입(`ApiResponse`)을 통신 계층 밖에서 참조 금지
 
-## 7. 미확정 사항 (TBD)
+## 7. 인증·토큰 (확정)
 
-- accessToken·refreshToken 보관 위치 → 확정 시 `client.ts`의 요청 인터셉터·401 refresh single-flight 주석 해제 및 구현
-- refresh 엔드포인트 경로·요청 형식
-- 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중 — 함수 위 TODO 주석의 실제 호출로 교체하면 됨
+- **보관**: `src/lib/tokenStorage.ts` — accessToken·refreshToken을 `localStorage`에 저장·삭제한다.
+- **요청**: `client.ts` 요청 인터셉터가 accessToken이 있으면 `Authorization: Bearer …`를 붙인다. `skipAuthRefresh: true`인 요청(토큰 재발급)에는 Authorization을 붙이지 않는다.
+- **재발급**: `POST /auth/refresh`, body `{ refreshToken }` → `data.accessToken`. 401 시 single-flight로 한 번만 재발급 후 원요청을 재시도한다. 실패 시 토큰을 비운다.
+- **세션**: `GET /session`(Authorization 선택)으로 로그인 여부를 확인한다. 도메인 API는 `src/api/session.ts`, 훅은 `useSession`.
+- 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중일 수 있다 — 함수 위 TODO를 실제 호출로 교체한다.

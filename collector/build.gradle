@@ -15,6 +15,9 @@ plugins {
 dependencies {
     implementation project(':common')
 
+    // 리뷰의 알 수 없는 필드까지 원본 JSON 트리로 보존한다.
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
     // Spring Batch — 워터마크와 재시작은 ExecutionContext 가 관리한다.
     // collect_progress 같은 테이블을 직접 만들지 않는다.
     implementation 'org.springframework.boot:spring-boot-starter-batch'
@@ -38,6 +41,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.batch:spring-batch-test'
+    // 실제 JobRepository의 페이지 커밋과 동일 JobInstance 재시작을 격리 DB에서 검증한다.
+    testRuntimeOnly 'com.h2database:h2'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
 }

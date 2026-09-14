@@ -265,19 +265,28 @@ check_server() {
   # ⚠ 유닛이 없는데도 systemctl show 는 Result=success 를 돌려준다.
   #   그대로 믿으면 '백업이 아예 안 걸려 있는 상태' 를 정상으로 보고하게 된다.
   #   먼저 유닛이 실제로 있는지부터 본다. (2026-09-14 실측)
-  local loaded res when age
+  local loaded res newest age BK
   loaded=$(systemctl show thispatch-dbbackup.service -p LoadState --value 2>/dev/null)
   if [ "$loaded" != loaded ]; then
     row WARN "DB 백업" "타이머가 등록되어 있지 않다"
   else
+    # ⚠ systemd 가 알려주는 '마지막 실행 시각' 을 쓰면 안 된다.
+    #   Type=oneshot 유닛은 끝나는 순간 ExecMainExitTimestamp 가 비워진다.
+    #   InactiveEnterTimestamp 도 마찬가지로 비어 있다.
+    #   그래서 백업이 잘 돌아도 영원히 '한 번도 안 돌았다' 로 보고했다.
+    #   (2026-09-14 실측 — 성공 직후에 봐도 전부 빈 값이었다)
+    #
+    #   대신 결과물을 본다. 18-db-backup.sh 는 성공할 때만 로컬 사본을
+    #   남기므로, 그 파일의 시각이 곧 마지막 성공 시각이다.
+    BK=${LOCAL_DIR:-$HOME/db-backup}
+    newest=$(ls -t "$BK"/db-*.tar.gz 2>/dev/null | head -1)
     res=$(systemctl show thispatch-dbbackup.service -p Result --value 2>/dev/null)
-    when=$(systemctl show thispatch-dbbackup.service -p ExecMainExitTimestamp --value 2>/dev/null)
     if [ "$res" != success ]; then
       row BAD "DB 백업" "마지막 실행 실패 ($res)"
-    elif [ -z "$when" ]; then
-      row WARN "DB 백업" "아직 한 번도 돌지 않았다"
+    elif [ -z "$newest" ]; then
+      row WARN "DB 백업" "백업 파일이 없다 ($BK)"
     else
-      age=$(( ( $(date +%s) - $(date -d "$when" +%s 2>/dev/null || echo 0) ) / 3600 ))
+      age=$(( ( $(date +%s) - $(stat -c %Y "$newest") ) / 3600 ))
       if [ "$age" -gt 30 ]; then row WARN "DB 백업" "${age}시간 전 (하루 넘게 안 돌았다)"
       else row OK "DB 백업" "${age}시간 전 성공"; fi
     fi

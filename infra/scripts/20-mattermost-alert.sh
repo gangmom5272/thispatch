@@ -119,7 +119,7 @@ except Exception: print('-1 ? 0 0')" 2>/dev/null)
   # 3) 기대 목록 (workers 파일의 IP)
   local EXPECT_IPS EXPECT
   EXPECT_IPS=$(grep -oE '^[0-9]+(\.[0-9]+){3}' "$CONF/workers" 2>/dev/null | sort -u)
-  EXPECT=$(printf '%s\n' "$EXPECT_IPS" | grep -c . || echo 0)
+  EXPECT=$(printf '%s\n' "$EXPECT_IPS" | grep -c .)
 
   # 4) 지금 붙어 있는 DataNode 를 IP 로 받아온다
   #    dfsadmin -report 는 지도가 아니라 목록이라 이름이 겹쳐도 다 나온다.
@@ -216,7 +216,7 @@ except Exception: pass" 2>/dev/null)
   #    대신 하둡 데몬이 최근에 재시작했는지로 간접 확인한다.
   #    5분 안에 두 번 이상 멈췄으면 무언가 반복해서 내리고 있는 것이다.
   local RMSTOP
-  RMSTOP=$(journalctl -u yarn-resourcemanager --since "10 min ago" --no-pager 2>/dev/null | grep -c "Stopping YARN" || echo 0)
+  RMSTOP=$(journalctl -u yarn-resourcemanager --since "10 min ago" --no-pager 2>/dev/null | grep -c "Stopping YARN")
   if [ "${RMSTOP:-0}" -ge 3 ]; then
     row BAD "RM 재시작" "10분간 ${RMSTOP}회 — WSL 이 반복해서 꺼지고 있다"
   elif [ "${RMSTOP:-0}" -ge 1 ]; then
@@ -262,17 +262,25 @@ check_server() {
 
   # 4) 백업이 최근에 성공했는가
   #    ⚠ 백업은 조용히 실패한다. 실패해도 아무 일이 안 일어나기 때문이다.
-  local res when age
-  res=$(systemctl show dispatch-dbbackup.service -p Result --value 2>/dev/null)
-  when=$(systemctl show dispatch-dbbackup.service -p ExecMainExitTimestamp --value 2>/dev/null)
-  if [ -z "$res" ]; then
-    row WARN "DB 백업" "타이머가 등록돼 있지 않다"
-  elif [ "$res" != success ]; then
-    row BAD "DB 백업" "마지막 실행 실패 ($res)"
+  # ⚠ 유닛이 없는데도 systemctl show 는 Result=success 를 돌려준다.
+  #   그대로 믿으면 '백업이 아예 안 걸려 있는 상태' 를 정상으로 보고하게 된다.
+  #   먼저 유닛이 실제로 있는지부터 본다. (2026-09-14 실측)
+  local loaded res when age
+  loaded=$(systemctl show dispatch-dbbackup.service -p LoadState --value 2>/dev/null)
+  if [ "$loaded" != loaded ]; then
+    row WARN "DB 백업" "타이머가 등록되어 있지 않다"
   else
-    age=$(( ( $(date +%s) - $(date -d "$when" +%s 2>/dev/null || echo 0) ) / 3600 ))
-    if [ "$age" -gt 30 ]; then row WARN "DB 백업" "${age}시간 전 (하루 넘게 안 돌았다)"
-    else row OK "DB 백업" "${age}시간 전 성공"; fi
+    res=$(systemctl show dispatch-dbbackup.service -p Result --value 2>/dev/null)
+    when=$(systemctl show dispatch-dbbackup.service -p ExecMainExitTimestamp --value 2>/dev/null)
+    if [ "$res" != success ]; then
+      row BAD "DB 백업" "마지막 실행 실패 ($res)"
+    elif [ -z "$when" ]; then
+      row WARN "DB 백업" "아직 한 번도 돌지 않았다"
+    else
+      age=$(( ( $(date +%s) - $(date -d "$when" +%s 2>/dev/null || echo 0) ) / 3600 ))
+      if [ "$age" -gt 30 ]; then row WARN "DB 백업" "${age}시간 전 (하루 넘게 안 돌았다)"
+      else row OK "DB 백업" "${age}시간 전 성공"; fi
+    fi
   fi
 
   # 5) 디스크 · 메모리

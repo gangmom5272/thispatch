@@ -9,7 +9,12 @@
 | member | [member.md](member.md) | `GET /session` | 로그인 상태 헤더 |
 | member | [member.md](member.md) | `POST /auth/login` | 로그인 |
 | member | [member.md](member.md) | `POST /auth/signup` | 회원가입 |
+| member | [member.md](member.md) | `GET /auth/steam/login` | Steam 로그인 시작 |
+| member | [member.md](member.md) | `GET /auth/steam/callback` | Steam 인증 결과 처리 |
+| member | [member.md](member.md) | `POST /auth/steam/token` | Steam 로그인 토큰 교환 |
+| member | [member.md](member.md) | `POST /auth/steam/signup` | Steam 회원가입 완료 |
 | member | [member.md](member.md) | `POST /auth/refresh` | 토큰 갱신 |
+| member | [member.md](member.md) | `POST /auth/logout` | 로그아웃 |
 | member | [member.md](member.md) | `DELETE /members/me` | 회원탈퇴 |
 | game | [game.md](game.md) | `GET /genres` | 장르 필터 |
 | game | [game.md](game.md) | `GET /games` | 게임 목록/검색/자동완성 |

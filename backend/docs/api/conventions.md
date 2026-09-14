@@ -8,7 +8,7 @@
 4. API의 게임 식별자는 `gameId`, DB에서는 `appid`를 사용한다.
 5. `gameId` 타입은 `long`.
 6. API/UI에서는 `genre`, DB에서는 `tag`, `game_tag`를 사용한다.
-7. 로그인 필수 API는 `Authorization: Bearer {ACCESS_TOKEN}`을 요구한다.
+7. 일반 서비스 API의 인증 방식은 JWT Bearer Token이며, 로그인 필수 API는 `Authorization: Bearer {ACCESS_TOKEN}`을 요구한다.
 8. `/session`만 Authorization 선택이다.
 
 ## Auth
@@ -19,11 +19,19 @@
 | Optional | 인증 선택 |
 | None | 인증 요구 없음 |
 
+- Access Token 인증 없이 접근하는 API: `POST /auth/login`, `POST /auth/signup`, `GET /auth/steam/login`, `GET /auth/steam/callback`, `POST /auth/steam/token`, `POST /auth/steam/signup`, `POST /auth/refresh`.
+- `GET /session`은 Authorization 선택이며, `POST /auth/logout`과 각 도메인에서 Required로 표기한 API는 인증 필수다.
+- 로그인·회원가입 성공 시 Access Token과 Refresh Token은 Response Body의 `data.accessToken`, `data.refreshToken`으로 반환한다. HttpOnly Cookie로 전달하지 않는다.
+- Steam 콜백은 `302 Redirect`로 1회용 `loginCode` 또는 `signupToken`을 전달한다. Access Token과 Refresh Token은 Redirect URL에 포함하지 않는다.
+- `loginCode`와 `signupToken`은 각각 로그인 토큰 교환과 회원가입 전용이며 일반 API 인증에 사용할 수 없다.
+- Refresh Token은 `POST /auth/refresh`, `POST /auth/logout`의 Request Body로 전달한다. 재발급 응답은 기존 계약대로 새 Access Token을 반환한다.
+
 ## Response
 
 - 성공 응답의 공통 envelope: `code`, `message`, `responsedAt`, `data`, `success`. `code`는 예시의 문자열 표현을 유지한다.
 - `data` 없는 성공 응답, `data` 또는 `summary`만 제시된 예시, 단일 Response item은 각 명세 그대로 사용한다. 누락 필드를 임의로 채우거나 구조를 통일하지 않는다.
 - 오류 응답은 아래 공통 형식을 사용한다. endpoint별 Error Responses의 상태 코드·설명은 유지한다.
+- Steam 로그인 시작·콜백의 `302 Redirect` 응답은 JSON envelope 없이 `Location` 헤더를 사용한다. Steam 인증 실패 콜백도 회원 API 명세의 실패 Redirect를 따른다.
 
 ## Error Response
 

@@ -25,7 +25,7 @@ export default tseslint.config(
       ...tseslint.configs.recommended,
       reactPlugin.configs.flat.recommended,
     ],
-    files: ["**/*.{ts,tsx}"],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2023,
       globals: {
@@ -42,7 +42,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
       "prettier/prettier": ["error", { singleQuote: false }],
       "no-implicit-coercion": "error",
@@ -96,11 +96,11 @@ export default tseslint.config(
         { format: ["PascalCase"], selector: "interface" },
         { format: ["PascalCase"], selector: "typeAlias" },
       ],
-      "@typescript-eslint/explicit-module-boundary-types": "off",
-      "@typescript-eslint/array-type": ["error", { default: "array-simple" }],
-      "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }],
-      "@typescript-eslint/member-ordering": [
-        "error",
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+      '@typescript-eslint/member-ordering': [
+        'error',
         {
           default: [
             "public-static-field",

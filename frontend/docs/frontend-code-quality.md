@@ -83,7 +83,7 @@ function PropertyListEmpty() {
 // 호출부만 봐서는 알 수 없다.
 setTimeout(() => setLoading(false), 600)
 
-if ((property.dealType === "월세" && property.monthlyRent > 0) || property.deposit === 0) {
+if ((property.dealType === '월세' && property.monthlyRent > 0) || property.deposit === 0) {
   showFreeDepositBadge()
 }
 ```
@@ -93,7 +93,7 @@ if ((property.dealType === "월세" && property.monthlyRent > 0) || property.dep
 const MOCK_LOADING_MS = 600
 setTimeout(() => setLoading(false), MOCK_LOADING_MS)
 
-const isFreeDepositMonthlyRent = property.dealType === "월세" && property.monthlyRent > 0
+const isFreeDepositMonthlyRent = property.dealType === '월세' && property.monthlyRent > 0
 const hasNoDeposit = property.deposit === 0
 
 if (isFreeDepositMonthlyRent || hasNoDeposit) {
@@ -107,24 +107,24 @@ if (isFreeDepositMonthlyRent || hasNoDeposit) {
 // Before: 중첩 삼항 연산자는 조건이 늘어날수록
 // 어떤 값이 어떤 조건에 대응하는지 시각적으로 추적하기 어렵다.
 const priceLabel =
-  property.dealType === "매매"
-    ? "매매가"
-    : property.dealType === "전세"
-      ? "전세 보증금"
-      : property.dealType === "월세"
-        ? "보증금 / 월세"
-        : ""
+  property.dealType === '매매'
+    ? '매매가'
+    : property.dealType === '전세'
+      ? '전세 보증금'
+      : property.dealType === '월세'
+        ? '보증금 / 월세'
+        : ''
 ```
 
 ```tsx
 // After: 조건-결과 매핑을 위에서 아래로 순서대로 읽을 수 있는 형태로 바꾼다.
 const DEAL_TYPE_PRICE_LABEL: Record<DealType, string> = {
-  매매: "매매가",
-  전세: "전세 보증금",
-  월세: "보증금 / 월세",
+  매매: '매매가',
+  전세: '전세 보증금',
+  월세: '보증금 / 월세',
 }
 
-const priceLabel = DEAL_TYPE_PRICE_LABEL[property.dealType] ?? ""
+const priceLabel = DEAL_TYPE_PRICE_LABEL[property.dealType] ?? ''
 ```
 
 ### 2. 예측 가능성 (Predictability) — 이름과 시그니처만 보고 동작을 예측할 수 있는가
@@ -146,7 +146,7 @@ async function fetchProperty(id: number): Promise<Property | null> {
 
 async function fetchUser(id: number): Promise<User> {
   const res = await api.get(`/users/${id}`)
-  if (!res.ok) throw new Error("failed to fetch user")
+  if (!res.ok) throw new Error('failed to fetch user')
   return res.json()
 }
 ```
@@ -156,13 +156,13 @@ async function fetchUser(id: number): Promise<User> {
 // 호출부는 fetchX 계열이면 항상 try/catch로 처리하면 된다는 걸 예측할 수 있다.
 async function fetchProperty(id: number): Promise<Property> {
   const res = await api.get(`/properties/${id}`)
-  if (!res.ok) throw new ApiError("failed to fetch property", res.status)
+  if (!res.ok) throw new ApiError('failed to fetch property', res.status)
   return res.json()
 }
 
 async function fetchUser(id: number): Promise<User> {
   const res = await api.get(`/users/${id}`)
-  if (!res.ok) throw new ApiError("failed to fetch user", res.status)
+  if (!res.ok) throw new ApiError('failed to fetch user', res.status)
   return res.json()
 }
 ```
@@ -174,7 +174,7 @@ async function fetchUser(id: number): Promise<User> {
 // 호출부는 getIsSaved(property)를 여러 번 호출해도 안전하다고 생각하지만
 // 실제로는 호출할 때마다 서버에 로그가 쌓인다.
 function getIsSaved(property: Property): boolean {
-  api.post("/analytics/property-viewed", { propertyId: property.id }) // 숨은 부작용
+  api.post('/analytics/property-viewed', { propertyId: property.id }) // 숨은 부작용
   return property.saved
 }
 ```
@@ -187,7 +187,7 @@ function getIsSaved(property: Property): boolean {
 }
 
 function reportPropertyViewed(property: Property): void {
-  api.post("/analytics/property-viewed", { propertyId: property.id })
+  api.post('/analytics/property-viewed', { propertyId: property.id })
 }
 ```
 
@@ -258,16 +258,16 @@ function PropertyListSkeleton() {
 ```tsx
 // Before: 필드마다 개별 state — 필드가 늘어날수록 관리 지점이 늘고,
 // "검색 조건 초기화"처럼 폼 전체를 다루는 로직을 작성하기 번거롭다.
-const [query, setQuery] = useState("")
-const [region, setRegion] = useState("all")
-const [price, setPrice] = useState("all")
-const [buildingType, setBuildingType] = useState("all")
+const [query, setQuery] = useState('')
+const [region, setRegion] = useState('all')
+const [price, setPrice] = useState('all')
+const [buildingType, setBuildingType] = useState('all')
 
 const resetFilters = () => {
-  setQuery("")
-  setRegion("all")
-  setPrice("all")
-  setBuildingType("all")
+  setQuery('')
+  setRegion('all')
+  setPrice('all')
+  setBuildingType('all')
 }
 ```
 
@@ -300,7 +300,7 @@ function PropertyDetailPage({ id }: { id: number }) {
       .then((res) => res.json())
       .then((data) => {
         setProperty(data)
-        localStorage.setItem("lastViewedPropertyId", String(id))
+        localStorage.setItem('lastViewedPropertyId', String(id))
       })
   }, [id])
 
@@ -338,8 +338,8 @@ function PropertyDetailPage({ id }: { id: number }) {
 // Before: 매물 카드와 유저 카드는 우연히 레이아웃이 비슷할 뿐 도메인이 다른데,
 // 하나의 컴포넌트로 억지로 묶어 type 분기가 계속 늘어난다.
 // 매물 카드만 바꾸고 싶어도 유저 카드에 영향이 없는지 항상 같이 확인해야 한다.
-function EntityCard({ type, entity }: { type: "property" | "user"; entity: Property | User }) {
-  if (type === "property") {
+function EntityCard({ type, entity }: { type: 'property' | 'user'; entity: Property | User }) {
+  if (type === 'property') {
     const property = entity as Property
     return <Card>{property.title}</Card>
   }

@@ -22,12 +22,12 @@ pages/components → hooks/queries → api/도메인 함수 → api/client → a
 ### ① `src/api/<도메인>.ts` — API 함수
 
 ```ts
-import { api } from "@/api/client"
-import type { Reservation } from "@/types"
+import { api } from '@/api/client'
+import type { Reservation } from '@/types'
 
 interface ReservationFilters {
-  status?: "예약 확정" | "예약 대기"
-  direction?: "sent" | "received"
+  status?: '예약 확정' | '예약 대기'
+  direction?: 'sent' | 'received'
 }
 
 export function getReservations(
@@ -35,7 +35,7 @@ export function getReservations(
   signal?: AbortSignal,
 ): Promise<Reservation[]> {
   return api.get<Reservation[]>({
-    path: "/reservations",
+    path: '/reservations',
     config: { params: filters, signal },
   })
 }
@@ -63,17 +63,17 @@ fetcher는 위치 인자가 아니라 **단일 객체 인자**를 받는다: `ap
 ```ts
 export function uploadPropertyImage(propertyId: number, file: File): Promise<string> {
   const formData = new FormData()
-  formData.append("image", file)
+  formData.append('image', file)
   return api.post<string>({
     path: `/properties/${propertyId}/images`,
     body: formData,
-    headers: { "Content-Type": "multipart/form-data" },
+    headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
 
 export function reissuedToken(refreshToken: string): Promise<Token> {
   return api.post<Token>({
-    path: "/auth/refresh",
+    path: '/auth/refresh',
     headers: { RefreshToken: refreshToken },
   })
 }
@@ -84,13 +84,13 @@ export function reissuedToken(refreshToken: string): Promise<Token> {
 ### ② `src/hooks/queries/<도메인>Queries.ts` — 키·옵션·훅
 
 ```ts
-import { queryOptions, useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
-import { getReservations, type ReservationFilters } from "@/api/reservation"
+import { getReservations, type ReservationFilters } from '@/api/reservation'
 
 export const reservationKeys = {
-  all: ["reservations"] as const,
-  lists: () => [...reservationKeys.all, "list"] as const,
+  all: ['reservations'] as const,
+  lists: () => [...reservationKeys.all, 'list'] as const,
   list: (filters: ReservationFilters) => [...reservationKeys.lists(), filters] as const,
 }
 
@@ -149,7 +149,7 @@ const [error, formAction, isPending] = useActionState(
       await mutateAsync(toChanges(formData))
       return null
     } catch (e) {
-      return isApiError(e) ? e.message : "저장에 실패했습니다."
+      return isApiError(e) ? e.message : '저장에 실패했습니다.'
     }
   },
   null,

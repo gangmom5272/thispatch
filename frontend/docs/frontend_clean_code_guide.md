@@ -46,7 +46,7 @@ function QuestionPage() {
 
   async function handlePopupSubmit() {
     await sendQuestion(expertId)
-    alert("질문을 전송했습니다.")
+    alert('질문을 전송했습니다.')
   }
 
   return (
@@ -70,7 +70,7 @@ function QuestionPage() {
 
   async function handleClick() {
     const confirmed = await openPopup({
-      title: "보험 질문하기",
+      title: '보험 질문하기',
       contents: <div>전문가가 설명드려요</div>,
     })
     if (confirmed) {
@@ -107,7 +107,7 @@ function QuestionPage() {
 // ❌ Logging code mixed directly into UI event handler
 <button
   onClick={async () => {
-    log("제출 버튼 클릭")
+    log('제출 버튼 클릭')
     await openConfirm()
   }}
 >
@@ -155,7 +155,7 @@ return <div ref={targetRef}>더 보기</div>
 
 ```tsx
 // ✅ Clear domain concept naming using Korean variables for complex conditions
-const 패널티풀림 = reasons.includes("PENALTY") === false
+const 패널티풀림 = reasons.includes('PENALTY') === false
 const 평점4점이상 = review.rate >= 80
 
 if (패널티풀림 && 평점4점이상) {

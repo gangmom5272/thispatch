@@ -18,7 +18,7 @@
 #   설치:  sudo bash 05-wsl-route-fix.sh
 set -euo pipefail
 
-FIXER=/usr/local/sbin/dispatch-route-fix
+FIXER=/usr/local/sbin/thispatch-route-fix
 [ "$(id -u)" = 0 ] || { echo "sudo 로 실행하세요." >&2; exit 1; }
 
 echo "── 교정 스크립트 설치 ─────────────────────────────"
@@ -54,20 +54,20 @@ FIXEOF
 chmod +x "$FIXER"
 
 echo "── systemd 등록 ───────────────────────────────────"
-cat > /etc/systemd/system/dispatch-route.service <<"SVCEOF"
+cat > /etc/systemd/system/thispatch-route.service <<"SVCEOF"
 [Unit]
 Description=WSL 미러링 기본경로 교정 (디스패치 클러스터)
 After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/dispatch-route-fix
+ExecStart=/usr/local/sbin/thispatch-route-fix
 RemainAfterExit=no
 SVCEOF
 
 # 미러링 동기화가 언제 덮을지 모르므로 1분마다 다시 확인한다.
 # ip route replace 는 멱등이라 부담이 없다.
-cat > /etc/systemd/system/dispatch-route.timer <<"TMREOF"
+cat > /etc/systemd/system/thispatch-route.timer <<"TMREOF"
 [Unit]
 Description=WSL 미러링 기본경로 교정 주기 실행
 
@@ -81,13 +81,13 @@ WantedBy=timers.target
 TMREOF
 
 systemctl daemon-reload
-systemctl enable --now dispatch-route.timer >/dev/null
-systemctl start dispatch-route.service
+systemctl enable --now thispatch-route.timer >/dev/null
+systemctl start thispatch-route.service
 
 echo
 echo "── 확인 ──────────────────────────────────────────"
-systemctl is-enabled dispatch-route.timer
-systemctl list-timers dispatch-route.timer --no-pager | head -3
+systemctl is-enabled thispatch-route.timer
+systemctl list-timers thispatch-route.timer --no-pager | head -3
 echo
 ip route | grep -E "^0.0.0.0/1|^128.0.0.0/1|^default"
 echo

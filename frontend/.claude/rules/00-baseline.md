@@ -1,13 +1,13 @@
 ---
 paths:
-  - 'src/**/*.ts'
-  - 'src/**/*.tsx'
-  - 'src/**/*.css'
-  - 'index.html'
-  - 'vite.config.ts'
-  - 'vite.config.js'
-  - 'tailwind.config.ts'
-  - 'tailwind.config.js'
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "src/**/*.css"
+  - "index.html"
+  - "vite.config.ts"
+  - "vite.config.js"
+  - "tailwind.config.ts"
+  - "tailwind.config.js"
 ---
 
 # 프론트엔드 기본 규칙

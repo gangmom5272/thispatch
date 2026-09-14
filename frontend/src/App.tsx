@@ -1,17 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import { apiClient } from './lib/axios'
-import { cn } from './lib/cn'
-import { useCounterStore } from './store/useCounterStore'
-import './App.css'
+import { useQuery } from "@tanstack/react-query"
+import heroImg from "./assets/hero.png"
+import reactLogo from "./assets/react.svg"
+import viteLogo from "./assets/vite.svg"
+import { apiClient } from "./lib/axios"
+import { cn } from "./lib/cn"
+import { useCounterStore } from "./store/useCounterStore"
+import "./App.css"
 
 function useHealthCheck() {
   return useQuery({
-    queryKey: ['health'],
+    queryKey: ["health"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ status: string }>('/health')
+      const { data } = await apiClient.get<{ status: string }>("/health")
       return data
     },
   })
@@ -27,16 +27,16 @@ function StackCheck() {
       <button
         type="button"
         className={cn(
-          'counter',
-          'transition-colors hover:border-(--accent-border) hover:bg-(--accent-bg)',
+          "counter",
+          "transition-colors hover:border-(--accent-border) hover:bg-(--accent-bg)",
         )}
         onClick={increment}
       >
         zustand count is {count}
       </button>
       <p>
-        tanstack query + axios + msw:{' '}
-        {isLoading ? 'loading…' : isError ? 'error' : `status = ${data?.status}`}
+        tanstack query + axios + msw:{" "}
+        {isLoading ? "loading…" : isError ? "error" : `status = ${data?.status}`}
       </p>
     </div>
   )

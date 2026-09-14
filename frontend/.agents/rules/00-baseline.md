@@ -12,7 +12,7 @@ paths:
 
 # 프론트엔드 기본 규칙
 
-- UI 구현 전에 `docs/frontend-spec.md`를 읽고 기능, 상태, 문구, 화면 흐름을 확인한다.
+- 코드 작성 시 eslint 규칙을 준수하도록 코드 컨벤션을 지킨다.
 - 코드 작성, 수정, 리뷰 전에 `docs/frontend-code-quality.md`와 `docs/frontend-clean-code-guide.md`의 관련 기준을 확인한다.
 - 명세에 없는 사용자 기능은 추가하지 않는다.
 - 기존 프로젝트의 디렉토리 구조, 컴포넌트 패턴, 명명 규칙을 우선 따른다.

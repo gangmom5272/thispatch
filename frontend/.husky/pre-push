@@ -1,0 +1,1 @@
+node frontend/scripts/commit-message.mjs validate-push

@@ -109,6 +109,38 @@ class MemberRepositoryTest {
 	}
 
 	@Test
+	void storesReplacesAndClearsOnlyTheMatchingRefreshToken() {
+		Member saved = repository.save(Member.builder().loginType(LoginType.LOCAL).status("ACTIVE")
+			.createdAt(Instant.parse("2026-09-14T01:02:03Z")).build());
+		long memberId = saved.getMemberId();
+		Instant expiry = Instant.parse("2026-09-21T01:02:03Z");
+		assertThat(saved.getRefreshTokenHash()).isNull();
+		assertThat(saved.getRefreshTokenExpiresAt()).isNull();
+
+		assertThat(repository.updateRefreshToken(memberId, "a".repeat(64), expiry)).isEqualTo(1);
+		Member first = repository.findById(memberId).orElseThrow();
+		assertThat(first.getRefreshTokenHash()).isEqualTo("a".repeat(64));
+		assertThat(first.getRefreshTokenExpiresAt()).isEqualTo(expiry);
+		assertThat(repository.clearRefreshToken(-1L, "a".repeat(64))).isZero();
+
+		assertThat(repository.updateRefreshToken(memberId, "b".repeat(64), expiry.plusSeconds(60))).isEqualTo(1);
+		assertThat(repository.clearRefreshToken(memberId, "a".repeat(64))).isZero();
+		Member current = repository.findById(memberId).orElseThrow();
+		assertThat(current.getRefreshTokenHash()).isEqualTo("b".repeat(64));
+		assertThat(current.getRefreshTokenExpiresAt()).isEqualTo(expiry.plusSeconds(60));
+
+		assertThat(repository.clearRefreshToken(memberId, "b".repeat(64))).isEqualTo(1);
+		assertThat(repository.clearRefreshToken(memberId, "b".repeat(64))).isZero();
+		// 다른 회원 필드를 저장하더라도 오래된 객체의 토큰 정보가 DB에 복구되어서는 안 된다.
+		repository.saveAndFlush(current);
+		entityManager.clear();
+		Member revoked = repository.findById(memberId).orElseThrow();
+		assertThat(revoked.getRefreshTokenHash()).isNull();
+		assertThat(revoked.getRefreshTokenExpiresAt()).isNull();
+		assertThat(repository.updateRefreshToken(-1L, "a".repeat(64), expiry)).isZero();
+	}
+
+	@Test
 	void returnsEmptyForMissingMember() {
 		String email = UUID.randomUUID() + "@example.com";
 		assertThat(repository.findById(-1L)).isEmpty();

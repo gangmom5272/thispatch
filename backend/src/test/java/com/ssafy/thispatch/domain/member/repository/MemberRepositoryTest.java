@@ -19,12 +19,14 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.ssafy.thispatch.domain.member.entity.LoginType;
 import com.ssafy.thispatch.domain.member.entity.Member;
+import com.ssafy.thispatch.domain.member.service.CurrentMemberService;
 import com.ssafy.thispatch.global.config.AppConfig;
+import com.ssafy.thispatch.global.security.MemberPrincipal;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(AppConfig.class)
+@Import({AppConfig.class, CurrentMemberService.class})
 class MemberRepositoryTest {
 
 	@Autowired
@@ -38,6 +40,9 @@ class MemberRepositoryTest {
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private CurrentMemberService currentMemberService;
 
 	@BeforeEach
 	void requireTestDatabase() {
@@ -57,6 +62,7 @@ class MemberRepositoryTest {
 		Member found = repository.findByEmail(email).orElseThrow();
 		assertThat(found.getMemberId()).isPositive().isEqualTo(saved.getMemberId());
 		assertThat(repository.findById(saved.getMemberId())).contains(found);
+		assertThat(currentMemberService.find(new MemberPrincipal(saved.getMemberId()))).contains(found);
 		assertThat(found.getLoginType()).isEqualTo(LoginType.LOCAL);
 		assertThat(found.getEmail()).isEqualTo(email);
 		assertThat(found.getPassword()).isEqualTo("a".repeat(64));

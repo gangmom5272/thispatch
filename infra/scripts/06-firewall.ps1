@@ -146,4 +146,14 @@ if ($failed -gt 0) {
     Write-Host "실패한 규칙이 있습니다. 위 오류를 확인하세요." -ForegroundColor Red
     exit 1
 }
-Write-Host "완료. WSL 재시작 없이 즉시 적용됩니다." -ForegroundColor Green
+Write-Host "규칙은 만들어졌습니다." -ForegroundColor Green
+Write-Host ""
+Write-Host "⚠ WSL 을 한 번 껐다 켜야 실제로 적용됩니다." -ForegroundColor Yellow
+Write-Host "  Hyper-V 방화벽 규칙은 가상머신이 '시작할 때' 붙습니다."
+Write-Host "  이미 떠 있는 WSL 에 규칙만 새로 만들면, 목록에는 Enabled=True 로"
+Write-Host "  멀쩡히 보이는데 포트는 여전히 막혀 있습니다. (2026-09-14 실측)"
+Write-Host ""
+Write-Host "  wsl --shutdown; Start-Sleep -Seconds 10; Start-Process wsl -ArgumentList '-e','sleep','infinity' -WindowStyle Hidden"
+Write-Host ""
+Write-Host "  마지막의 숨은 세션은 WSL 을 붙잡아 두는 용도입니다."
+Write-Host "  없으면 마지막 창을 닫고 60 초 뒤에 WSL 이 스스로 꺼집니다."

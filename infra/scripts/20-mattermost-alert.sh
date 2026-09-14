@@ -192,6 +192,38 @@ except Exception: pass" 2>/dev/null)
   if [ "${USE:-0}" -ge 90 ]; then row BAD "디스크" "${USE}% 사용"
   elif [ "${USE:-0}" -ge 80 ]; then row WARN "디스크" "${USE}% 사용"
   else row OK "디스크" "${USE}% 사용"; fi
+  # 8) WSL 이 방금 켜졌는가
+  #    ⚠ 이 검사가 제일 중요할 수도 있다.
+  #      WSL2 는 마지막 세션이 닫히면 60초 뒤 가상머신을 통째로 내린다.
+  #      그러면 하둡 데몬이 전부 죽고, 워커들은 사라진 마스터를 찾다가 끊긴다.
+  #      겉으로는 "워커가 이상하다" 로 보이지만 범인은 마스터다. (2026-09-14 실측)
+  #
+  #      막는 장치는 두 가지인데 둘 다 조용히 실패할 수 있다.
+  #        .wslconfig 의 vmIdleTimeout  — WSL 2.7 은 이 키를 거부한다
+  #        시작프로그램의 keepalive 세션 — 로그인 안 하면 안 돈다
+  #      그래서 결과를 직접 본다. 가동 시간이 매번 짧으면 꺼지고 있는 것이다.
+  local UPS
+  UPS=$(cut -d. -f1 /proc/uptime 2>/dev/null)
+  if [ -z "$UPS" ]; then
+    row WARN "WSL 가동" "확인 불가"
+  elif [ "$UPS" -lt 300 ]; then
+    row WARN "WSL 가동" "$((UPS/60))분 — 방금 켜졌다. 절전으로 꺼졌다 왔을 수 있다"
+  else
+    row OK "WSL 가동" "$((UPS/3600))시간 $(((UPS%3600)/60))분"
+  fi
+
+  # 9) WSL 을 붙잡는 세션이 있는가는 리눅스 안에서 볼 수 없다.
+  #    대신 하둡 데몬이 최근에 재시작했는지로 간접 확인한다.
+  #    5분 안에 두 번 이상 멈췄으면 무언가 반복해서 내리고 있는 것이다.
+  local RMSTOP
+  RMSTOP=$(journalctl -u yarn-resourcemanager --since "10 min ago" --no-pager 2>/dev/null | grep -c "Stopping YARN" || echo 0)
+  if [ "${RMSTOP:-0}" -ge 3 ]; then
+    row BAD "RM 재시작" "10분간 ${RMSTOP}회 — WSL 이 반복해서 꺼지고 있다"
+  elif [ "${RMSTOP:-0}" -ge 1 ]; then
+    row WARN "RM 재시작" "10분간 ${RMSTOP}회"
+  else
+    row OK "RM 재시작" "없음"
+  fi
 }
 
 # ══ 서버1 검사 ════════════════════════════════════════════════

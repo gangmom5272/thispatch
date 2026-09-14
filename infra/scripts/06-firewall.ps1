@@ -122,6 +122,20 @@ Get-NetFirewallHyperVRule |
     Select-Object Name, Protocol, LocalPorts, RemoteAddresses, Action |
     Format-Table -AutoSize | Out-String -Width 160 | Write-Host
 
+# ── VM 기본 정책 ──────────────────────────────────
+#
+# ⚠ 규칙만 만들면 안 된다. VM 자체의 기본 정책이 NotConfigured 면
+#   위에서 만든 허용 규칙이 적용되지 않는다. 규칙은 18개 다 생겼는데
+#   포트는 여전히 전부 막혀 있는 상태가 된다. (2026-09-14 실측, 노트북4)
+#
+#   Block 으로 두는 것이 맞다. '전부 막는다' 가 아니라
+#   '기본은 막고, 위에서 연 포트만 통과' 라는 뜻이다.
+$vm = Get-NetFirewallHyperVVMSetting -Name $WSL_VM
+if ($vm.DefaultInboundAction -ne 'Block') {
+    Write-Host ("  기본 정책이 {0} 입니다. Block 으로 바꿉니다." -f $vm.DefaultInboundAction) -ForegroundColor Yellow
+    Set-NetFirewallHyperVVMSetting -Name $WSL_VM -DefaultInboundAction Block -DefaultOutboundAction Allow
+}
+
 Write-Host "── VM 기본 정책 (Block 이어야 정상. 위 규칙만 예외) ──"
 Get-NetFirewallHyperVVMSetting -Name $WSL_VM |
     Select-Object Name, DefaultInboundAction, DefaultOutboundAction |

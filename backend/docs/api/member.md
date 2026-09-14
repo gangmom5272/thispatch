@@ -48,8 +48,11 @@
 **Error Responses**
 
 - `503`: 세션 정보 조회 불가
+- `401`: Access Token 위조·형식 오류·용도 불일치, Bearer 형식 오류·중복 Authorization 헤더 (`UNAUTHORIZED`, `인증이 필요합니다.`)
 
 > `/session`은 로그인 수행 API가 아니라 현재 로그인 상태 확인용이다.
+
+- Authorization 헤더가 없거나 정상 Access Token이 만료된 경우에는 위의 비로그인 `200` 응답을 사용한다. 그 외 잘못된 토큰은 `401`이며, Refresh Token도 일반 인증에 사용할 수 없다.
 
 ## 로그인
 
@@ -429,7 +432,7 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 **Error Responses**
 
 - `400`: 필드 검증 실패 (`VALIDATION_FAILED`), 잘못된 JSON·요청 본문 누락 (`INVALID_REQUEST`). 코드·메시지는 공통 오류 계약을 따른다.
-- `401`: Access Token 인증 필요·무효·만료. Security에서 인증된 사용자가 없는 경우 `UNAUTHORIZED`, `인증이 필요합니다.`를 반환한다. 토큰 검증은 후속 인증 구현에서 연결한다.
+- `401`: Access Token 인증 필요·무효·만료. Security에서 인증된 사용자가 없는 경우 `UNAUTHORIZED`, `인증이 필요합니다.`를 반환한다.
 - `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
 - Refresh Token 소유자 불일치·검증 불가 시 오류 상태 코드·메시지는 미정이다. 다른 사용자의 토큰을 무효화해서는 안 된다.
 

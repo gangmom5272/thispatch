@@ -149,7 +149,7 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 - CORS 허용 메서드는 현재 API 계약의 `GET`, `POST`, `DELETE`와 사전 요청용 `OPTIONS`다. 허용 요청 헤더는 `Authorization`, `Content-Type`, `Accept`다.
 - 서비스 인증은 Bearer Token 방식이므로 CORS의 `allowCredentials`는 `false`다.
 - `CorsFilter`는 서블릿 필터로 한 번 등록하며 Security 필터보다 먼저 실행된다. `SecurityFilterChain`에는 CORS 필터를 중복 등록하지 않는다.
-- CORS 설정은 공개·보호 API의 인증 규칙을 바꾸지 않는다. 접근 규칙은 `SecurityConfig`에서 관리하고, 실제 JWT 검증 필터는 후속 작업에서 연결한다.
+- CORS 설정은 공개·보호 API의 인증 규칙을 바꾸지 않는다. 접근 규칙은 `SecurityConfig`, Access Token 검증은 `JwtAuthenticationFilter`가 처리한다.
 - 운영 배포 전 `FRONTEND_BASE_URL`, `BACKEND_PUBLIC_URL`, `CORS_ALLOWED_ORIGINS`를 서버 환경에 추가해야 한다. 현재 서버 Compose의 `env_file`로 주입할 수 있다.
 - `test` 프로필은 URL·CORS 값을 테스트 설정에서 지정하므로 로컬 `.env`의 해당 값에 의존하지 않는다. Spring의 `APP_*` 환경변수·시스템 속성 직접 지정은 테스트 설정도 덮어쓸 수 있다.
 
@@ -160,13 +160,15 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 - 브라우저 자동 전송 인증을 사용하지 않는 Bearer 방식에 맞춰 CSRF 필터를 비활성화한다. CORS는 기존 서블릿 필터가 먼저 처리하며 Security 체인에는 중복 등록하지 않는다.
 - Security의 인증 실패는 `401 UNAUTHORIZED`, 권한 거부는 `403 FORBIDDEN`이며 기존 `ErrorResponse`를 사용한다. 상세 계약은 [공통 오류 규칙](docs/api/conventions.md#security-인증권한-오류)을 따른다.
 - 내부 `ERROR` dispatch는 원래 오류 응답을 유지하기 위해 허용한다. 직접 요청한 `/error`는 인증을 요구한다.
-- 현재는 JWT 검증 필터·회원 API가 없으므로 실제 Bearer Token으로 로그인할 수 없다. 테스트용 인증으로 접근 규칙을 검증하며, `/session` 응답과 토큰 만료 처리도 후속 작업이다.
+- `JwtAuthenticationFilter`는 검증된 Access Token의 회원 ID를 `MemberPrincipal`로 등록한다. 컨트롤러에서는 `@AuthenticationPrincipal MemberPrincipal`로 받을 수 있다. 토큰 원문과 임의의 역할은 인증 객체에 저장하지 않는다.
+- 공개 인증 API는 Access Token 검사를 생략한다. `GET /session`은 토큰 없음·Access Token 만료만 비로그인으로 통과시키며, 그 외 잘못된 토큰은 `401`로 처리한다. 인증 필수 경로는 누락·만료·무효 모두 `401`이다.
+- 회원 API는 아직 구현하지 않았다. `/session`의 실제 응답·닉네임 조회, 회원 존재·탈퇴 상태 확인, Refresh Token 저장·폐기는 후속 회원 인증 작업에서 구현한다.
 - 역할별 권한 규칙은 정의하지 않는다. `403` 핸들러는 Security에서 권한 거부가 발생할 때 사용하도록 준비한다.
 
 ## JWT 설정
 
 `global.config.JwtProperties`에 JWT 발급·검증에 사용할 설정을 등록한다.
-현재 단계에서는 설정과 시작 시 검증만 제공하며, 실제 토큰 발급·검증 및 Security 필터 연결은 후속 작업이다.
+`JwtTokenProvider`가 HS256 Access/Refresh Token 발급·검증을 제공하며, Security 필터는 Access Token만 인증에 사용한다. 실제 로그인·갱신 API는 후속 작업이다.
 
 | 환경변수 | 설정 경로 | 기본값 |
 | --- | --- | --- |

@@ -20,6 +20,7 @@
 | game | [game.md](game.md) | `GET /games` | 게임 목록/검색/자동완성 |
 | game | [game.md](game.md) | `GET /games/{gameId}` | 게임 정보/hover |
 | game | [game.md](game.md) | `POST /games/{gameId}/my-game` | 내 게임 등록 |
+| game | [game.md](game.md) | `DELETE /games/{gameId}/my-game` | 내 게임 등록 해제 |
 | review | [review.md](review.md) | `GET /games/{gameId}/reviews` | 리뷰 목록 |
 | review | [review.md](review.md) | `GET /games/{gameId}/reviews/representative` | 최근 대표 리뷰 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/reaction-trends` | 반응 추세 차트/기간 합계 |

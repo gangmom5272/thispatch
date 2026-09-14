@@ -201,3 +201,45 @@ GET /games?search=slay&limit=5
 - `401`: 로그인 필요
 - `404`: 게임 없음
 - `409`: 이미 내 게임으로 등록됨
+
+## 내 게임 등록 해제
+
+### `DELETE /games/{gameId}/my-game`
+
+**Auth**
+
+- Required
+
+**Headers**
+
+| Name | Type | Description | Example |
+|---|---|---|---|
+| `Authorization` | string | 필수. 로그인 사용자 식별 | `Bearer {ACCESS_TOKEN}` |
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `gameId` | long | 게임 ID |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-14 15:12:00",
+  "success": true
+}
+```
+
+**Error Responses**
+
+- `401`: 로그인 필요
+- `404`: 게임 없음
+- `404`: 내 게임에 등록되지 않은 게임
+- `500`: 서버 내부 오류

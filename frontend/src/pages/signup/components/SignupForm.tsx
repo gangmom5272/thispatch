@@ -2,6 +2,7 @@ import { useActionState } from "react"
 import { useNavigate } from "react-router"
 import { isApiError } from "@/api/error"
 import { useSignup } from "@/hooks/queries/authQueries"
+import { paths } from "@/router/paths"
 
 export function SignupForm() {
   const navigate = useNavigate()
@@ -15,7 +16,7 @@ export function SignupForm() {
 
       try {
         await mutateAsync({ email, password, nickname })
-        void navigate("/login")
+        void navigate(paths.login)
         return null
       } catch (e) {
         return isApiError(e) ? e.message : "회원가입에 실패했습니다."

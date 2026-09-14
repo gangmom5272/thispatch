@@ -1,5 +1,6 @@
 import { Link } from "react-router"
 import { cn } from "@/lib/cn"
+import { paths } from "@/router/paths"
 
 function BrandMarkIcon({ size }: { size: number }) {
   return (
@@ -49,7 +50,7 @@ export function BrandLogo({ size = 22, interactive = true, className }: BrandLog
 
   return (
     <Link
-      to="/"
+      to={paths.home}
       className={cn(
         styles,
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary",

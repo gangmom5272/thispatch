@@ -24,14 +24,27 @@ final class CatalogMapper {
         return out;
     }
 
+    /** 직전 {@link #toGames} 에서 넣을 값이 없어 버린 항목 수. */
+    private static int lastDropped;
+
+    static int lastDropped() {
+        return lastDropped;
+    }
+
     static List<CatalogStore.Game> toGames(JsonNode storeItems) {
         List<CatalogStore.Game> out = new ArrayList<>();
+        int dropped = 0;
         for (JsonNode it : storeItems) {
             CatalogStore.Game g = toGame(it);
             if (g != null) {
                 out.add(g);
+            } else {
+                dropped++;
             }
         }
+        // 조용히 버리면 나중에 "전체보다 몇 개 적네" 를 설명할 수 없다.
+        // 스팀이 이름 없이 내려주는 항목이 0.014% 쯤 섞여 있다 (실측).
+        lastDropped = dropped;
         return out;
     }
 

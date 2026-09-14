@@ -62,6 +62,8 @@ public final class CatalogCollector {
             long games = 0;
             long links = 0;
             long skippedTags = 0;
+            long received = 0;
+            long dropped = 0;
 
             while (page < maxPages) {
                 JsonNode res = steam.fetchPage(start);
@@ -77,6 +79,8 @@ public final class CatalogCollector {
                 }
 
                 List<CatalogStore.Game> batch = CatalogMapper.toGames(items);
+                received += items.size();
+                dropped += CatalogMapper.lastDropped();
                 games += store.upsertGames(batch);
                 links += store.insertGameTags(batch);
                 skippedTags += store.lastSkippedTags();
@@ -95,6 +99,12 @@ public final class CatalogCollector {
 
             say("③ 결과");
             System.out.printf("   페이지        %d%n", page);
+            System.out.printf("   스팀이 준 것  %,d  (전체라고 말한 수 %,d)%n", received, total);
+            if (dropped > 0) {
+                // name 이 NOT NULL 이다. 스팀이 이름 없이 내려주는 항목은
+                // 넣을 값이 없어 버린다. 몇 개인지는 남긴다.
+                System.out.printf("   버림          %,d  (이름이 없는 항목)%n", dropped);
+            }
             System.out.printf("   게임 저장     %,d%n", games);
             System.out.printf("   태그 연결     %,d%n", links);
             if (skippedTags > 0) {

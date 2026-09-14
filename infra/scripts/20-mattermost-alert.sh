@@ -30,12 +30,12 @@ set -uo pipefail
 
 # ── 웹훅 주소 ─────────────────────────────────────────────────
 #   1순위  환경변수 MATTERMOST_WEBHOOK
-#   2순위  ~/.dispatch/mattermost-webhook 파일
+#   2순위  ~/.thispatch/mattermost-webhook 파일
 #   3순위  서버1 이면 infra/.env 의 MATTERMOST_WEBHOOK
 #
 # ⚠ 저장소에 넣지 말 것.
 #   이 주소를 아는 사람은 누구나 우리 채널에 글을 쓸 수 있다.
-STATE_DIR=${STATE_DIR:-$HOME/.dispatch}
+STATE_DIR=${STATE_DIR:-$HOME/.thispatch}
 HOOK_FILE=${HOOK_FILE:-$STATE_DIR/mattermost-webhook}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$(dirname "$HERE")/.env"
@@ -157,7 +157,7 @@ except Exception: print('-1 ? 0 0')" 2>/dev/null)
   # 6) YARN — 계산을 돌릴 수 있는가
   #    HDFS 가 멀쩡해도 YARN 이 비면 스파크 잡이 한 대에서만 돈다.
   #    ⚠ YARN 은 노드를 이름으로 부르기도 하고 IP 로 부르기도 한다
-  #      (dispatch-master, dispatch-w103, 70.12.247.106 이 섞여 나온다).
+  #      (dispatch-master, thispatch-w103, 70.12.247.106 이 섞여 나온다).
   #      그래서 전부 IP 로 바꿔서 비교한다.
   local YRAW YARN_IPS
   YRAW=$(curl -s -m 8 "http://localhost:8088/ws/v1/cluster/nodes" 2>/dev/null | python3 -c "
@@ -266,12 +266,12 @@ check_server() {
   #   그대로 믿으면 '백업이 아예 안 걸려 있는 상태' 를 정상으로 보고하게 된다.
   #   먼저 유닛이 실제로 있는지부터 본다. (2026-09-14 실측)
   local loaded res when age
-  loaded=$(systemctl show dispatch-dbbackup.service -p LoadState --value 2>/dev/null)
+  loaded=$(systemctl show thispatch-dbbackup.service -p LoadState --value 2>/dev/null)
   if [ "$loaded" != loaded ]; then
     row WARN "DB 백업" "타이머가 등록되어 있지 않다"
   else
-    res=$(systemctl show dispatch-dbbackup.service -p Result --value 2>/dev/null)
-    when=$(systemctl show dispatch-dbbackup.service -p ExecMainExitTimestamp --value 2>/dev/null)
+    res=$(systemctl show thispatch-dbbackup.service -p Result --value 2>/dev/null)
+    when=$(systemctl show thispatch-dbbackup.service -p ExecMainExitTimestamp --value 2>/dev/null)
     if [ "$res" != success ]; then
       row BAD "DB 백업" "마지막 실행 실패 ($res)"
     elif [ -z "$when" ]; then
@@ -401,7 +401,7 @@ install)
   [ -n "$WEBHOOK" ] || { echo "먼저 웹훅 주소를 넣으세요. bash $0 test" >&2; exit 1; }
   echo "== 타이머 등록 =================================="
   SELF=$(readlink -f "$0")
-  sudo tee /etc/systemd/system/dispatch-alert.service >/dev/null <<UNIT
+  sudo tee /etc/systemd/system/thispatch-alert.service >/dev/null <<UNIT
 [Unit]
 Description=디스패치 상태 감시 ($TITLE)
 After=network-online.target
@@ -415,7 +415,7 @@ Environment=STATE_DIR=$STATE_DIR
 Environment=HEARTBEAT_SEC=$HEARTBEAT_SEC
 ExecStart=/usr/bin/env bash $SELF now
 UNIT
-  sudo tee /etc/systemd/system/dispatch-alert.timer >/dev/null <<'UNIT'
+  sudo tee /etc/systemd/system/thispatch-alert.timer >/dev/null <<'UNIT'
 [Unit]
 Description=디스패치 상태 감시 — 10분마다
 
@@ -429,15 +429,15 @@ Persistent=true
 WantedBy=timers.target
 UNIT
   sudo systemctl daemon-reload
-  sudo systemctl enable --now dispatch-alert.timer
-  systemctl list-timers dispatch-alert.timer --no-pager | sed -n '1,3p'
+  sudo systemctl enable --now thispatch-alert.timer
+  systemctl list-timers thispatch-alert.timer --no-pager | sed -n '1,3p'
   echo
-  echo "  로그: journalctl -u dispatch-alert -n 30"
+  echo "  로그: journalctl -u thispatch-alert -n 30"
   ;;
 
 remove)
-  sudo systemctl disable --now dispatch-alert.timer 2>/dev/null
-  sudo rm -f /etc/systemd/system/dispatch-alert.service /etc/systemd/system/dispatch-alert.timer
+  sudo systemctl disable --now thispatch-alert.timer 2>/dev/null
+  sudo rm -f /etc/systemd/system/thispatch-alert.service /etc/systemd/system/thispatch-alert.timer
   sudo systemctl daemon-reload
   echo "  해제했습니다."
   ;;

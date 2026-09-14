@@ -122,9 +122,9 @@ echo "── [5/6] 웹훅 시크릿 심기 ────────────�
 #   날아간다. 이 스크립트를 거쳐서 올리면 항상 맞춰진다.
 #
 # 두 잡 모두에 같은 값을 넣는다. GitLab 웹훅도 두 개 걸어야 한다.
-#   .../jenkins/project/dispatch-deploy     백엔드
-#   .../jenkins/project/dispatch-frontend   프론트
-JOBS="dispatch-deploy dispatch-frontend"
+#   .../jenkins/project/thispatch-deploy     백엔드
+#   .../jenkins/project/thispatch-frontend   프론트
+JOBS="thispatch-deploy thispatch-frontend"
 if [ -z "${GITLAB_WEBHOOK_SECRET:-}" ] || [ "${GITLAB_WEBHOOK_SECRET}" = "change-me" ]; then
   echo "    ⚠ .env 의 GITLAB_WEBHOOK_SECRET 이 비어 있습니다. 웹훅이 모두 거부됩니다."
   echo "      openssl rand -hex 24 로 만들어 .env 에 넣고 다시 실행하세요."

@@ -5,7 +5,7 @@
 //
 // ⚠ 백엔드(루트 Jenkinsfile)와 다른 잡이다.
 //   프론트만 바뀌었는데 백엔드까지 재배포할 이유가 없다.
-//   젠킨스 잡 이름 — dispatch-frontend / dispatch-deploy
+//   젠킨스 잡 이름 — thispatch-frontend / thispatch-deploy
 //
 // ⚠ Jenkins 컨테이너에는 node 가 없다. 일부러 안 넣었다.
 //   넣으면 Jenkins 이미지가 무거워지고, node 버전을 올릴 때마다
@@ -14,7 +14,7 @@
 //
 // ⚠ 왜 컨테이너로 서빙하지 않는가
 //   frontend/Dockerfile 이 nginx 이미지를 만들도록 돼 있지만 쓰지 않는다.
-//   서버1 의 nginx 가 이미 /var/www/dispatch 를 root 로 잡고 SPA 라우팅까지
+//   서버1 의 nginx 가 이미 /var/www/thispatch 를 root 로 잡고 SPA 라우팅까지
 //   하고 있다. 여기에 dist 만 놓으면 끝이고, 컨테이너를 띄우면 nginx 가
 //   두 겹이 되면서 프록시만 한 번 더 타게 된다. 얻는 게 없다.
 //   (2026-09-13 · 용진님과 합의)
@@ -35,7 +35,7 @@ pipeline {
     environment {
         WORKDIR   = 'frontend'
         // nginx 가 서빙하는 자리. compose 가 Jenkins 컨테이너에 같은 경로로 마운트한다.
-        WEB_ROOT  = '/var/www/dispatch'
+        WEB_ROOT  = '/var/www/thispatch'
         // node 버전은 frontend/Dockerfile 과 맞춘다.
         NODE_IMG  = 'node:24-alpine'
         // pnpm 이 받은 패키지를 빌드마다 다시 받지 않게 한다.
@@ -127,7 +127,7 @@ pipeline {
                 // 릴리스를 새 폴더에 만들고 심링크만 바꾼다.
                 //
                 // ⚠ 폴더를 mv 로 통째로 바꾸면 안 된다.
-                //   /var/www/dispatch 는 Jenkins 컨테이너에 마운트된 지점이라
+                //   /var/www/thispatch 는 Jenkins 컨테이너에 마운트된 지점이라
                 //   컨테이너 안에서 옮기려 하면 Device or resource busy 가 난다.
                 //
                 // 심링크 교체는 rename 한 번이라 중간 상태가 없다.

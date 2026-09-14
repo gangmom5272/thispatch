@@ -4,11 +4,11 @@
 #   bash 19-server-frontend.sh
 #
 # 왜 필요한가
-#   nginx 가 /var/www/dispatch/current 를 서빙한다. 그런데 그 폴더를 채우는
+#   nginx 가 /var/www/thispatch/current 를 서빙한다. 그런데 그 폴더를 채우는
 #   것은 Jenkins(uid 1000)다. 기본 소유자가 www-data 라 그대로는 쓸 수 없다.
 #
 # 왜 심링크 구조인가
-#   /var/www/dispatch/
+#   /var/www/thispatch/
 #     releases/12/   빌드 12 의 산출물
 #     releases/13/   빌드 13 의 산출물
 #     current -> releases/13
@@ -17,17 +17,17 @@
 #   상태가 없다. 폴더를 비우고 채우는 방식이면 그 사이에 들어온 요청이
 #   404 를 받는다.
 #   되돌릴 때도 심링크만 옮기면 된다.
-#     ln -sfn /var/www/dispatch/releases/12 /var/www/dispatch/current.tmp
-#     mv -Tf /var/www/dispatch/current.tmp /var/www/dispatch/current
+#     ln -sfn /var/www/thispatch/releases/12 /var/www/thispatch/current.tmp
+#     mv -Tf /var/www/thispatch/current.tmp /var/www/thispatch/current
 #
 # ⚠ 폴더를 mv 로 통째로 바꾸면 안 된다
-#   /var/www/dispatch 는 compose 가 Jenkins 컨테이너에 마운트한 지점이라,
+#   /var/www/thispatch 는 compose 가 Jenkins 컨테이너에 마운트한 지점이라,
 #   컨테이너 안에서 옮기려 하면 Device or resource busy 가 난다. (실측)
 #
 # 몇 번 돌려도 된다.
 set -euo pipefail
 
-WEB_ROOT=${WEB_ROOT:-/var/www/dispatch}
+WEB_ROOT=${WEB_ROOT:-/var/www/thispatch}
 OWNER=${OWNER:-ubuntu}
 
 echo "── [1/3] 폴더와 소유자 ────────────────────────────────"
@@ -70,5 +70,5 @@ echo
 curl -sS -m 10 -o /dev/null -w "    / → %{http_code}\n" https://j15a202.p.ssafy.io/ || true
 curl -sS -m 10 -o /dev/null -w "    /deep/route → %{http_code}  (SPA 라우팅. 200 이어야 한다)\n" https://j15a202.p.ssafy.io/deep/route || true
 echo
-echo "  이제 Jenkins 의 dispatch-frontend 잡이 여기를 채웁니다."
+echo "  이제 Jenkins 의 thispatch-frontend 잡이 여기를 채웁니다."
 echo "  정의는 frontend/Jenkinsfile 입니다."

@@ -18,7 +18,7 @@
 # 무엇을 담는가
 #   <db>.dump    pg_dump -Fc. 스키마와 데이터 전부
 #   globals.sql  역할(role)과 비밀번호 해시. 이게 없으면 새 서버에서
-#                복구할 때 dispatch 역할이 없어 소유자를 못 붙인다
+#                복구할 때 thispatch 역할이 없어 소유자를 못 붙인다
 #   meta.txt     버전 · 확장 · 테이블별 행 수. 복구 후 대조용
 #
 # ⚠ 열쇠를 따로 쓴다
@@ -39,8 +39,8 @@ set -uo pipefail
 DBS=${DBS:-thispatch}
 BACKUP_HOST=${BACKUP_HOST:-j15a202a.p.ssafy.io}
 BACKUP_USER=${BACKUP_USER:-ubuntu}
-BACKUP_KEY=${BACKUP_KEY:-$HOME/.ssh/dispatch-backup}
-BACKUP_DIR=${BACKUP_DIR:-/home/ubuntu/dispatch-backup/postgres}
+BACKUP_KEY=${BACKUP_KEY:-$HOME/.ssh/thispatch-backup}
+BACKUP_DIR=${BACKUP_DIR:-/home/ubuntu/thispatch-backup/postgres}
 
 LOCAL_DIR=${LOCAL_DIR:-$HOME/db-backup}
 KEEP=${KEEP:-14}
@@ -88,7 +88,7 @@ now)
     [ "$N" -gt 0 ] || { echo "  [실패] $db 덤프를 읽을 수 없습니다"; exit 1; }
   done
 
-  # 역할. 새 서버에서 복구할 때 dispatch 역할이 없으면 소유자를 못 붙인다.
+  # 역할. 새 서버에서 복구할 때 thispatch 역할이 없으면 소유자를 못 붙인다.
   # ⚠ 비밀번호 해시가 들어 있다. 묶음 파일 권한을 600 으로 둔다.
   sudo -u postgres pg_dumpall --globals-only > "$STAGE/globals.sql" 2>/dev/null
   echo "  globals.sql  역할 $(grep -c 'CREATE ROLE' "$STAGE/globals.sql") 개"
@@ -149,7 +149,7 @@ list)
     echo "  (닿지 않음)"
   fi
   banner "타이머"
-  systemctl status dispatch-dbbackup.timer --no-pager 2>/dev/null | sed -n '1,6p' || echo "  (등록 안 됨)"
+  systemctl status thispatch-dbbackup.timer --no-pager 2>/dev/null | sed -n '1,6p' || echo "  (등록 안 됨)"
   ;;
 
 verify)
@@ -172,11 +172,11 @@ verify)
 
 setup-key)
   banner "백업 전용 열쇠 만들기"
-  KF=$HOME/.ssh/dispatch-backup
+  KF=$HOME/.ssh/thispatch-backup
   if [ -f "$KF" ]; then
     echo "  이미 있습니다: $KF"
   else
-    ssh-keygen -t ed25519 -f "$KF" -N "" -C "dispatch-db-backup@$(hostname)" >/dev/null
+    ssh-keygen -t ed25519 -f "$KF" -N "" -C "thispatch-db-backup@$(hostname)" >/dev/null
     echo "  만들었습니다: $KF"
   fi
   chmod 600 "$KF"
@@ -214,15 +214,15 @@ drill)
   chmod -R a+rX "$T"
 
   sudo -u postgres psql -q -c "DROP DATABASE IF EXISTS $DRILL_DB;" 2>/dev/null
-  sudo -u postgres psql -q -c "CREATE DATABASE $DRILL_DB OWNER dispatch;"
+  sudo -u postgres psql -q -c "CREATE DATABASE $DRILL_DB OWNER thispatch;"
   sudo -u postgres psql -q -d "$DRILL_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
   sudo -u postgres psql -q -d "$DRILL_DB" -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
   # ⚠ 여기서 "must be owner of extension" 에러가 두 줄 뜬다. 무해하다.
-  #   확장은 위에서 postgres 가 미리 깔았는데, 복구는 dispatch 역할로 돈다.
-  #   덤프 안의 COMMENT ON EXTENSION 을 dispatch 가 실행할 권한이 없어서다.
+  #   확장은 위에서 postgres 가 미리 깔았는데, 복구는 thispatch 역할로 돈다.
+  #   덤프 안의 COMMENT ON EXTENSION 을 thispatch 가 실행할 권한이 없어서다.
   #   주석 한 줄을 못 단 것뿐이고 테이블·데이터와는 무관하다.
-  sudo -u postgres pg_restore -d "$DRILL_DB" --no-owner --role=dispatch "$D/$SRC_DB.dump" 2>&1 | grep -v 'COMMENT ON EXTENSION' | head -8
+  sudo -u postgres pg_restore -d "$DRILL_DB" --no-owner --role=thispatch "$D/$SRC_DB.dump" 2>&1 | grep -v 'COMMENT ON EXTENSION' | head -8
 
   echo
   echo "  원본과 복구본 대조"
@@ -260,7 +260,7 @@ install)
   [ "$(id -u)" = 0 ] && { echo "sudo 없이 그냥 실행하세요." >&2; exit 1; }
   banner "systemd 타이머 등록"
   SELF=$(readlink -f "$0")
-  sudo tee /etc/systemd/system/dispatch-dbbackup.service >/dev/null <<UNIT
+  sudo tee /etc/systemd/system/thispatch-dbbackup.service >/dev/null <<UNIT
 [Unit]
 Description=디스패치 서비스 DB 백업 (서버2A 로 전송)
 After=postgresql.service network-online.target
@@ -280,7 +280,7 @@ Environment=KEEP_REMOTE=$KEEP_REMOTE
 ExecStart=/usr/bin/env bash $SELF now
 UNIT
 
-  sudo tee /etc/systemd/system/dispatch-dbbackup.timer >/dev/null <<'UNIT'
+  sudo tee /etc/systemd/system/thispatch-dbbackup.timer >/dev/null <<'UNIT'
 [Unit]
 Description=디스패치 DB 백업 — 매일 새벽 4시 (한국시간)
 
@@ -299,18 +299,18 @@ UNIT
 
   mkdir -p "$LOCAL_DIR"; chmod 700 "$LOCAL_DIR"
   sudo systemctl daemon-reload
-  sudo systemctl enable --now dispatch-dbbackup.timer
+  sudo systemctl enable --now thispatch-dbbackup.timer
   echo "  등록 완료. 다음 실행:"
-  systemctl list-timers dispatch-dbbackup.timer --no-pager | sed -n '1,3p'
+  systemctl list-timers thispatch-dbbackup.timer --no-pager | sed -n '1,3p'
   echo
-  echo "  지금 한 번 돌려보려면:  sudo systemctl start dispatch-dbbackup.service"
-  echo "  로그:                   journalctl -u dispatch-dbbackup -n 40"
+  echo "  지금 한 번 돌려보려면:  sudo systemctl start thispatch-dbbackup.service"
+  echo "  로그:                   journalctl -u thispatch-dbbackup -n 40"
   ;;
 
 remove)
   banner "타이머 해제"
-  sudo systemctl disable --now dispatch-dbbackup.timer 2>/dev/null
-  sudo rm -f /etc/systemd/system/dispatch-dbbackup.service /etc/systemd/system/dispatch-dbbackup.timer
+  sudo systemctl disable --now thispatch-dbbackup.timer 2>/dev/null
+  sudo rm -f /etc/systemd/system/thispatch-dbbackup.service /etc/systemd/system/thispatch-dbbackup.timer
   sudo systemctl daemon-reload
   echo "  해제했습니다. 백업 파일은 지우지 않았습니다."
   ;;
@@ -325,21 +325,21 @@ restore)
        bash 18-db-backup.sh verify
 
   1) 백업 가져와서 풀기
-       scp -i ~/.ssh/dispatch-backup ubuntu@j15a202a.p.ssafy.io:~/dispatch-backup/postgres/db-<시각>.tar.gz .
+       scp -i ~/.ssh/thispatch-backup ubuntu@j15a202a.p.ssafy.io:~/thispatch-backup/postgres/db-<시각>.tar.gz .
        tar -xzf db-<시각>.tar.gz && cd db-<시각>
        cat meta.txt        # 이 백업이 어떤 상태였는지 먼저 읽는다
 
   2) 백엔드를 멈춘다. 안 멈추면 복구 중에 새 연결이 들어온다.
-       cd ~/dispatch/infra && sudo docker compose -f compose.server.yaml stop backend
+       cd ~/thispatch/infra && sudo docker compose -f compose.server.yaml stop backend
 
   3) 지금 상태를 한 번 더 떠 두고, 빈 DB 를 새로 만든다
      ⚠ 이 단계를 건너뛰면 되돌릴 곳이 없어진다.
        sudo -u postgres pg_dump -Fc thispatch > ~/before-restore.dump
        sudo -u postgres psql -c "DROP DATABASE thispatch;"
-       sudo -u postgres psql -c "CREATE DATABASE thispatch OWNER dispatch;"
+       sudo -u postgres psql -c "CREATE DATABASE thispatch OWNER thispatch;"
 
   4) 역할이 없는 새 서버라면 globals 를 먼저 넣는다
-     (이미 dispatch 역할이 있으면 건너뛴다. 에러가 나도 무시해도 된다)
+     (이미 thispatch 역할이 있으면 건너뛴다. 에러가 나도 무시해도 된다)
        sudo -u postgres psql -f globals.sql
 
   5) 확장을 슈퍼유저로 먼저 깐다
@@ -348,12 +348,12 @@ restore)
        sudo -u postgres psql -d thispatch -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
   6) 되살리기
-       sudo -u postgres pg_restore -d thispatch --no-owner --role=dispatch thispatch.dump
+       sudo -u postgres pg_restore -d thispatch --no-owner --role=thispatch thispatch.dump
 
      ⚠ 여기서 이런 에러가 두 줄 뜼다. 무해하다.
          ERROR:  must be owner of extension pg_trgm
          ERROR:  must be owner of extension vector
-       확장은 5) 에서 postgres 가 깔았는데 복구는 dispatch 역할로 돌아서,
+       확장은 5) 에서 postgres 가 깔았는데 복구는 thispatch 역할로 돌아서,
        덤프 안의 COMMENT ON EXTENSION 을 실행할 권한이 없어서 나는 것이다.
        설명 주석 한 줄을 못 달았을 뿐, 테이블과 데이터와는 상관없다.
        (2026-09-13 복구 훈련에서 확인)

@@ -32,7 +32,7 @@ set -euo pipefail
 DOMAIN="${DOMAIN:-j15a202.p.ssafy.io}"
 EMAIL="${CERTBOT_EMAIL:-}"
 DRY_RUN="${DRY_RUN:-0}"
-REPO_CONF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nginx/dispatch.conf"
+REPO_CONF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nginx/thispatch.conf"
 
 if [ -z "$EMAIL" ]; then
   echo "CERTBOT_EMAIL 환경변수가 필요합니다 (인증서 만료 알림 주소)." >&2
@@ -74,25 +74,25 @@ certbot --version
 echo
 echo "── [3/6] 자리표시자 문서 루트 ─────────────────────────"
 # FE 배포 전까지 / 가 403 나지 않게 한다. FE 가 붙으면 이 디렉터리를 덮어쓴다.
-sudo install -d -o www-data -g www-data /var/www/dispatch
-if [ ! -f /var/www/dispatch/index.html ]; then
+sudo install -d -o www-data -g www-data /var/www/thispatch
+if [ ! -f /var/www/thispatch/index.html ]; then
   echo '<!doctype html><meta charset="utf-8"><title>Dispatch</title><h1>Dispatch</h1><p>배포 준비 중입니다.</p>' \
-    | sudo tee /var/www/dispatch/index.html >/dev/null
-  sudo chown www-data:www-data /var/www/dispatch/index.html
+    | sudo tee /var/www/thispatch/index.html >/dev/null
+  sudo chown www-data:www-data /var/www/thispatch/index.html
 fi
 
 echo
 echo "── [4/6] 사이트 설정 링크 ─────────────────────────────"
 # 저장소 파일을 심볼릭 링크한다. 서버에서 직접 고치면 저장소와 어긋나므로
 # 고칠 일이 있으면 저장소를 고치고 다시 올린다.
-sudo ln -sfn "$REPO_CONF" /etc/nginx/sites-available/dispatch
-sudo ln -sfn /etc/nginx/sites-available/dispatch /etc/nginx/sites-enabled/dispatch
+sudo ln -sfn "$REPO_CONF" /etc/nginx/sites-available/thispatch
+sudo ln -sfn /etc/nginx/sites-available/thispatch /etc/nginx/sites-enabled/thispatch
 # 기본 사이트를 치운다. 남겨두면 default_server 가 우리 도메인을 가로챌 수 있다.
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl enable --now nginx
 sudo systemctl reload nginx
-echo "    링크: $(readlink -f /etc/nginx/sites-enabled/dispatch)"
+echo "    링크: $(readlink -f /etc/nginx/sites-enabled/thispatch)"
 
 echo
 echo "── [5/6] Let's Encrypt 인증서 ─────────────────────────"
@@ -109,7 +109,7 @@ else
     echo "    리허설 통과. DRY_RUN 없이 다시 실행하면 본 발급합니다."
     exit 0
   fi
-  # --redirect 가 80 → 443 리다이렉트를 dispatch.conf 에 써 넣는다.
+  # --redirect 가 80 → 443 리다이렉트를 thispatch.conf 에 써 넣는다.
   sudo certbot "${ARGS[@]}"
 fi
 
@@ -124,9 +124,9 @@ echo "    리슨 포트"
 ss -tln | grep -E ':(80|443)\b' | awk '{print "      "$4}'
 
 echo
-echo "⚠ certbot 이 dispatch.conf 를 직접 수정했습니다."
+echo "⚠ certbot 이 thispatch.conf 를 직접 수정했습니다."
 echo "  서버의 파일을 저장소로 되가져와 커밋하세요."
-echo "    scp -i ~/.ssh/J15A202T.pem ubuntu@$DOMAIN:$REPO_CONF infra/nginx/dispatch.conf"
+echo "    scp -i ~/.ssh/J15A202T.pem ubuntu@$DOMAIN:$REPO_CONF infra/nginx/thispatch.conf"
 echo
 echo "다음 — 밖에서 확인"
 echo "  curl -I https://$DOMAIN"

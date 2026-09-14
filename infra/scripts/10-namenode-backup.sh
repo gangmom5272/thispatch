@@ -41,7 +41,7 @@ fi
 BACKUP_HOST=${BACKUP_HOST:-j15a202a.p.ssafy.io}
 BACKUP_USER=${BACKUP_USER:-ubuntu}
 BACKUP_KEY=${BACKUP_KEY:-$HOME/.ssh/J15A202T.pem}
-BACKUP_DIR=${BACKUP_DIR:-/home/ubuntu/dispatch-backup/namenode}
+BACKUP_DIR=${BACKUP_DIR:-/home/ubuntu/thispatch-backup/namenode}
 
 # 로컬 보관처. 원격이 안 닿아도 여기에는 남는다.
 LOCAL_DIR=${LOCAL_DIR:-/data/backup/namenode}
@@ -159,14 +159,14 @@ list)
     echo "  (닿지 않음)"
   fi
   banner "타이머"
-  systemctl status dispatch-nnbackup.timer --no-pager 2>/dev/null | sed -n '1,6p' || echo "  (등록 안 됨)"
+  systemctl status thispatch-nnbackup.timer --no-pager 2>/dev/null | sed -n '1,6p' || echo "  (등록 안 됨)"
   ;;
 
 install)
   if [ "$(id -u)" = 0 ]; then echo "sudo 없이 그냥 실행하세요. 필요할 때만 sudo 를 씁니다." >&2; exit 1; fi
   banner "systemd 타이머 등록"
   SELF=$(readlink -f "$0")
-  sudo tee /etc/systemd/system/dispatch-nnbackup.service >/dev/null <<UNIT
+  sudo tee /etc/systemd/system/thispatch-nnbackup.service >/dev/null <<UNIT
 [Unit]
 Description=디스패치 NameNode 메타데이터 백업
 After=hadoop-namenode.service
@@ -187,7 +187,7 @@ Environment=KEEP=$KEEP
 ExecStart=/usr/bin/env bash $SELF now
 UNIT
 
-  sudo tee /etc/systemd/system/dispatch-nnbackup.timer >/dev/null <<'UNIT'
+  sudo tee /etc/systemd/system/thispatch-nnbackup.timer >/dev/null <<'UNIT'
 [Unit]
 Description=디스패치 NameNode 백업 — 매시 정각
 
@@ -204,18 +204,18 @@ UNIT
   sudo mkdir -p "$LOCAL_DIR"
   sudo chown "$USER:$USER" "$LOCAL_DIR"
   sudo systemctl daemon-reload
-  sudo systemctl enable --now dispatch-nnbackup.timer
+  sudo systemctl enable --now thispatch-nnbackup.timer
   echo "  등록 완료. 다음 실행:"
-  systemctl list-timers dispatch-nnbackup.timer --no-pager | sed -n '1,3p'
+  systemctl list-timers thispatch-nnbackup.timer --no-pager | sed -n '1,3p'
   echo
-  echo "  지금 한 번 돌려보려면:  sudo systemctl start dispatch-nnbackup.service"
-  echo "  로그:                   journalctl -u dispatch-nnbackup -n 40"
+  echo "  지금 한 번 돌려보려면:  sudo systemctl start thispatch-nnbackup.service"
+  echo "  로그:                   journalctl -u thispatch-nnbackup -n 40"
   ;;
 
 remove)
   banner "타이머 해제"
-  sudo systemctl disable --now dispatch-nnbackup.timer 2>/dev/null
-  sudo rm -f /etc/systemd/system/dispatch-nnbackup.{service,timer}
+  sudo systemctl disable --now thispatch-nnbackup.timer 2>/dev/null
+  sudo rm -f /etc/systemd/system/thispatch-nnbackup.{service,timer}
   sudo systemctl daemon-reload
   echo "  해제했습니다. 백업 파일은 지우지 않았습니다."
   ;;
@@ -228,7 +228,7 @@ restore)
 
   1) 백업 가져오기
        scp -i ~/.ssh/J15A202T.pem \
-         ubuntu@j15a202a.p.ssafy.io:/home/ubuntu/dispatch-backup/namenode/namenode-<시각>.tar.gz .
+         ubuntu@j15a202a.p.ssafy.io:/home/ubuntu/thispatch-backup/namenode/namenode-<시각>.tar.gz .
        tar -xzf namenode-<시각>.tar.gz
 
   2) NameNode 정지

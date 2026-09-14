@@ -1,4 +1,4 @@
-rootProject.name = 'dispatch'
+rootProject.name = 'thispatch'
 
 // 모듈을 나눈 이유는 배포 대상과 의존성이 다르기 때문이다.
 //

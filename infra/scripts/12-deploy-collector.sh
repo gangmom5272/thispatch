@@ -22,10 +22,10 @@ JAR="$ROOT/collector/build/libs/collector-0.0.1-SNAPSHOT.jar"
 
 # 홈 기준 상대경로만 쓴다. ssh 는 홈에서 시작한다.
 #
-# "~/dispatch" 를 변수에 담아 리다이렉션에 쓰면 안 된다. bash 는 변수에서
+# "~/thispatch" 를 변수에 담아 리다이렉션에 쓰면 안 된다. bash 는 변수에서
 # 나온 ~ 를 확장하지 않아서 "~" 라는 이름의 디렉터리가 생긴다.
 # 2026-09-11 실제로 겪었다 — 로그가 엉뚱한 곳으로 가서 비어 보였다.
-REMOTE_DIR="dispatch"
+REMOTE_DIR="thispatch"
 REMOTE_JAR="$REMOTE_DIR/collector.jar"
 LOG_NAME="collector-worker.log"
 
@@ -152,7 +152,7 @@ run)
   "$JAVA_HOME/bin/java" -jar "$JAR" \
     --spring.profiles.active=manager \
     --spring.batch.job.enabled=true \
-    --dispatch.collect.grid-size="${GRID:-4}" \
+    --thispatch.collect.grid-size="${GRID:-4}" \
     "dt=${DT:-$(date +%Y-%m-%d)}" 2>&1 \
     | grep -E "Job: |Step: |ERROR|Exception" | sed 's/^/  /'
   ;;

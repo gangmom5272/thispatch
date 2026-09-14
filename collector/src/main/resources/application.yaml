@@ -1,6 +1,6 @@
 spring:
   application:
-    name: dispatch-collector
+    name: thispatch-collector
 
   # 웹 서버가 필요 없다. 워커는 큐만 듣고, 마스터는 잡을 돌리고 끝난다.
   main:
@@ -9,8 +9,8 @@ spring:
   # 배치 메타데이터 DB — 마스터 노트북에 있다 (11-master-batch-infra.sh).
   # 서비스 DB(서버1)와 다른 DB 다. 워커가 EC2 를 볼 일이 없게 하려고 나눴다.
   datasource:
-    url: jdbc:postgresql://${BATCH_DB_HOST:70.12.108.85}:${BATCH_DB_PORT:5432}/${BATCH_DB_NAME:dispatch_batch}
-    username: ${BATCH_DB_USER:dispatch}
+    url: jdbc:postgresql://${BATCH_DB_HOST:70.12.108.85}:${BATCH_DB_PORT:5432}/${BATCH_DB_NAME:thispatch_batch}
+    username: ${BATCH_DB_USER:thispatch}
     password: ${BATCH_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -40,15 +40,15 @@ spring:
   rabbitmq:
     host: ${MQ_HOST:70.12.108.85}
     port: ${MQ_PORT:5672}
-    username: ${MQ_USER:dispatch}
+    username: ${MQ_USER:thispatch}
     password: ${MQ_PASSWORD}
-    virtual-host: ${MQ_VHOST:dispatch}
+    virtual-host: ${MQ_VHOST:thispatch}
     listener:
       simple:
         # 워커가 죽어서 못 받은 조각은 큐에 남아 다른 워커가 가져간다.
         acknowledge-mode: auto
 
-dispatch:
+thispatch:
   collect:
     # 워커 노트북 수. 조각을 이만큼 나눈다.
     grid-size: ${COLLECT_GRID_SIZE:4}
@@ -65,5 +65,5 @@ dispatch:
 
 logging:
   level:
-    com.ssafy.dispatch: INFO
+    com.ssafy.thispatch: INFO
     org.springframework.batch.integration.partition: INFO

@@ -108,7 +108,7 @@ jobs:
   # ⚠ '|' 를 쓴다. '>' 로 쓰면 YAML 이 줄바꿈을 공백으로 접어버려서
   #   Groovy 주석(//) 이 뒤에 오는 코드를 전부 먹어버린다.
   - script: |
-      pipelineJob('dispatch-deploy') {
+      pipelineJob('thispatch-deploy') {
         description('develop 에 push 되면 테스트 → 이미지 → 서버1 배포까지 돌린다. 정의는 저장소의 Jenkinsfile 이다. (S15P21A202-20)')
 
         definition {
@@ -146,8 +146,8 @@ jobs:
   # 프론트. 백엔드와 다른 잡이다 — 프론트만 바뀌었는데 백엔드까지
   # 재배포할 이유가 없다. 웹훅도 GitLab 에 따로 하나 더 걸어야 한다.
   - script: |
-      pipelineJob('dispatch-frontend') {
-        description('develop 에 push 되면 프론트를 빌드해 /var/www/dispatch 에 배포한다. 정의는 frontend/Jenkinsfile 이다. (S15P21A202-20)')
+      pipelineJob('thispatch-frontend') {
+        description('develop 에 push 되면 프론트를 빌드해 /var/www/thispatch 에 배포한다. 정의는 frontend/Jenkinsfile 이다. (S15P21A202-20)')
 
         definition {
           cpsScm {

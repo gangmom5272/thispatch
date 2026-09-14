@@ -10,7 +10,7 @@
 //
 // ⚠ 그래서 경로가 중요하다
 //   docker 에게 넘기는 경로는 전부 '호스트 기준' 으로 해석된다.
-//   compose.server.yaml 이 /var/jenkins_home 과 /home/ubuntu/dispatch 를
+//   compose.server.yaml 이 /var/jenkins_home 과 /home/ubuntu/thispatch 를
 //   컨테이너 안에도 똑같은 경로로 마운트해 둔 이유가 이것이다.
 //   경로를 다르게 잡으면 빌드 컨텍스트가 '없는 디렉터리' 를 가리킨다.
 
@@ -36,16 +36,16 @@ pipeline {
 
     environment {
         // 서버1 의 배포 정본. 여기 있는 것이 지금 돌고 있는 것이다.
-        DEPLOY_DIR   = '/home/ubuntu/dispatch'
-        COMPOSE_FILE = '/home/ubuntu/dispatch/infra/compose.server.yaml'
+        DEPLOY_DIR   = '/home/ubuntu/thispatch'
+        COMPOSE_FILE = '/home/ubuntu/thispatch/infra/compose.server.yaml'
 
         // 테스트용 임시 DB. 서비스 DB 와 완전히 다른 컨테이너다.
         // ⚠ 서비스 DB(thispatch) 에 테스트를 돌리면 안 된다.
         //   ThispatchApplicationTests 가 테이블 목록과 시드 데이터를 '정확히'
         //   비교해서, 실제 데이터가 있으면 통과할 수 없다.
         TEST_DB_NAME = 'thispatch_test'
-        TEST_DB_CONT = 'dispatch-test-db'
-        NETWORK      = 'dispatch_default'
+        TEST_DB_CONT = 'thispatch-test-db'
+        NETWORK      = 'thispatch_default'
     }
 
     stages {
@@ -131,7 +131,7 @@ pipeline {
                     echo
                     echo "── 테스트 실행 ──"
                     # ⚠ 컨테이너 이름이 곧 호스트명이다. 같은 도커 네트워크라 DNS 로 찾는다.
-                    #   Jenkins 컨테이너도 dispatch_default 에 붙어 있어서 가능하다.
+                    #   Jenkins 컨테이너도 thispatch_default 에 붙어 있어서 가능하다.
                     export POSTGRES_HOST="$TEST_DB_CONT"
                     export POSTGRES_PORT=5432
                     export POSTGRES_USER=postgres
@@ -181,7 +181,7 @@ pipeline {
                     set -e
                     cd "$DEPLOY_DIR/infra"
                     docker compose -f "$COMPOSE_FILE" build backend
-                    docker images dispatch/backend --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}'
+                    docker images thispatch/backend --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}'
                 '''
             }
         }

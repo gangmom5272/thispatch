@@ -135,7 +135,6 @@ function readStdin() {
   }
 }
 
-
 try {
   const [command, messagePath] = process.argv.slice(2)
   if (command === "prepare") prepareMessage(messagePath)

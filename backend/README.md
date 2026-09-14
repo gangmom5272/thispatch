@@ -8,6 +8,7 @@ Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다
 - `compose.yaml`: `pgvector/pgvector:pg17` 기반 PostgreSQL 단일 서비스, 로컬 5432 포트, 상태 검사 및 데이터 볼륨.
 - `src/main/resources/db/migration/V1__init.sql`: Flyway 초기 migration. 최상단에서 `vector` 확장을 활성화하고 테이블과 PK/FK를 생성합니다. Docker의 `/docker-entrypoint-initdb.d`는 사용하지 않습니다.
 - `src/main/resources/db/migration/V2__add_patch_analysis.sql`: 패치 분석 테이블 5개, PK/FK와 기본 코드 데이터를 생성합니다.
+- `src/main/resources/db/migration/V3__add_member_refresh_token.sql`: 기존 `member`에 nullable Refresh Token 해시·만료 시각 컬럼을 추가합니다. 별도 토큰 테이블이나 폐기 이력은 만들지 않습니다.
 - `.env`: 로컬 DB 접속 정보. Git에 커밋하지 않습니다.
 - `.env.example`: 필요한 환경 변수의 예시 파일.
 - `src/main/resources/application.yaml`: 공통 JPA·Flyway 설정. Hibernate는 `ddl-auto: validate`로 스키마를 검증만 하고 생성·수정하지 않습니다. `open-in-view`는 비활성화하고 Flyway는 활성화하며 migration 위치는 `classpath:db/migration`입니다.
@@ -129,7 +130,7 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 
 테스트는 애플리케이션 기동으로 migration을 적용한 뒤 조회로 검증합니다. Entity, Controller, Service는 필요하지 않습니다.
 결과는 `build/reports/tests/test/index.html`에서 확인할 수 있습니다.
-이 테스트의 기대값은 현재 V1/V2 설계를 기준으로 하며, 새 migration을 추가할 때 함께 갱신합니다.
+이 테스트의 기대값은 현재 V1/V2/V3 설계를 기준으로 하며, 새 migration을 추가할 때 함께 갱신합니다.
 
 ## 애플리케이션 URL과 CORS 설정
 
@@ -162,7 +163,7 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 - 내부 `ERROR` dispatch는 원래 오류 응답을 유지하기 위해 허용한다. 직접 요청한 `/error`는 인증을 요구한다.
 - `JwtAuthenticationFilter`는 검증된 Access Token의 회원 ID를 `MemberPrincipal`로 등록한다. 컨트롤러에서는 `@AuthenticationPrincipal MemberPrincipal`로 받을 수 있다. 토큰 원문과 임의의 역할은 인증 객체에 저장하지 않는다.
 - 공개 인증 API는 Access Token 검사를 생략한다. `GET /session`은 토큰 없음·Access Token 만료만 비로그인으로 통과시키며, 그 외 잘못된 토큰은 `401`로 처리한다. 인증 필수 경로는 누락·만료·무효 모두 `401`이다.
-- 회원 API는 아직 구현하지 않았다. `/session`의 실제 응답·닉네임 조회, 회원 존재·탈퇴 상태 확인, Refresh Token 저장·폐기는 후속 회원 인증 작업에서 구현한다.
+- 회원 API는 아직 구현하지 않았다. 회원 조회는 `CurrentMemberService`, Refresh Token 저장·검증·폐기는 `RefreshTokenService`가 제공하며 실제 endpoint와 회원 상태별 인증 허용 정책은 후속 작업이다.
 - 역할별 권한 규칙은 정의하지 않는다. `403` 핸들러는 Security에서 권한 거부가 발생할 때 사용하도록 준비한다.
 
 ## JWT 설정
@@ -194,6 +195,25 @@ try { $jwtRandom.GetBytes($jwtKeyBytes) } finally { $jwtRandom.Dispose() }
 ```
 
 생성 결과를 `.env`의 `JWT_SECRET=` 뒤에 넣는다. 기존 키가 있으면 재생성하거나 덮어쓰지 않는다.
+
+## Refresh Token 공통 기능
+
+`domain.member.service.RefreshTokenService`는 기존 `JwtTokenProvider`와 `MemberRepository`를 사용합니다.
+로그인·회원가입·재발급·로그아웃 API와 Controller/DTO는 포함하지 않습니다.
+
+| 메서드 | 후속 API 사용 방법 |
+| --- | --- |
+| `store(memberId, refreshToken)` | `JwtTokenProvider.issueRefreshToken(memberId)`로 발급한 토큰을 검증한 뒤 현재 회원의 토큰을 대체합니다. 회원 생성과 같은 트랜잭션에서 호출할 수 있습니다. |
+| `validate(refreshToken)` | JWT 검증과 현재 저장된 해시·만료 시각 대조를 통과한 `Member`를 반환합니다. `getMemberId()`, `getStatus()`로 소유 회원과 상태를 확인합니다. Rotation은 수행하지 않습니다. |
+| `revoke(memberId, refreshToken)` | 인증된 현재 회원 ID를 전달합니다. JWT 소유자가 같은지 확인하고 현재 저장된 해당 토큰만 제거합니다. 정상 JWT의 동일 소유자가 반복 호출하거나 과거 토큰을 제출하면 저장값을 바꾸지 않고 종료합니다. |
+
+- 회원당 현재 Refresh Token 하나를 저장하고 폐기 이력은 남기지 않습니다. 확정 정책은 [회원 API 문서](docs/api/member.md#refresh-token-공통-저장-정책)를 따릅니다.
+- `store`와 `revoke`는 토큰 컬럼만 갱신하는 UPDATE를 사용합니다. `revoke`는 회원 ID와 해시를 함께 조건으로 사용하여 교체된 새 토큰을 지우지 않습니다.
+- 갱신 전에 영속성 컨텍스트의 변경을 flush하고 갱신 후 clear합니다. 호출 전에 조회한 엔티티는 분리되므로, 이후 추가 변경이 필요하면 다시 조회해야 합니다. 회원 생성·토큰 저장은 호출 서비스의 트랜잭션에 함께 참여합니다.
+- `Member`의 토큰 컬럼은 읽기 전용으로 매핑하여 일반 엔티티 저장이 이전 토큰을 복구하지 않게 합니다. 토큰 변경은 위 서비스로 수행합니다.
+- `TokenValidationException`의 `INVALID`는 JWT 무효·소유자 불일치·회원 또는 현재 저장 토큰 부재·저장값 불일치, `EXPIRED`는 JWT 만료를 뜻합니다. 폐기 이력이 없으므로 미저장·교체·폐기를 구분하지 않습니다.
+- 회원 상태별 허용 여부와 HTTP 오류 매핑은 후속 인증 API에서 결정합니다. JWT 예외를 그대로 컨트롤러 밖으로 전달하면 공통 핸들러에서 예상하지 못한 오류로 처리되므로, 각 API는 확정된 계약의 `ErrorCode`와 `BusinessException`으로 연결해야 합니다.
+- 기존 Access Token은 만료까지 유효합니다. 토큰 갱신 권한을 하나로 제한하며 다른 기기의 Access Token을 즉시 차단하지 않습니다.
 
 ## 종료 및 데이터 유지
 

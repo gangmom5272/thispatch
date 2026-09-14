@@ -76,7 +76,27 @@
           }
         ],
         "positiveRate": 70,
-        "isMine": true
+        "isMine": true,
+        "gameSummary": {
+          "id": 730,
+          "title": "샘플 게임",
+          "headerImageUrl": "https://example.com/images/game_2.jpg",
+          "releasedOn": "2026-09-09",
+          "developer": "샘플 개발사",
+          "playModes": [
+            "EA Dice",
+            "멀티플레이"
+          ],
+          "description": "대규모 전장에서 차량과 분대 전투가 벌어지는 FPS입니다. 출시 초기 서버 안정성과 클래스 개편이 평가를 크게 흔들었습니다.",
+          "userTags": [
+            "FPS",
+            "멀티플레이어",
+            "전쟁",
+            "슈터"
+          ],
+          "reviewCount": 220000,
+          "latestPatch": "Update 7.4v"
+        }
       }
     ],
     "page": {
@@ -91,6 +111,21 @@
 ```
 
 `items[].id`는 `long`.
+
+**Processing Rules / Notes — Field rules**
+
+| Field | Type | Description |
+|---|---|---|
+| `items[].gameSummary.id` | long | 게임 식별자 |
+| `items[].gameSummary.title` | string | 게임 제목 |
+| `items[].gameSummary.headerImageUrl` | string | 게임 헤더 이미지 URL |
+| `items[].gameSummary.releasedOn` | date? | 출시일 |
+| `items[].gameSummary.developer` | string | 개발사 |
+| `items[].gameSummary.playModes` | string[] | 플레이 모드 |
+| `items[].gameSummary.description` | string? | 게임 요약 설명 |
+| `items[].gameSummary.userTags` | string[] | 게임 태그 |
+| `items[].gameSummary.reviewCount` | integer? | 전체 리뷰 수 |
+| `items[].gameSummary.latestPatch` | string | 최신 패치명 |
 
 **Error Responses**
 
@@ -201,3 +236,45 @@ GET /games?search=slay&limit=5
 - `401`: 로그인 필요
 - `404`: 게임 없음
 - `409`: 이미 내 게임으로 등록됨
+
+## 내 게임 등록 해제
+
+### `DELETE /games/{gameId}/my-game`
+
+**Auth**
+
+- Required
+
+**Headers**
+
+| Name | Type | Description | Example |
+|---|---|---|---|
+| `Authorization` | string | 필수. 로그인 사용자 식별 | `Bearer {ACCESS_TOKEN}` |
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `gameId` | long | 게임 ID |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-14 15:12:00",
+  "success": true
+}
+```
+
+**Error Responses**
+
+- `401`: 로그인 필요
+- `404`: 게임 없음
+- `404`: 내 게임에 등록되지 않은 게임
+- `500`: 서버 내부 오류

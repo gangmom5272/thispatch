@@ -3,6 +3,15 @@ import { apiClient } from "@/lib/axios"
 import { clearTokens, getAccessToken, getRefreshToken, setAccessToken } from "@/lib/tokenStorage"
 import { ApiError } from "@/api/error"
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    /** When true, skip Authorization attachment and 401→refresh retry. */
+    skipAuthRefresh?: boolean
+    /** Internal: already retried after refresh. */
+    _retry?: boolean
+  }
+}
+
 interface ApiEnvelope<T> {
   code: string
   message: string
@@ -13,11 +22,6 @@ interface ApiEnvelope<T> {
 
 interface RefreshTokenData {
   accessToken: string
-}
-
-type RetryableConfig = InternalAxiosRequestConfig & {
-  _retry?: boolean
-  skipAuthRefresh?: boolean
 }
 
 type FetcherConfig = Pick<AxiosRequestConfig, "params" | "signal">
@@ -84,7 +88,7 @@ async function refreshAccessToken(): Promise<string> {
   const response = await apiClient.post<ApiEnvelope<RefreshTokenData>>(
     "/auth/refresh",
     { refreshToken },
-    { skipAuthRefresh: true } as RetryableConfig,
+    { skipAuthRefresh: true },
   )
 
   const data = unwrapEnvelope<RefreshTokenData>(response.status, response.data)
@@ -106,7 +110,11 @@ function refreshAccessTokenSingleFlight(): Promise<string> {
   return refreshPromise
 }
 
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (config.skipAuthRefresh) {
+    return config
+  }
+
   const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -122,7 +130,7 @@ apiClient.interceptors.response.use(
     }
 
     const axiosError = error as {
-      config?: RetryableConfig
+      config?: InternalAxiosRequestConfig
       response?: { status: number; data: unknown }
       message?: string
     }

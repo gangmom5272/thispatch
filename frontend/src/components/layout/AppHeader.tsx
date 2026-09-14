@@ -1,18 +1,19 @@
 import { Link } from "react-router"
 import { BrandLogo } from "@/components/layout/BrandLogo"
 import { useLogout, useSession } from "@/hooks/queries/sessionQueries"
+import { paths } from "@/router/paths"
 
 function GuestActions() {
   return (
     <div className="flex items-center gap-[6px]">
       <Link
-        to="/login"
+        to={paths.login}
         className="rounded-sb-control px-3 py-2 text-sb-body text-sb-ink hover:bg-sb-canvas-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
       >
         로그인
       </Link>
       <Link
-        to="/signup"
+        to={paths.signup}
         className="rounded-sb-control bg-sb-primary px-3.5 py-2 text-sb-body font-medium text-sb-on-primary hover:bg-sb-primary-soft active:bg-sb-primary-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
       >
         회원가입

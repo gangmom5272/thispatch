@@ -2,6 +2,7 @@ import { useActionState } from "react"
 import { useNavigate } from "react-router"
 import { isApiError } from "@/api/error"
 import { useLogin } from "@/hooks/queries/authQueries"
+import { paths } from "@/router/paths"
 
 export function LoginForm() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export function LoginForm() {
 
       try {
         await mutateAsync({ email, password })
-        void navigate("/")
+        void navigate(paths.home)
         return null
       } catch (e) {
         return isApiError(e) ? e.message : "로그인에 실패했습니다."

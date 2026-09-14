@@ -4,10 +4,11 @@ import LoginPage from "@/pages/login/LoginPage"
 import NotFound from "@/pages/NotFound"
 import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
+import { paths, routeSegment } from "@/router/paths"
 
 export const router = createBrowserRouter([
   {
-    path: "/",
+    path: paths.home,
     element: <AppShell />,
     children: [
       {
@@ -15,23 +16,23 @@ export const router = createBrowserRouter([
         element: <PlaceholderPage title="홈" />,
       },
       {
-        path: "games",
+        path: routeSegment(paths.games),
         element: <PlaceholderPage title="게임 목록" />,
       },
       {
-        path: "games/:gameId",
+        path: routeSegment(paths.gameDetailPattern),
         element: <PlaceholderPage title="게임 상세" />,
       },
       {
-        path: "methodology",
+        path: routeSegment(paths.methodology),
         element: <PlaceholderPage title="방법론" />,
       },
       {
-        path: "login",
+        path: routeSegment(paths.login),
         element: <LoginPage />,
       },
       {
-        path: "signup",
+        path: routeSegment(paths.signup),
         element: <SignupPage />,
       },
       {

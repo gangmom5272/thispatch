@@ -6,7 +6,7 @@ package com.ssafy.thispatch.common;
  * <p>각자 정하면 반드시 어긋난다. 수집 담당이 {@code /review_raw/} 에 쓰고
  * 집계 담당이 {@code /reviews/} 에서 읽으면 서로 못 찾는다. 여기 상수만 쓴다.
  *
- * <p>주소는 IP 가 아니라 이름({@code dispatch-master})으로 쓴다. 마스터 IP 는
+ * <p>주소는 IP 가 아니라 이름({@code thispatch-master})으로 쓴다. 마스터 IP 는
  * 하루 안에 세 번 바뀐 적이 있고(무선 → 유선 → 고정), 그때마다 각 노드의
  * {@code /etc/hosts} 한 줄만 고쳐서 넘겼다. 코드에 IP 를 박으면 그때마다
  * 코드를 고치고 다시 배포해야 한다.
@@ -16,7 +16,7 @@ public final class HdfsPaths {
     private HdfsPaths() {
     }
 
-    public static final String HDFS = "hdfs://dispatch-master:9000";
+    public static final String HDFS = "hdfs://thispatch-master:9000";
 
     /**
      * 수집기가 떨구는 원본. 스팀 응답을 가공하지 않고 그대로 담는다.

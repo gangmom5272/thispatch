@@ -34,7 +34,7 @@ import org.apache.spark.sql.types.StructType;
  *
  * <pre>
  *   spark-submit --class com.ssafy.thispatch.spark.JsonToParquet \
- *                dispatch-spark.jar [yyyy-MM-dd]
+ *                thispatch-spark.jar [yyyy-MM-dd]
  * </pre>
  *
  * <p>날짜를 안 주면 오늘(KST)로 본다.

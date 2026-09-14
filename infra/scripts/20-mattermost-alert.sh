@@ -89,9 +89,9 @@ check_cluster() {
   #      망을 옮기면 바로 이렇게 된다. (2026-09-13 실측)
   local MYIP NAMEIP
   MYIP=$(hostname -I 2>/dev/null | awk '{print $1}')
-  NAMEIP=$(getent hosts dispatch-master 2>/dev/null | awk '{print $1}')
+  NAMEIP=$(getent hosts thispatch-master 2>/dev/null | awk '{print $1}')
   if [ -z "$NAMEIP" ]; then
-    row BAD "마스터 이름" "dispatch-master 를 못 찾음"
+    row BAD "마스터 이름" "thispatch-master 를 못 찾음"
   elif [ "$MYIP" = "$NAMEIP" ]; then
     row OK "마스터 이름" "$NAMEIP"
   else
@@ -157,7 +157,7 @@ except Exception: print('-1 ? 0 0')" 2>/dev/null)
   # 6) YARN — 계산을 돌릴 수 있는가
   #    HDFS 가 멀쩡해도 YARN 이 비면 스파크 잡이 한 대에서만 돈다.
   #    ⚠ YARN 은 노드를 이름으로 부르기도 하고 IP 로 부르기도 한다
-  #      (dispatch-master, thispatch-w103, 70.12.247.106 이 섞여 나온다).
+  #      (thispatch-master, thispatch-w103, 70.12.247.106 이 섞여 나온다).
   #      그래서 전부 IP 로 바꿔서 비교한다.
   local YRAW YARN_IPS
   YRAW=$(curl -s -m 8 "http://localhost:8088/ws/v1/cluster/nodes" 2>/dev/null | python3 -c "

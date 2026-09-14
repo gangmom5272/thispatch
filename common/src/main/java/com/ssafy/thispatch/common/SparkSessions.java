@@ -49,7 +49,7 @@ public final class SparkSessions {
      */
     public static SparkSession.Builder builder(String appName) {
         return SparkSession.builder()
-                .appName("dispatch-" + appName)
+                .appName("thispatch-" + appName)
 
                 // Spark 4 는 ANSI SQL 모드가 기본 켜짐이다. 잘못된 캐스팅이나
                 // 숫자 넘침에서 null 을 돌려주는 대신 예외를 던진다.

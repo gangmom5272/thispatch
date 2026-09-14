@@ -76,7 +76,7 @@ $rules = @(
 if ($Remove) {
     Write-Host "── 규칙 삭제 ──────────────────────────────────"
     foreach ($r in $rules) {
-        $name = "dispatch-$($r.n)"
+        $name = "thispatch-$($r.n)"
         try {
             Remove-NetFirewallHyperVRule -Name $name -ErrorAction Stop
             Write-Host "  삭제 $name"
@@ -94,7 +94,7 @@ Write-Host ""
 
 $made = 0; $failed = 0
 foreach ($r in $rules) {
-    $name = "dispatch-$($r.n)"
+    $name = "thispatch-$($r.n)"
     # 멱등하게: 있으면 지우고 다시 만든다
     try { Remove-NetFirewallHyperVRule -Name $name -ErrorAction SilentlyContinue } catch {}
     try {
@@ -118,7 +118,7 @@ foreach ($r in $rules) {
 Write-Host ""
 Write-Host "── 확인 ──────────────────────────────────────"
 Get-NetFirewallHyperVRule |
-    Where-Object { $_.Name -like 'dispatch-*' } |
+    Where-Object { $_.Name -like 'thispatch-*' -or $_.Name -like 'dispatch-*' } |
     Select-Object Name, Protocol, LocalPorts, RemoteAddresses, Action |
     Format-Table -AutoSize | Out-String -Width 160 | Write-Host
 

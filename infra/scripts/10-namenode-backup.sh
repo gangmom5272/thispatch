@@ -232,7 +232,7 @@ restore)
        tar -xzf namenode-<시각>.tar.gz
 
   2) NameNode 정지
-       sudo systemctl stop dispatch-cluster.target
+       sudo systemctl stop thispatch-cluster.target
 
   3) 새 마스터에 하둡을 설치하고 (04-wsl-node.sh ROLE=master) 포맷은 하지 않는다.
      포맷하면 clusterID 가 새로 생겨서 기존 DataNode 가 전부 거부된다.
@@ -250,7 +250,7 @@ restore)
        echo 12345 | sudo tee /data/hdfs/name/current/seen_txid
 
   6) 기동. Safe mode 에서 DataNode 들이 블록을 보고할 때까지 기다린다.
-       sudo systemctl start dispatch-cluster.target
+       sudo systemctl start thispatch-cluster.target
        hdfs dfsadmin -safemode wait
 
   7) 대조. 백업의 목록과 지금 목록을 비교한다.

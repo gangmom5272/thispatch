@@ -54,6 +54,14 @@ dispatch:
     grid-size: ${COLLECT_GRID_SIZE:4}
     # 뼈대 확인용 고정 목록. 실제로는 game 테이블에서 가져온다 (수집 담당).
     appids: ${COLLECT_APPIDS:2868840,1016800,413150,1245620,892970}
+    # 워커의 Hadoop 설정. HDFS 주소/landing 경로는 common의 HdfsPaths를 따른다.
+    hadoop-conf-dir: ${HADOOP_CONF_DIR:/opt/hadoop/etc/hadoop}
+    # 워커 프로세스당 요청 간격. Steam의 공인 일일 한도를 보장하는 값은 아니다.
+    request-interval: ${COLLECT_REQUEST_INTERVAL:1s}
+    # 네트워크·408·5xx·API 일시 실패 재시도 횟수. 403/429는 별도 백오프.
+    max-retries: ${COLLECT_MAX_RETRIES:5}
+    # 최초 전체 수집 및 403 백오프가 1시간을 넘을 수 있다. -1은 제한 없음.
+    manager-timeout-ms: ${COLLECT_MANAGER_TIMEOUT_MS:-1}
 
 logging:
   level:

@@ -69,4 +69,9 @@ public class Member {
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 	}
+
+	public String getPassword() {
+		// PostgreSQL CHAR(64)의 저장 패딩을 제거해 BCrypt 해시를 그대로 검증한다.
+		return password == null ? null : password.stripTrailing();
+	}
 }

@@ -12,15 +12,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.ssafy.thispatch.domain.member.entity.LoginType;
 import com.ssafy.thispatch.domain.member.entity.Member;
+import com.ssafy.thispatch.global.config.AppConfig;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
+@Import(AppConfig.class)
 class MemberRepositoryTest {
 
 	@Autowired
@@ -31,6 +35,9 @@ class MemberRepositoryTest {
 
 	@Autowired
 	private JdbcTemplate jdbc;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 
 	@BeforeEach
 	void requireTestDatabase() {
@@ -78,6 +85,21 @@ class MemberRepositoryTest {
 		assertThat(found.getNickname()).isNull();
 		assertThat(found.getUpdatedAt()).isNull();
 		assertThat(found.getStatus()).isEqualTo("TEST_VALUE");
+	}
+
+	@Test
+	void verifiesPasswordAfterReadingHashFromCharColumn() {
+		String rawPassword = "member-password";
+		String hash = passwordEncoder.encode(rawPassword);
+		Member saved = repository.saveAndFlush(Member.builder()
+			.loginType(LoginType.LOCAL).email(UUID.randomUUID() + "@example.com").password(hash)
+			.status("ACTIVE").createdAt(Instant.parse("2026-09-14T01:02:03Z")).build());
+		entityManager.clear();
+
+		Member found = repository.findById(saved.getMemberId()).orElseThrow();
+		assertThat(found.getPassword()).isEqualTo(hash);
+		assertThat(passwordEncoder.matches(rawPassword, found.getPassword())).isTrue();
+		assertThat(passwordEncoder.matches("wrong-password", found.getPassword())).isFalse();
 	}
 
 	@Test

@@ -172,3 +172,22 @@ export interface CaseSearch extends CaseSearchInput {
   groups: CaseGroup[]
   notices: string[]
 }
+
+/** 사례 카드 → 사례 상세 비교 페이지로 넘기는 router state */
+export interface CaseDetailLocationState {
+  case: SimilarCase
+  outcome: CaseOutcome
+  outcomeName: string
+}
+
+/** GET /games/{gameId}/patches/{patchId} */
+export interface PatchDetail {
+  patchId: string
+  gameId: number
+  title: string
+  patchedOn: string
+  publishedAt: string
+  body: string
+  bodyFormat: string
+  url: string
+}

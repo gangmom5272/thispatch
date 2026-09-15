@@ -1,5 +1,5 @@
 import { mutationOptions, queryOptions, useMutation, useQuery } from "@tanstack/react-query"
-import { createCaseSearch, createPlanStructure } from "../../api/patch"
+import { createCaseSearch, createPlanStructure, getPatch } from "../../api/patch"
 import type { CaseSearchInput } from "../../types"
 
 interface CreatePlanStructureVariables {
@@ -11,6 +11,8 @@ export const patchKeys = {
   all: ["patch"] as const,
   caseSearch: (gameId: number, input: CaseSearchInput) =>
     [...patchKeys.all, "case-search", gameId, input] as const,
+  detail: (gameId: number, patchId: string) =>
+    [...patchKeys.all, "detail", gameId, patchId] as const,
 }
 
 export const createPlanStructureOptions = () =>
@@ -37,4 +39,14 @@ export function useCaseSearch(gameId: number, input: CaseSearchInput | null) {
     ),
     enabled: input !== null,
   })
+}
+
+export const patchDetailOptions = (gameId: number, patchId: string) =>
+  queryOptions({
+    queryKey: patchKeys.detail(gameId, patchId),
+    queryFn: ({ signal }) => getPatch(gameId, patchId, signal),
+  })
+
+export function usePatchDetail(gameId: number, patchId: string) {
+  return useQuery(patchDetailOptions(gameId, patchId))
 }

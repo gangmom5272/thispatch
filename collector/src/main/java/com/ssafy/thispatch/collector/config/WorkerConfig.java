@@ -2,6 +2,9 @@ package com.ssafy.thispatch.collector.config;
 
 import com.ssafy.thispatch.collector.worker.CollectTasklet;
 import com.ssafy.thispatch.collector.worker.ShutdownGate;
+import com.ssafy.thispatch.collector.client.SteamNewsClient;
+import com.ssafy.thispatch.collector.worker.NewsCollectTasklet;
+import com.ssafy.thispatch.collector.writer.NewsLandingWriter;
 import com.ssafy.thispatch.collector.client.SteamReviewClient;
 import com.ssafy.thispatch.collector.writer.ReviewLandingWriter;
 import com.ssafy.thispatch.common.HdfsPaths;
@@ -47,6 +50,17 @@ public class WorkerConfig {
 
     /** 마스터의 partitioner 가 가리키는 이름과 같아야 한다. */
     public static final String STEP_NAME = "collect.worker";
+
+    /**
+     * 공지(패치노트) 수집 스텝.
+     *
+     * <p>큐는 리뷰와 <b>같은 것을 쓴다.</b> 워커는 메시지에 적힌 스텝 이름으로 빈을
+     * 찾으므로, 이름만 다르면 한 큐로 두 가지 일을 나눠 받을 수 있다.
+     *
+     * <p>⚠ 둘을 동시에 돌리지 않는다. 같은 소비자 풀을 나눠 쓰게 되어 둘 다 느려진다.
+     * 리뷰 전량 수집이 끝난 뒤에 공지를 돌린다.
+     */
+    public static final String NEWS_STEP_NAME = "collect.news";
 
     @Bean
     public SteamReviewClient steamReviewClient() {
@@ -159,6 +173,47 @@ public class WorkerConfig {
                 .inputChannel(requests)
                 .tasklet(collectTasklet, transactionManager)
                 .listener((ChunkListener) collectTasklet)
+                .build();
+    }
+
+    // ══ 공지(패치노트) 수집 ═══════════════════════════════════════
+
+    @Bean
+    public SteamNewsClient steamNewsClient() {
+        return new SteamNewsClient();
+    }
+
+    @Bean
+    public NewsLandingWriter newsLandingWriter(FileSystem reviewFileSystem) {
+        // ⚠ FileSystem 을 리뷰와 함께 쓴다. 하나면 ShutdownGate 가 지키는 것도 하나다.
+        return new NewsLandingWriter(reviewFileSystem);
+    }
+
+    @Bean
+    public NewsCollectTasklet newsCollectTasklet(SteamNewsClient client, NewsLandingWriter writer,
+                                                 ShutdownGate shutdownGate,
+                                                 @Value("${thispatch.collect.request-interval}") Duration interval,
+                                                 @Value("${thispatch.collect.max-retries}") int maxRetries,
+                                                 @Value("${thispatch.collect.consumers:10}") int consumers) {
+        NewsCollectTasklet tasklet =
+                new NewsCollectTasklet(client, writer, interval, maxRetries, consumers);
+        tasklet.setShutdownGate(shutdownGate);
+        return tasklet;
+    }
+
+    /**
+     * 공지 수집 스텝. 빈 이름이 스텝 이름과 같아야 한다 — 마스터가 보낸 요청에는
+     * 이름만 들어 있고 워커는 그 이름으로 빈을 찾는다.
+     */
+    @Bean(name = NEWS_STEP_NAME)
+    public Step newsWorkerStep(RemotePartitioningWorkerStepBuilderFactory factory,
+                               PlatformTransactionManager transactionManager,
+                               DirectChannel requests,
+                               NewsCollectTasklet newsCollectTasklet) {
+        return factory.get(NEWS_STEP_NAME)
+                .inputChannel(requests)
+                .tasklet(newsCollectTasklet, transactionManager)
+                .listener((ChunkListener) newsCollectTasklet)
                 .build();
     }
 }

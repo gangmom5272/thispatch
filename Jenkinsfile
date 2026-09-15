@@ -80,11 +80,11 @@ pipeline {
                     REASON="처음이거나 직전 빌드가 실패했다 — 전부 돌린다"
                     if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
                       CHANGED=$(git diff --name-only "$BASE" HEAD)
-                      OUTSIDE=$(echo "$CHANGED" | grep -v "^frontend/" || true)
+                      OUTSIDE=$(echo "$CHANGED" | grep -vE "^(frontend|ai)/" || true)
                       if [ -z "$CHANGED" ]; then
                         RUN=no;  REASON="바뀐 파일이 없다"
                       elif [ -z "$OUTSIDE" ]; then
-                        RUN=no;  REASON="frontend/ 만 바뀌었다"
+                        RUN=no;  REASON="frontend/ 또는 ai/ 만 바뀌었다 (백엔드 이미지에 포함되지 않음)"
                       else
                         RUN=yes; REASON="백엔드 쪽 변경이 있다"
                       fi

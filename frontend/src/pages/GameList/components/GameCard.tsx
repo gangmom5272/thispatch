@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react"
 import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
 import { useToggleMyGame } from "../../../hooks/queries/gameQueries"
+import { gameDetailPath } from "../../../router/paths"
 import type { Game } from "../../../types"
 import GameSummaryPopover from "./GameSummaryPopover"
 
@@ -100,7 +101,7 @@ export default function GameCard({ game }: { game: Game }) {
           <div className="flex items-start justify-between gap-sb-2">
             <h3 className="truncate text-sb-title font-medium" title={game.title}>
               <Link
-                to={`/games/${game.id}`}
+                to={gameDetailPath(game.id)}
                 className="rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               >
                 {game.title}

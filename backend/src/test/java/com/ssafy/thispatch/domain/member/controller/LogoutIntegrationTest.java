@@ -105,7 +105,7 @@ class LogoutIntegrationTest {
 		refreshTokens.store(other, otherToken);
 
 		logout(tokens.issueAccessToken(other), ownerToken)
-			.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+			.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("LOGOUT_TOKEN_INVALID"));
 
 		assertThat(refreshTokens.validate(ownerToken).getMemberId()).isEqualTo(owner);
 		assertThat(refreshTokens.validate(otherToken).getMemberId()).isEqualTo(other);
@@ -121,7 +121,7 @@ class LogoutIntegrationTest {
 		Member before = members.findById(id).orElseThrow();
 
 		logout(tokens.issueAccessToken(id), expired)
-			.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+			.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("LOGOUT_TOKEN_INVALID"));
 
 		Member after = members.findById(id).orElseThrow();
 		assertThat(after.getRefreshTokenHash()).isEqualTo(before.getRefreshTokenHash());

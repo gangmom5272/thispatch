@@ -63,3 +63,50 @@ export interface GameDetail {
   reviewCount: number | null
   lastCollectedAt: string | null
 }
+
+export type PlanDirection = "INCREASE" | "DECREASE" | "MODIFY"
+
+export interface PlanEntity {
+  id: number
+  name: string
+  role: string
+  source: string
+  editable: boolean
+}
+
+export interface PlanSlot {
+  id: number
+  targetName: string
+  targetRole: string
+  attribute: string
+  direction: PlanDirection
+  magnitude: string | null
+  scope: string | null
+  editable: boolean
+}
+
+export interface PlanWarning {
+  code: string
+  message: string
+  entityName: string | null
+}
+
+export interface PlanRestatement {
+  text: string
+  highlights: {
+    primaryRole: string
+    attributes: string[]
+    direction: PlanDirection
+    scope: string | null
+  }
+  warnings: PlanWarning[]
+}
+
+export interface PlanStructure {
+  gameId: number
+  rawText: string
+  genreIds: number[]
+  entities: PlanEntity[]
+  slots: PlanSlot[]
+  restatement: PlanRestatement
+}

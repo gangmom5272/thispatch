@@ -1,4 +1,4 @@
-import type { GameFilters, GameList } from "../types"
+import type { GameDetail, GameFilters, GameList } from "../types"
 import { api } from "./client"
 
 export function getGames(
@@ -12,6 +12,13 @@ export function getGames(
       params: { ...filters, genreIds: filters.genreIds?.join(",") || undefined, cursor },
       signal,
     },
+  })
+}
+
+export function getGame(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
+  return api.get<GameDetail>({
+    path: `/games/${gameId}`,
+    config: { signal },
   })
 }
 

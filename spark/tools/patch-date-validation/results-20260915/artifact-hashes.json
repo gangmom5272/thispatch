@@ -1,0 +1,10 @@
+{
+  "corpus.jsonl": "397842c473143a2f94b9a9b004d952d8ebf67395aa1ce8a3db945ffac5931d43",
+  "input.tsv": "06b6674e6f8ebbffbd34db1c8311ca46912493072c0f1b8587a82d61703b93ae",
+  "output.tsv": "1d8d70b9310f54aa5a15e35295a47d8e7d3a8d570191dfe0dcc7d54f86f67220",
+  "summary.json": "1bcdced603d43e48628cf5b6f2eccfa7a7e8437de7210c507ffea78ceced7532",
+  "manifest.json": "b581d32d1b0fe3e01eda22a3e53e391645823aac52cd42b8f72c968437350837",
+  "source-review.json": "5acc402da5f27bcfcc3a1337402264b4615965b1ae57e1d0d963467bd22f556a",
+  "prior-overlap.json": "6fcce0f311400f549d17e470480c37faf754bc61d1a8e55c1903d063d1994d87",
+  "adapter-smoke-output.tsv": "4f675bac92499b66d3ff954df3976f008c9315021cb06b8522536f8ca5a8cf2b"
+}

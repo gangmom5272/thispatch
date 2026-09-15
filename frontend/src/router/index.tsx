@@ -6,6 +6,7 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_TABS,
   GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
   paths,

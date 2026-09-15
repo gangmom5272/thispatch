@@ -1,10 +1,18 @@
-import { createBrowserRouter } from "react-router"
+import { createBrowserRouter, Navigate } from "react-router"
 import { AppShell } from "@/components/layout/AppShell"
 import LoginPage from "@/pages/login/LoginPage"
 import NotFound from "@/pages/NotFound"
 import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
-import { paths, routeSegment } from "@/router/paths"
+import {
+  DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_TAB_LABELS,
+  GAME_DETAIL_TAB_ORDER,
+  paths,
+  routeSegment,
+} from "@/router/paths"
+import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
+import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 
@@ -23,7 +31,17 @@ export const router = createBrowserRouter([
       },
       {
         path: routeSegment(paths.gameDetailPattern),
-        element: <PlaceholderPage title="게임 상세" />,
+        element: <GameDetailPage />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
+          },
+          ...GAME_DETAIL_TAB_ORDER.map((tab) => ({
+            path: tab,
+            element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
+          })),
+        ],
       },
       {
         path: routeSegment(paths.gamePlanPattern),

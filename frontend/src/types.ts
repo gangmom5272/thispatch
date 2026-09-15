@@ -13,6 +13,20 @@ export interface Game {
   gameSummary: GameSummary
 }
 
+/** GET /games/{gameId} */
+export interface GameDetail {
+  id: number
+  capsuleImageUrl: string | null
+  title: string
+  tags: GameTag[]
+  positiveRate: number | null
+  isMine: boolean
+  description: string | null
+  releasedOn: string | null
+  reviewCount: number | null
+  lastCollectedAt: string | null
+}
+
 export interface GameSummary {
   id: number
   title: string

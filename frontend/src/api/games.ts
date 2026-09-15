@@ -15,6 +15,13 @@ export function getGames(
   })
 }
 
+export function getGame(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
+  return api.get<GameDetail>({
+    path: `/games/${gameId}`,
+    config: { signal },
+  })
+}
+
 export function createMyGame(gameId: number): Promise<void> {
   return api.post<void>({ path: `/games/${gameId}/my-game` })
 }

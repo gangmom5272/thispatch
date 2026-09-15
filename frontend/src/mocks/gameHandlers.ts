@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from "msw"
 import { DEFAULT_GAME_SORT, isGameSort } from "../constants/games"
-import type { Game, GameSort } from "../types"
+import type { Game, GameDetail, GameSort } from "../types"
 import { mockGames } from "./games"
 import { userFromAuthHeader } from "./lib/authStore"
 
@@ -23,6 +23,21 @@ function respond(status: number, message: string, data?: unknown) {
 
 function isAuthorized(request: Request) {
   return userFromAuthHeader(request) !== null
+}
+
+function toGameDetail(game: (typeof mockGames)[number]): GameDetail {
+  return {
+    id: game.id,
+    capsuleImageUrl: game.capsuleImageUrl,
+    title: game.title,
+    tags: game.tags,
+    positiveRate: game.positiveRate,
+    isMine: registeredGames.has(game.id),
+    description: game.gameSummary.description,
+    releasedOn: game.releasedAt,
+    reviewCount: game.reviewCount,
+    lastCollectedAt: "2026-09-07T04:10:00Z",
+  }
 }
 
 function readCursor(cursor: string, filterKey: string): number {
@@ -129,22 +144,15 @@ export const gameHandlers = [
     if (!isAuthorized(request)) {
       return respond(401, "인증이 필요합니다.")
     }
-    const game = mockGames.find((item) => item.id === Number(params.gameId))
+    const id = Number(params.gameId)
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return respond(404, "게임을 찾을 수 없습니다.")
+    }
+    const game = mockGames.find((item) => item.id === id)
     if (!game) {
       return respond(404, "게임을 찾을 수 없습니다.")
     }
-    return respond(200, "성공했습니다.", {
-      id: game.id,
-      capsuleImageUrl: game.capsuleImageUrl,
-      title: game.title,
-      tags: game.tags,
-      positiveRate: game.positiveRate,
-      isMine: registeredGames.has(game.id),
-      description: game.gameSummary.description,
-      releasedOn: game.releasedAt,
-      reviewCount: game.reviewCount,
-      lastCollectedAt: new Date().toISOString(),
-    })
+    return respond(200, "성공했습니다.", toGameDetail(game))
   }),
   http.delete(`${baseURL}/games/:gameId/my-game`, async ({ request, params }) => {
     await delay(250)

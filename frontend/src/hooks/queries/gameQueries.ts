@@ -18,6 +18,8 @@ export const gameKeys = {
   all: ["games"] as const,
   lists: () => [...gameKeys.all, "list"] as const,
   list: (filters: GameFilters) => [...gameKeys.lists(), filters] as const,
+  details: () => [...gameKeys.all, "detail"] as const,
+  detail: (gameId: number) => [...gameKeys.details(), gameId] as const,
   suggestions: (search: string) => [...gameKeys.all, "suggestions", search] as const,
   detail: (gameId: number) => [...gameKeys.all, "detail", gameId] as const,
 }
@@ -33,6 +35,19 @@ export const gameListOptions = (filters: GameFilters) =>
 
 export function useGameList(filters: GameFilters) {
   return useInfiniteQuery(gameListOptions(filters))
+}
+
+export const gameDetailOptions = (gameId: number) =>
+  queryOptions({
+    queryKey: gameKeys.detail(gameId),
+    queryFn: ({ signal }) => getGame(gameId, signal),
+  })
+
+export function useGameDetail(gameId: number | null) {
+  return useQuery({
+    ...gameDetailOptions(gameId ?? 0),
+    enabled: gameId !== null,
+  })
 }
 
 export const gameSuggestionOptions = (search: string) =>

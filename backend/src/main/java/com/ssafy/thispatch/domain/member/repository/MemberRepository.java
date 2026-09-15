@@ -19,6 +19,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByEmail(String email);
 
+	// PostgreSQL의 UNIQUE 충돌을 문장 수준에서 처리해 트랜잭션이 rollback-only가 되지 않게 한다.
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query(value = """
+		insert into member (login_type, steam_id, status, created_at)
+		values ('STEAM', :steamId, 'ACTIVE', current_timestamp)
+		on conflict (steam_id) do nothing
+		""", nativeQuery = true)
+	int insertSteamMemberIfAbsent(@Param("steamId") BigInteger steamId);
+
 	// 호출 서비스의 트랜잭션 안에서 실행한다. 신규 회원 INSERT를 먼저 반영하고 조회 캐시를 비운다.
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""

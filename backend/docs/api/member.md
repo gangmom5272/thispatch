@@ -244,9 +244,12 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 - Access Token과 Refresh Token은 Redirect URL에 포함하지 않는다.
 - 회원 생성은 이 콜백에서 완료한다. 닉네임은 이후 인증된 회원이 `POST /auth/steam/signup`으로 설정한다.
 - 닉네임 설정 화면에서 이탈해도 생성된 회원은 유지한다. 다음 Steam 로그인에서는 같은 Steam ID의 기존 회원을 사용하고, 닉네임이 여전히 `null`이면 설정 화면으로 돌아간다.
-- 동일 Steam ID의 동시 콜백에도 중복 회원이 생성되지 않도록 서비스 처리와 DB UNIQUE 제약을 고려한다. 현재 migration에는 `member.steam_id` UNIQUE 제약이 없으며, 구체적인 추가 migration은 구현 전 확인 대상이다.
+- 동일 Steam ID의 동시 콜백은 `member.steam_id` UNIQUE 제약과 충돌 시 기존 회원 조회로 중복 생성을 방지한다. V4 migration으로 일반 UNIQUE 제약을 추가하며 NULL은 여러 행에서 허용한다. 기존 중복 데이터는 자동 삭제·병합하지 않고 migration을 실패시킨다.
 - 자체 가입 계정과 Steam 계정의 연결·병합은 지원하지 않는다.
-- 탈퇴한 Steam 계정의 재가입 정책은 미정이다. 탈퇴 회원의 콜백 분기와 응답은 해당 정책 확정 후 정의한다.
+- 기존 회원은 `login_type=STEAM`, `status=ACTIVE`인 경우에만 로그인 코드를 발급한다. 탈퇴 등 ACTIVE가 아닌 회원은 기존 회원과 데이터를 유지하고 코드 발급·자동 복구·새 회원 생성 없이 `/login?error=STEAM_AUTH_FAILED`로 302 Redirect한다. 탈퇴한 Steam 계정의 재가입은 허용하지 않는다.
+- OpenID 2.0 필수 필드·서명 대상, Steam 공급자·식별자, 설정된 `return_to`를 확인한 뒤 고정된 Steam HTTPS endpoint에 `check_authentication`을 전송한다. 요청 값으로 외부 검증 주소를 바꾸지 않는다. 검증 성공 전에는 Steam ID로 회원을 조회하거나 생성하지 않는다.
+- 인증 취소·누락·변조·무효 OpenID 응답 및 Steam 검증 서버의 타임아웃·HTTP 오류는 `/login?error=STEAM_AUTH_FAILED`로 302 Redirect한다. 실패 사유와 통신 장애는 서버 로그에서 구분하며 OpenID 서명·로그인 코드 원문은 기록하지 않는다.
+- 내부 DB·Redis 장애는 공통 `500 INTERNAL_SERVER_ERROR` JSON 응답을 사용한다. 회원 생성 트랜잭션 커밋 후 로그인 코드를 발급하며, 코드 발급 실패 시에도 이미 생성된 회원은 유지한다. 사용자는 Steam 로그인을 다시 시작한다.
 - 응답은 JSON이 아닌 `302 Redirect`다. TTL 및 Redirect URL 설정은 아래 정책을 따른다.
 
 ## Steam 로그인 토큰 교환
@@ -560,5 +563,4 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 
 - 닉네임 상세 검증 규칙: 미정.
 - 최초 닉네임 설정 시 회원 부재·탈퇴 상태·STEAM 이외 회원 요청의 처리 정책과 도메인 오류 응답: 미정.
-- 탈퇴한 Steam 계정의 재가입 정책: 미정.
 - 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

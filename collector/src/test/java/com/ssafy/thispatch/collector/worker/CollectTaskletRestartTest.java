@@ -163,7 +163,7 @@ class CollectTaskletRestartTest {
     }
 
     private Job job(CollectTasklet.Sleeper sleeper) {
-        var tasklet = new CollectTasklet(client, writer, explorer, Duration.ofMillis(1), 2, clock, sleeper);
+        var tasklet = new CollectTasklet(client, writer, explorer, Duration.ofMillis(1), 2, 1, clock, sleeper);
         var step = new StepBuilder("collect.worker", repository)
                 .tasklet(tasklet, transactionManager)
                 .listener((ChunkListener) tasklet)

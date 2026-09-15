@@ -22,7 +22,16 @@ spring:
       # 2026-09-11 실제로 겪었다.
       #
       # 배치 워커는 스텝 실행 상태를 기록할 뿐이라 연결이 많이 필요 없다.
-      maximum-pool-size: ${DB_POOL_MAX:4}
+      # ⚠ 동시성(listener.concurrency)보다 작으면 안 된다.
+      #   Spring Batch 는 조각마다 진행 상태를 DB 에 쓴다. 동시에 10 조각을
+      #   돌리는데 연결이 4개면 6개가 연결을 기다리며 논다.
+      #
+      #   예산 — 마스터 PostgreSQL 의 max_connections 는 60 이다.
+      #     워커 4대 x 12 = 48
+      #     매니저 1대 x  4 =  4
+      #     사람·psql 여유    8
+      #   합 60. 워커를 늘리려면 max_connections 부터 올려야 한다.
+      maximum-pool-size: ${DB_POOL_MAX:12}
       minimum-idle: 1
       # 노트북이라 절전·무선 끊김으로 연결이 죽은 채 남는다. 오래 쥐고 있지 않는다.
       idle-timeout: 60000
@@ -47,6 +56,11 @@ spring:
       simple:
         # 워커가 죽어서 못 받은 조각은 큐에 남아 다른 워커가 가져간다.
         acknowledge-mode: auto
+
+        # ⚠ 동시성은 여기서 정하지 않는다.
+        #   이 속성들은 @RabbitListener 용이고, 우리 워커는 WorkerConfig 에서
+        #   컨테이너를 직접 만든다. 거기 concurrentConsumers 가 최종값이다.
+        #   바꾸려면 thispatch.collect.consumers 를 쓴다 (아래).
 
 thispatch:
   collect:
@@ -75,6 +89,10 @@ thispatch:
     #
     #   리허설·디버깅에는 실행할 때 넘긴다:
     #     COLLECT_APPIDS=730,570  또는  --thispatch.collect.appids=730,570
+    # 워커 한 대가 동시에 처리할 조각 수. 전체 수집 시간을 좌우한다.
+    #   4대 x 10 = 동시 40. 노션 실측(동시 48 까지 무차단)보다 낮게 잡는다 —
+    #   403 을 받으면 1시간을 쉬어야 해서 욕심내다 막히는 편이 더 손해다.
+    consumers: ${COLLECT_CONSUMERS:10}
     appids: ${COLLECT_APPIDS:}
     # 워커의 Hadoop 설정. HDFS 주소/landing 경로는 common의 HdfsPaths를 따른다.
     hadoop-conf-dir: ${HADOOP_CONF_DIR:/opt/hadoop/etc/hadoop}

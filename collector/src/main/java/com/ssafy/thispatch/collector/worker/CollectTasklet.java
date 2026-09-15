@@ -67,16 +67,27 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     private final int maxRetries;
     private final Clock clock;
     private final Sleeper sleeper;
-    // WorkerConfig의 소비자 1개에서 사용한다. 다음 파티션도 같은 워커의 대기를 지킨다.
-    private final AtomicLong workerNextRequestAt = new AtomicLong();
+    /**
+     * 이 워커가 다음 요청을 보낼 수 있는 시각. 조각들이 나눠 쓴다.
+     *
+     * <p>⚠ 처음에는 값이 하나였다. 조각 하나가 요청하면 나머지 전부가
+     * {@code requestInterval} 만큼 막혔다. 소비자를 1 -> 10 으로 늘려도
+     * 워커당 초당 1요청에 묶여 속도가 그대로였다. (2026-09-14 실측 —
+     * 동시 조각 40개인데 1.85 페이지/초, 조각 하나가 페이지 하나에 21초)
+     *
+     * <p>그래서 '차례' 를 여러 개 둔다. 조각은 자기 차례 하나만 기다린다.
+     * 워커 전체의 초당 요청 수는 {@code lanes / requestInterval} 이 된다.
+     * 차례 수를 소비자 수와 맞추면 조각마다 자기 차례를 갖는 셈이다.
+     */
+    private final AtomicLong[] lanes;
 
     public CollectTasklet(SteamReviewClient client, ReviewLandingWriter writer, JobExplorer jobExplorer,
-                          Duration requestInterval, int maxRetries) {
-        this(client, writer, jobExplorer, requestInterval, maxRetries, Clock.systemUTC(), Thread::sleep);
+                          Duration requestInterval, int maxRetries, int lanes) {
+        this(client, writer, jobExplorer, requestInterval, maxRetries, lanes, Clock.systemUTC(), Thread::sleep);
     }
 
     CollectTasklet(SteamReviewClient client, ReviewLandingWriter writer, JobExplorer jobExplorer,
-                   Duration requestInterval, int maxRetries, Clock clock, Sleeper sleeper) {
+                   Duration requestInterval, int maxRetries, int lanes, Clock clock, Sleeper sleeper) {
         this.client = Objects.requireNonNull(client);
         this.writer = Objects.requireNonNull(writer);
         this.jobExplorer = Objects.requireNonNull(jobExplorer);
@@ -87,6 +98,13 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             throw new IllegalArgumentException("request interval must be >= 1ms and max retries >= 0");
         }
         this.maxRetries = maxRetries;
+        if (lanes < 1) {
+            throw new IllegalArgumentException("lanes must be >= 1");
+        }
+        this.lanes = new AtomicLong[lanes];
+        for (int i = 0; i < lanes; i++) {
+            this.lanes[i] = new AtomicLong();
+        }
     }
 
     @Override
@@ -112,13 +130,13 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             return RepeatStatus.FINISHED;
         }
         // 재시작 직후에도 커밋된 백오프를 지킨다. 실제 대기는 트랜잭션 밖 afterChunk에서 한다.
-        if (nextRequestAt(ctx) > clock.millis()) {
+        if (nextRequestAt(step, ctx) > clock.millis()) {
             return RepeatStatus.CONTINUABLE;
         }
         long appid = appids.get(index);
         String cursor = ctx.getString(KEY_CURSOR, SteamReviewClient.FIRST_CURSOR);
         SteamReviewPage page;
-        workerNextRequestAt.set(Math.addExact(clock.millis(), requestIntervalMillis));
+        lane(step).set(Math.addExact(clock.millis(), requestIntervalMillis));
         try {
             page = client.fetchPage(appid, cursor);
         } catch (InterruptedException e) {
@@ -126,7 +144,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             step.setTerminateOnly();
             throw new JobInterruptedException("Interrupted while requesting Steam reviews");
         } catch (IOException e) {
-            return retryOrFail(ctx, appid, e);
+            return retryOrFail(step, ctx, appid, e);
         }
         var collectedAt = clock.instant();
         checkInterrupted(step);
@@ -158,11 +176,12 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         ctx.putString(KEY_CURSOR, cursor);
         ctx.putInt(KEY_EMPTY_PAGES, emptyPages);
         ctx.putInt(KEY_RETRIES, 0);
-        defer(ctx, requestIntervalMillis);
+        defer(step, ctx, requestIntervalMillis);
         return index == appids.size() ? RepeatStatus.FINISHED : RepeatStatus.CONTINUABLE;
     }
 
-    private RepeatStatus retryOrFail(ExecutionContext ctx, long appid, IOException failure) throws IOException {
+    private RepeatStatus retryOrFail(StepExecution step, ExecutionContext ctx, long appid,
+                                     IOException failure) throws IOException {
         int retries = ctx.getInt(KEY_RETRIES, 0);
         long delay;
         String retryAfter = null;
@@ -171,7 +190,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             retryAfter = steam.retryAfter();
             if (steam.kind() == SteamReviewException.Kind.HTTP_ERROR && (status == 403 || status == 429)) {
                 delay = status == 403 ? Duration.ofHours(1).toMillis() : Duration.ofMinutes(1).toMillis();
-                defer(ctx, Math.max(delay, retryAfterMillis(retryAfter)));
+                defer(step, ctx, Math.max(delay, retryAfterMillis(retryAfter)));
                 log.warn("Steam HTTP {} — 게임 {} 진행 위치 유지, {}까지 대기", status, appid,
                         java.time.Instant.ofEpochMilli(ctx.getLong(KEY_NEXT_REQUEST_AT)));
                 return RepeatStatus.CONTINUABLE;
@@ -187,7 +206,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         }
         delay = Math.min(60_000L, 2_000L << Math.min(retries, 5));
         ctx.putInt(KEY_RETRIES, retries + 1);
-        defer(ctx, Math.max(delay, retryAfterMillis(retryAfter)));
+        defer(step, ctx, Math.max(delay, retryAfterMillis(retryAfter)));
         log.warn("Steam 일시 오류 — 게임 {}, 재시도 {}/{}", appid, retries + 1, maxRetries);
         return RepeatStatus.CONTINUABLE;
     }
@@ -208,14 +227,25 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         }
     }
 
-    private void defer(ExecutionContext ctx, long delayMillis) {
+    private void defer(StepExecution step, ExecutionContext ctx, long delayMillis) {
         long deadline = Math.addExact(clock.millis(), Math.max(requestIntervalMillis, delayMillis));
-        workerNextRequestAt.accumulateAndGet(deadline, Math::max);
-        ctx.putLong(KEY_NEXT_REQUEST_AT, workerNextRequestAt.get());
+        AtomicLong lane = lane(step);
+        lane.accumulateAndGet(deadline, Math::max);
+        ctx.putLong(KEY_NEXT_REQUEST_AT, lane.get());
     }
 
-    private long nextRequestAt(ExecutionContext ctx) {
-        return Math.max(workerNextRequestAt.get(), ctx.getLong(KEY_NEXT_REQUEST_AT, 0));
+    /**
+     * 이 조각이 쓸 차례. 조각 이름으로 고정해서 고르므로 매번 같은 차례를 쓴다.
+     * 골고루 흩어지도록 해시를 쓴다.
+     */
+    private AtomicLong lane(StepExecution step) {
+        Long id = step.getId();
+        int h = step.getStepName().hashCode() + (id == null ? 0 : id.intValue());
+        return lanes[Math.floorMod(h, lanes.length)];
+    }
+
+    private long nextRequestAt(StepExecution step, ExecutionContext ctx) {
+        return Math.max(lane(step).get(), ctx.getLong(KEY_NEXT_REQUEST_AT, 0));
     }
 
     /** afterChunk는 진행 위치 커밋 후 호출되므로 긴 백오프 중 DB 연결을 점유하지 않는다. */
@@ -227,7 +257,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             return;
         }
         long nextStopCheck = clock.millis();
-        while (nextRequestAt(ctx) > clock.millis()) {
+        while (nextRequestAt(step, ctx) > clock.millis()) {
             if (step.isTerminateOnly() || Thread.currentThread().isInterrupted()) {
                 step.setTerminateOnly();
                 return;
@@ -241,7 +271,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
                 nextStopCheck = clock.millis() + 5_000;
             }
             try {
-                sleeper.sleep(Math.min(1_000, Math.max(1, nextRequestAt(ctx) - clock.millis())));
+                sleeper.sleep(Math.min(1_000, Math.max(1, nextRequestAt(step, ctx) - clock.millis())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 step.setTerminateOnly();

@@ -284,7 +284,7 @@ class CollectTaskletTest {
     }
 
     private CollectTasklet newTasklet(CollectTasklet.Sleeper sleeper) {
-        return new CollectTasklet(client, writer, explorer, Duration.ofSeconds(1), 2, clock, sleeper);
+        return new CollectTasklet(client, writer, explorer, Duration.ofSeconds(1), 2, 1, clock, sleeper);
     }
 
     static SteamReviewPage page(String cursor) {

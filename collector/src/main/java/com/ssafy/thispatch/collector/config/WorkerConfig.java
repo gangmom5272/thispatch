@@ -76,24 +76,44 @@ public class WorkerConfig {
     public CollectTasklet collectTasklet(SteamReviewClient client, ReviewLandingWriter writer,
                                         JobExplorer jobExplorer,
                                         @Value("${thispatch.collect.request-interval}") Duration interval,
-                                        @Value("${thispatch.collect.max-retries}") int maxRetries) {
-        return new CollectTasklet(client, writer, jobExplorer, interval, maxRetries);
+                                        @Value("${thispatch.collect.max-retries}") int maxRetries,
+                                        @Value("${thispatch.collect.consumers:10}") int consumers) {
+        // ⚠ 차례 수를 소비자 수와 맞춘다. 적으면 조각들이 서로를 막는다.
+        return new CollectTasklet(client, writer, jobExplorer, interval, maxRetries, consumers);
     }
 
     /** AMQP 로 들어온 작업 요청을 채널로 흘려보낸다. */
     @Bean
     public IntegrationFlow inboundRequests(ConnectionFactory connectionFactory,
                                            DirectChannel requests,
-                                           MessageConverter batchMessageConverter) {
+                                           MessageConverter batchMessageConverter,
+                                           @Value("${thispatch.collect.consumers:10}") int consumers) {
         return IntegrationFlow
                 .from(Amqp.inboundAdapter(connectionFactory, MessagingConfig.REQUESTS_QUEUE)
                         // 이걸 안 주면 어댑터가 기본 변환기를 써서 허용 목록이
                         // 적용되지 않는다. StepExecutionRequest 역직렬화가
                         // SecurityException 으로 막힌다 (2026-09-11 실제로 겪음).
                         .messageConverter(batchMessageConverter)
-                        // 한 번에 하나만 집는다. 노트북 한 대가 여러 조각을 붙들면
-                        // 다른 노트북이 놀게 되고, IP 를 나눈 의미가 줄어든다.
-                        .configureContainer(c -> c.concurrentConsumers(1).prefetchCount(1)))
+                        // ⚠ 이 값이 전체 수집 시간을 좌우한다.
+                        //
+                        //   1 로 두면 노트북 한 대가 조각을 하나씩만 처리해서,
+                        //   4대를 써도 스팀에 나가는 동시 요청이 4개뿐이다.
+                        //   2026-09-14 실측 — 183 리뷰/초, 전량에 9.3일.
+                        //
+                        //   노션 「데이터 정리」 실측: 스팀은 5시간 연속 ·
+                        //   동시 48개까지 막지 않았다. 문서의 2,967 리뷰/초
+                        //   (전량 18시간)가 그 조건에서 나온 값이다.
+                        //
+                        //   ⚠ application.yaml 의 spring.rabbitmq.listener.simple.*
+                        //     는 여기 적용되지 않는다. 그건 @RabbitListener 용이다.
+                        //     여기서 직접 만든 컨테이너라 이 값이 최종이다.
+                        //     설정만 바꾸고 이 줄을 안 고쳐서 한참 헤맸다.
+                        //
+                        //   prefetch 는 1 로 둔다. 미리 여러 개를 쥐면 느린 조각을
+                        //   문 워커가 나머지를 붙들고 다른 노트북을 놀린다.
+                        .configureContainer(c -> c.concurrentConsumers(consumers)
+                                                  .maxConcurrentConsumers(consumers)
+                                                  .prefetchCount(1)))
                 .channel(requests)
                 .get();
     }

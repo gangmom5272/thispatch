@@ -193,12 +193,21 @@ public final class JsonToParquet {
 
     /** 날짜 하나를 landing 에서 delta 로 옮긴다. */
     static void convertOne(SparkSession spark, String dt) {
-        String src = HdfsPaths.reviewLandingOf(dt) + "/*.jsonl.gz";
+        String src = HdfsPaths.reviewLandingOf(dt);
         String dst = HdfsPaths.reviewDeltaOf(dt);
 
         System.out.println("── " + dt + " ──────────────────────────────");
         System.out.println("읽는다  " + src);
-        Dataset<Row> raw = spark.read().schema(LANDING).json(src);
+
+        // ⚠ 글로브(/*.jsonl.gz) 가 아니라 재귀로 읽는다.
+        //   2026-09-16 부터 수집기가 dt=날짜/시 로 한 단계 더 나눠 쓴다
+        //   (HDFS 디렉터리 항목 한도 때문 — TimeRule.hourBucket 참고).
+        //   그 전에 받은 것은 dt=날짜 바로 아래에 있다. 재귀로 읽으면 둘 다 잡힌다.
+        //   '.' 로 시작하는 미완성 파일(.xxx.inprogress)은 스파크가 알아서 뺀다.
+        Dataset<Row> raw = spark.read()
+                .schema(LANDING)
+                .option("recursiveFileLookup", "true")
+                .json(src);
         long inCount = raw.count();
         System.out.println("원본    " + inCount + "건");
 

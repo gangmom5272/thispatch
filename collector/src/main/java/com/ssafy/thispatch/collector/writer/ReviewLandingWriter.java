@@ -60,7 +60,11 @@ public final class ReviewLandingWriter {
         }
 
         long collectedTs = collectedAt.getEpochSecond();
-        Path directory = new Path(landingRoot, "dt=" + TimeRule.partition(collectedTs));
+        // ⚠ 시(hour) 로 한 번 더 나눈다. 날짜 하나에 몰아넣으면 HDFS 의 디렉터리
+        //   항목 한도(기본 1,048,576)에 막힌다 — 2026-09-15 전량 수집이 여기서 멈췄다.
+        //   TimeRule.hourBucket 의 설명을 볼 것.
+        Path directory = new Path(landingRoot,
+                "dt=" + TimeRule.partition(collectedTs) + "/" + TimeRule.hourBucket(collectedTs));
         if (!fileSystem.mkdirs(directory)) {
             throw new IOException("Could not create review landing directory: " + directory);
         }

@@ -162,12 +162,18 @@ public final class NewsToParquet {
     }
 
     static void convertOne(SparkSession spark, String dt) {
-        String src = HdfsPaths.newsLandingOf(dt) + "/*.jsonl.gz";
+        String src = HdfsPaths.newsLandingOf(dt);
         String dst = HdfsPaths.newsRawOf(dt);
 
         System.out.println("── " + dt + " ──────────────────────────────");
         System.out.println("읽는다  " + src);
-        Dataset<Row> raw = spark.read().schema(LANDING).json(src);
+
+        // ⚠ JsonToParquet 과 같은 이유로 재귀로 읽는다.
+        //   2026-09-16 이전 것은 dt=날짜 바로 아래, 이후는 dt=날짜/시 아래에 있다.
+        Dataset<Row> raw = spark.read()
+                .schema(LANDING)
+                .option("recursiveFileLookup", "true")
+                .json(src);
         long inCount = raw.count();
         System.out.println("원본    " + inCount + "건");
 

@@ -68,7 +68,10 @@ public final class NewsLandingWriter {
         }
 
         long collectedTs = collectedAt.getEpochSecond();
-        Path directory = new Path(landingRoot, "dt=" + TimeRule.partition(collectedTs));
+        // ⚠ 리뷰와 같은 이유로 시(hour) 로 한 번 더 나눈다. 공지는 게임당 파일 하나라
+        //   18.5만 개면 한도 안이지만, 구조를 리뷰와 다르게 두면 읽는 쪽이 갈라진다.
+        Path directory = new Path(landingRoot,
+                "dt=" + TimeRule.partition(collectedTs) + "/" + TimeRule.hourBucket(collectedTs));
         if (!fileSystem.mkdirs(directory)) {
             throw new IOException("Could not create news landing directory: " + directory);
         }

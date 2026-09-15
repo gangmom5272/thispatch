@@ -8,6 +8,7 @@ import {
   DEFAULT_GAME_DETAIL_TAB,
   GAME_DETAIL_TAB_LABELS,
   GAME_DETAIL_TAB_ORDER,
+  GAME_DETAIL_TABS,
   paths,
   routeSegment,
 } from "@/router/paths"
@@ -39,13 +40,14 @@ export const router = createBrowserRouter([
           },
           ...GAME_DETAIL_TAB_ORDER.map((tab) => ({
             path: tab,
-            element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
+            element:
+              tab === GAME_DETAIL_TABS.plan ? (
+                <PlanStructurePage />
+              ) : (
+                <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
+              ),
           })),
         ],
-      },
-      {
-        path: routeSegment(paths.gamePlanPattern),
-        element: <PlanStructurePage />,
       },
       {
         path: routeSegment(paths.gameCasesPattern),

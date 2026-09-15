@@ -21,7 +21,6 @@ export const gameKeys = {
   details: () => [...gameKeys.all, "detail"] as const,
   detail: (gameId: number) => [...gameKeys.details(), gameId] as const,
   suggestions: (search: string) => [...gameKeys.all, "suggestions", search] as const,
-  detail: (gameId: number) => [...gameKeys.all, "detail", gameId] as const,
 }
 
 export const gameListOptions = (filters: GameFilters) =>
@@ -62,16 +61,6 @@ export const gameSuggestionOptions = (search: string) =>
 
 export function useGameSuggestions(search: string, enabled: boolean) {
   return useQuery({ ...gameSuggestionOptions(search), enabled })
-}
-
-export const gameDetailOptions = (gameId: number) =>
-  queryOptions({
-    queryKey: gameKeys.detail(gameId),
-    queryFn: ({ signal }) => getGame(gameId, signal),
-  })
-
-export function useGameDetail(gameId: number) {
-  return useQuery(gameDetailOptions(gameId))
 }
 
 interface ToggleMyGameVariables {

@@ -20,7 +20,7 @@ from common import in_dir, write_parquet_dir  # noqa: E402
 
 NEWS_SCHEMA = pa.schema([
     ("gid", pa.string()), ("appid", pa.int64()), ("title", pa.string()), ("contents", pa.string()),
-    ("published_at", pa.int64()), ("is_patch", pa.bool_()),
+    ("published_ts", pa.int64()), ("is_patch", pa.bool_()),
 ])
 VERB = re.compile(r"(increased|decreased|reduced|buffed|nerfed|fixed|adjusted|changed|added|removed|lowered|raised|improved|tweaked|rebalanced|reworked|replaced|resolved|corrected|no longer|can now|will now|updated)", re.I)
 KW = re.compile(r"(patch|hotfix|update|balance|changelog|notes|fix)", re.I)
@@ -43,7 +43,7 @@ def main():
             body = n.get("contents") or ""
             is_patch = jud.get(n["gid"]) if n["gid"] in jud else bool(KW.search(n["title"]) and len(VERB.findall(body)) >= 5)
             rows.append({"gid": str(n["gid"]), "appid": appid, "title": n["title"], "contents": body,
-                         "published_at": int(n["date"]), "is_patch": bool(is_patch)})
+                         "published_ts": int(n["date"]), "is_patch": bool(is_patch)})
     df = pd.DataFrame(rows)
     p = write_parquet_dir(df, in_dir("news_raw", a.dt), schema=NEWS_SCHEMA)
     print(f"news={len(df)} is_patch={int(df.is_patch.sum())} games={df.appid.nunique()} -> {p}")

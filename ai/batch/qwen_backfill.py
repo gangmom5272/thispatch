@@ -2,7 +2,7 @@
 """Qwen 사전 분석 백필: 청크 문장 → 대상·속성·조건 슬롯 → patch_change 덮어쓰기.
 
 입력  {AI_WORK_DIR}/out/embeddings/patch_chunk/dt=D, patch_change/dt=D  (embed_chunks.py 결과)
-      {AI_WORK_DIR}/in/news_raw/dt=D  (published_at 으로 우선순위)
+      {AI_WORK_DIR}/in/news_raw/dt=D  (published_ts 로 우선순위)
 출력  같은 두 폴더를 다시 쓴다. 처리한 청크의 규칙 변경점은 Qwen 결과로 교체, model_version=qwen3.5-9b-q4km/<prompt>.
       Qwen 원본 응답은 {AI_WORK_DIR}/out/embeddings/qwen_raw/dt=D/*.jsonl 에 그대로 보관(재매핑용).
       진행 상태 {AI_WORK_DIR}/state/qwen_done.jsonl (재실행 시 건너뜀).
@@ -133,7 +133,7 @@ def main():
 
     ck = read_parquet_dir(out_dir("embeddings/patch_chunk", a.dt))
     ch = read_parquet_dir(out_dir("embeddings/patch_change", a.dt))
-    news = read_parquet_dir(in_dir("news_raw", a.dt), columns=["gid", "published_at"])
+    news = read_news(None, columns=["gid", "published_ts"], patch_only=False)[["gid", "published_ts"]]  # 전 dt 에서 gid→발행시각
     if ck.empty:
         sys.exit("patch_chunk 없음. embed_chunks.py 먼저")
 
@@ -142,7 +142,7 @@ def main():
     todo = ck[~ck.key.isin(done) & (ck.model_version != MODEL_TAG)]
     if not a.include_skipped:
         todo = todo[todo.embedding_status != "skipped"]
-    todo = todo.merge(news, on="gid", how="left").sort_values("published_at", ascending=False)  # 최근 공지 우선
+    todo = todo.merge(news, on="gid", how="left").sort_values("published_ts", ascending=False)  # 최근 공지 우선
     if a.limit:
         todo = todo.head(a.limit)
     print(f"chunks total={len(ck)} done={ck.key.isin(done).sum()} todo={len(todo)}")

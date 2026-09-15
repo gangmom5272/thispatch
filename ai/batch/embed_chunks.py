@@ -4,7 +4,7 @@
 입력  {AI_WORK_DIR}/in/news_raw/dt=D/*.parquet   (news 테이블 컬럼, is_patch=true 만 처리)
 출력  {AI_WORK_DIR}/out/embeddings/patch_chunk/dt=D/
       {AI_WORK_DIR}/out/embeddings/patch_change/dt=D/
-실행  python embed_chunks.py --dt 2026-09-11 [--limit N] [--no-embed]
+실행  python embed_chunks.py --dt 2026-09-11 [--limit N] [--no-embed] [--all-dt]
 
 실측(2026-09-11, RTX 4070 8GB, HF bf16, batch 64): 127청크/초.
 """
@@ -19,8 +19,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from chunking import CHUNK_VERSION, build_input_text, chunk_notice, split_sentences  # noqa: E402
 from common import (EMBED_DIM, EMBED_MODEL_ID, EMBED_MODEL_TAG, PATCH_CHANGE_SCHEMA,  # noqa: E402
-                    PATCH_CHUNK_SCHEMA, has_success, in_dir, now_ts, out_dir, read_parquet_dir,
-                    write_parquet_dir)
+                    PATCH_CHUNK_SCHEMA, has_success, in_dir, now_ts, out_dir, read_news, write_parquet_dir)
 from rules import RULE_VERSION, slots  # noqa: E402
 
 
@@ -87,16 +86,16 @@ def main():
     ap.add_argument("--dt", required=True)
     ap.add_argument("--limit", type=int, default=0, help="공지 수 제한(테스트)")
     ap.add_argument("--no-embed", action="store_true", help="청크·규칙만, 임베딩 생략")
+    ap.add_argument("--all-dt", action="store_true", help="초기 전량: news_raw/dt=* 전부 읽고 gid 최신 한 벌만 (출력은 --dt 폴더)")
     a = ap.parse_args()
 
-    src = in_dir("news_raw", a.dt)
-    if not has_success(src):
+    src = in_dir("news_raw") if a.all_dt else in_dir("news_raw", a.dt)
+    if not a.all_dt and not has_success(src):
         sys.exit(f"입력에 _SUCCESS 없음: {src}")
-    news = read_parquet_dir(src, columns=["gid", "appid", "title", "contents", "published_at", "is_patch"])
-    news = news[news["is_patch"] == True]  # noqa: E712
+    news = read_news(None if a.all_dt else a.dt)
     if a.limit:
         news = news.head(a.limit)
-    print(f"news(is_patch)={len(news)} from {src}")
+    print(f"news(is_patch)={len(news)} from {src}{' (all dt)' if a.all_dt else ''}")
 
     chunks, changes = build_rows(news)
     print(f"chunks={len(chunks)} changes={len(changes)} (chunk={CHUNK_VERSION}, rule={RULE_VERSION})")

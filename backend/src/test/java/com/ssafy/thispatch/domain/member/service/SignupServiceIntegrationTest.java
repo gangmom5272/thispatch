@@ -115,9 +115,11 @@ class SignupServiceIntegrationTest {
 		String email = newEmail();
 		Member member = members.saveAndFlush(Member.builder().loginType(state.equals("STEAM") ? LoginType.STEAM : LoginType.LOCAL)
 			.email(email).password(encoder.encode(PASSWORD)).nickname(NICKNAME)
-			.status(state.equals("STEAM") ? "ACTIVE" : state).createdAt(Instant.now()).build());
+			.status("ACTIVE").createdAt(Instant.now()).build());
 		String previous = tokens.issueRefreshToken(member.getMemberId());
 		refresh.store(member.getMemberId(), previous);
+		jdbc.update("update member set status = ? where member_id = ?", state.equals("STEAM") ? "ACTIVE" : state,
+			member.getMemberId());
 		Map<String, Object> before = jdbc.queryForMap("select * from member where member_id = ?", member.getMemberId());
 		var result = signup(" " + email.toUpperCase(Locale.ROOT) + " ", "another-password");
 		assertThat(result.status()).isEqualTo(409);

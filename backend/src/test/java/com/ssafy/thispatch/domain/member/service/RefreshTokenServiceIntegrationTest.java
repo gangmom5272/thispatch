@@ -47,9 +47,11 @@ class RefreshTokenServiceIntegrationTest {
 
 	@Test
 	void storesValidatesAndRevokesWithoutRetainingHistory() {
-		long memberId = newMember("TEST_VALUE");
+		long memberId = newMember("ACTIVE");
 		String token = provider.issueRefreshToken(memberId);
 		service.store(memberId, token);
+		// 저장 후 상태 변경을 재현한다. 검증은 상태를 전달하고 인증 여부는 호출 API가 판단한다.
+		jdbc.update("update member set status = 'TEST_VALUE' where member_id = ?", memberId);
 
 		Member found = service.validate(token);
 		assertThat(found.getMemberId()).isEqualTo(memberId);

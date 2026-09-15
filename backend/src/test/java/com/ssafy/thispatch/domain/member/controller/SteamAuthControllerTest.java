@@ -43,7 +43,7 @@ import com.ssafy.thispatch.global.security.SecurityErrorHandler;
 @WebMvcTest(SteamAuthController.class)
 @Import({SteamCallbackService.class, SteamLoginService.class, AppConfig.class, SecurityConfig.class, JwtConfig.class, SecurityErrorHandler.class})
 @ActiveProfiles("test")
-class SteamAuthControllerTest {
+class SteamAuthControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 	@MockitoBean
 	private SteamOpenIdClient openIdClient;
 

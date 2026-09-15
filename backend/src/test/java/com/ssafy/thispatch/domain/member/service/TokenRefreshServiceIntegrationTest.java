@@ -97,9 +97,11 @@ class TokenRefreshServiceIntegrationTest {
 
 	@Test
 	void missingAndInactiveMembersHaveMemberError() {
-		long inactiveId = newMember("WITHDRAWN");
+		long inactiveId = newMember("ACTIVE");
 		String inactive = tokens.issueRefreshToken(inactiveId);
 		refreshTokens.store(inactiveId, inactive);
+		// 저장값이 남은 비활성 회원에 대한 기존 오류 계약을 검증한다.
+		jdbc.update("update member set status = 'WITHDRAWN' where member_id = ?", inactiveId);
 		assertError(inactive, MEMBER_INACTIVE);
 
 		long missingId = newMember("ACTIVE");

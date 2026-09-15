@@ -1,6 +1,9 @@
 package com.ssafy.thispatch.global.security.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -47,7 +50,7 @@ import jakarta.servlet.http.Cookie;
 @Import({SecurityConfig.class, JwtConfig.class, SecurityErrorHandler.class,
 	JwtAuthenticationFilterTest.ProbeController.class})
 @ActiveProfiles("test")
-class JwtAuthenticationFilterTest {
+class JwtAuthenticationFilterTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	@Autowired
 	private MockMvc mvc;
@@ -55,6 +58,43 @@ class JwtAuthenticationFilterTest {
 	private JwtTokenProvider tokens;
 	@Autowired
 	private JwtProperties properties;
+
+	@Test
+	void inactiveOrMissingMemberCannotUseAnyProtectedApi() throws Exception {
+		when(memberAccessService.isActive(42)).thenReturn(false);
+		for (String path : List.of("/games", "/members/me", "/auth/logout", "/auth/steam/signup")) {
+			assertUnauthorized(mvc.perform(get(path).header(HttpHeaders.AUTHORIZATION,
+				"Bearer " + tokens.issueAccessToken(42))));
+		}
+	}
+
+	@Test
+	void lookupFailureReturnsSafeServerErrorWithoutAuthenticating() throws Exception {
+		for (RuntimeException failure : List.of(
+			new org.springframework.dao.DataAccessResourceFailureException("private-db-detail"),
+			new org.springframework.transaction.CannotCreateTransactionException("private-tx-detail"))) {
+			org.mockito.Mockito.doThrow(failure).when(memberAccessService).isActive(42);
+			var response = mvc.perform(get("/games").header(HttpHeaders.AUTHORIZATION,
+				"Bearer " + tokens.issueAccessToken(42)))
+				.andExpect(status().isInternalServerError())
+				.andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+				.andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+				.andExpect(jsonPath("$").value(org.hamcrest.Matchers.aMapWithSize(3))).andReturn();
+			assertThat(response.getResponse().getContentAsString()).doesNotContain("private-", "Exception");
+		}
+	}
+
+	@Test
+	void optionalAndPublicRequestsDoNotUseProtectedMemberLookup() throws Exception {
+		clearInvocations(memberAccessService);
+		mvc.perform(get("/session").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokens.issueAccessToken(42)))
+			.andExpect(status().isOk());
+		mvc.perform(get("/auth/steam/login").header(HttpHeaders.AUTHORIZATION, "Bearer invalid-token"))
+			.andExpect(status().isOk());
+		assertUnauthorized(mvc.perform(get("/games")));
+		assertUnauthorized(mvc.perform(get("/games").header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredAccessToken())));
+		verifyNoInteractions(memberAccessService);
+	}
 
 	@AfterEach
 	void contextIsClearedAfterRequest() {

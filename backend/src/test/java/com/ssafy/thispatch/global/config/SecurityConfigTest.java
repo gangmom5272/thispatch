@@ -37,7 +37,7 @@ import jakarta.servlet.RequestDispatcher;
 @WebMvcTest(SecurityConfigTest.ProbeController.class)
 @Import({SecurityConfig.class, JwtConfig.class, SecurityErrorHandler.class, SecurityConfigTest.ProbeController.class})
 @ActiveProfiles("test")
-class SecurityConfigTest {
+class SecurityConfigTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	@Autowired
 	private MockMvc mvc;

@@ -285,6 +285,7 @@ run)
     --spring.profiles.active=manager \
     --spring.batch.job.enabled=true \
     --thispatch.collect.grid-size="${GRID:-4}" \
+    ${PARTITIONS:+--thispatch.collect.partitions="$PARTITIONS"} \
     ${APPIDS:+--thispatch.collect.appids="$APPIDS"} \
     "dt=${DT:-$(date +%Y-%m-%d)}" 2>&1 \
     | grep --line-buffered -E "Job: |Step: |수집 대상|appid 를|ERROR|Exception" \

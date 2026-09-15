@@ -69,8 +69,33 @@ public class ManagerConfig {
      * 조각을 맡은 워커가 먼저 끝낸 워커를 기다리게 하지 않는다. 부하가 저절로
      * 고르게 퍼진다. 116,618 개 기준 약 234 조각이다.
      */
-    @Value("${thispatch.collect.partition-size:500}")
+    @Value("${thispatch.collect.partition-size:100}")
     private int partitionSize;
+
+    /**
+     * 조각 수를 직접 못 박는다. 0 이면 {@code partition-size} 로 계산한다.
+     *
+     * <p><b>실패한 조각을 이어 돌릴 때만 쓴다.</b> 이걸 안 쓰면 이어 돌리기가
+     * 조용히 망가진다.
+     *
+     * <p>{@link AppidPartitioner} 는 게임을 <b>번갈아</b> 나눠 담고 조각 이름을
+     * {@code partition0..partitionN-1} 로 붙인다. 그래서 조각 수가 달라지면
+     * <b>같은 이름이 전혀 다른 게임 묶음을 뜻하게 된다.</b>
+     *
+     * <pre>
+     *   234 조각일 때   partition0 = 게임 0, 234, 468, ...
+     *   1167 조각일 때  partition0 = 게임 0, 1167, 2334, ...
+     * </pre>
+     *
+     * <p>이 상태로 재시작하면 Spring Batch 는 이름이 같은 조각에 저장된 옛
+     * 목록을 물려주고, 늘어난 {@code partition234..} 는 새로 만든다. 그 새
+     * 조각들이 이미 다 받은 게임을 처음부터 다시 받는다. <b>오류는 안 난다.</b>
+     *
+     * <p>그래서 이어 돌릴 때는 처음 돌 때의 조각 수를 그대로 준다.
+     * {@code 23-collect-retry.sh} 가 배치 DB 에서 읽어 넘긴다.
+     */
+    @Value("${thispatch.collect.partitions:0}")
+    private int partitionsOverride;
 
     // ── 서비스 DB (서버1) — 게임 목록을 읽을 때만 쓴다 ──────────────
     //
@@ -108,9 +133,20 @@ public class ManagerConfig {
 
         // 조각 수는 목록 길이에서 정한다. grid-size 는 최소치로만 쓴다 —
         // 리허설처럼 게임이 몇 개뿐일 때 조각이 0 이 되지 않게 한다.
-        int partitions = Math.max(gridSize, (appids.size() + partitionSize - 1) / partitionSize);
-        log.info("수집 대상 {} 개 게임 · {} 조각 (조각당 최대 {} 개)",
-                appids.size(), partitions, partitionSize);
+        //
+        // 다만 이어 돌리는 중이면 처음 돌 때의 조각 수를 그대로 써야 한다.
+        // 그러지 않으면 같은 이름이 다른 게임 묶음을 뜻하게 된다 —
+        // partitionsOverride 의 설명을 보라.
+        int partitions;
+        if (partitionsOverride > 0) {
+            partitions = partitionsOverride;
+            log.info("수집 대상 {} 개 게임 · {} 조각 (조각 수를 직접 받았다 — 이어 돌리는 중)",
+                    appids.size(), partitions);
+        } else {
+            partitions = Math.max(gridSize, (appids.size() + partitionSize - 1) / partitionSize);
+            log.info("수집 대상 {} 개 게임 · {} 조각 (조각당 최대 {} 개)",
+                    appids.size(), partitions, partitionSize);
+        }
 
         return factory.get("collect.manager")
                 .partitioner(WorkerConfig.STEP_NAME, new AppidPartitioner(appids))

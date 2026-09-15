@@ -1,6 +1,7 @@
-import { Fragment, useId, type ReactNode } from "react"
+import { Fragment, useId, useState, type FormEvent, type ReactNode } from "react"
 import Button from "@/components/Button"
 import type { PlanSlot, PlanStructure } from "@/types"
+import SlotEditCard from "./SlotEditCard"
 
 const cardClass = "rounded-sb-control border bg-sb-canvas"
 
@@ -30,6 +31,23 @@ function toneClass(isUnknown: boolean): string {
   return isUnknown ? "border-sb-line-amber" : "border-sb-hairline"
 }
 
+function isEmptySlot(slot: PlanSlot): boolean {
+  return slot.targetName.trim() === "" && slot.attribute.trim() === ""
+}
+
+function emptySlot(id: number): PlanSlot {
+  return {
+    id,
+    targetName: "",
+    targetRole: "",
+    attribute: "",
+    direction: "MODIFY",
+    magnitude: null,
+    scope: null,
+    editable: true,
+  }
+}
+
 function KeyValueList({ rows, muted }: { rows: Array<[string, string]>; muted?: boolean }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-sb-3 gap-y-sb-2">
@@ -49,11 +67,12 @@ interface PanelProps {
   step: number
   title: string
   subtitle: string
+  badge?: string
   aside?: string
   children: ReactNode
 }
 
-function Panel({ step, title, subtitle, aside, children }: PanelProps) {
+function Panel({ step, title, subtitle, badge, aside, children }: PanelProps) {
   const headingId = useId()
   return (
     <section
@@ -61,7 +80,7 @@ function Panel({ step, title, subtitle, aside, children }: PanelProps) {
       className="flex flex-col rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface"
     >
       <div className="flex flex-col gap-sb-1 border-b border-sb-hairline px-sb-4 py-sb-3">
-        <div className="flex items-center gap-sb-2">
+        <div className="flex flex-wrap items-center gap-sb-2">
           <span
             aria-hidden="true"
             className="flex size-6 items-center justify-center rounded-full border border-sb-hairline-strong bg-sb-canvas-soft font-sb-mono text-sb-primary"
@@ -71,6 +90,11 @@ function Panel({ step, title, subtitle, aside, children }: PanelProps) {
           <h2 id={headingId} className="font-medium">
             {title}
           </h2>
+          {badge && (
+            <span className="rounded-sb-tag border border-sb-hairline-strong bg-sb-tint-blue px-sb-2 text-sb-caption text-sb-primary">
+              {badge}
+            </span>
+          )}
           {aside && (
             <span className="ml-auto font-sb-mono text-sb-ink-mute tabular-nums">{aside}</span>
           )}
@@ -102,18 +126,37 @@ function SlotCard({ index, slot }: { index: number; slot: PlanSlot }) {
 
 interface PlanStructureResultProps {
   structure: PlanStructure
+  slots: PlanSlot[]
+  onSaveSlots: (slots: PlanSlot[]) => void
   onSearchCases: () => void
 }
 
 export default function PlanStructureResult({
   structure,
+  slots,
+  onSaveSlots,
   onSearchCases,
 }: PlanStructureResultProps) {
-  const { entities, slots, restatement } = structure
+  const { entities, restatement } = structure
+  const [draft, setDraft] = useState<PlanSlot[] | null>(null)
   const hasUnknownEntity = entities.some((entity) => isUnknownRole(entity.role))
+  const unknownSlotIndex = slots.findIndex((slot) => isUnknownRole(slot.targetRole))
+
+  const startEditing = () =>
+    setDraft([...slots, emptySlot(Math.max(0, ...slots.map((slot) => slot.id)) + 1)])
+
+  const updateDraft = (index: number, next: PlanSlot) =>
+    setDraft((prev) => prev?.map((slot, i) => (i === index ? next : slot)) ?? prev)
+
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!draft) return
+    onSaveSlots(draft.filter((slot) => !isEmptySlot(slot)))
+    setDraft(null)
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-sb-4 lg:grid-cols-[5fr_9fr_6fr]">
+    <form onSubmit={handleSave} className="grid grid-cols-1 gap-sb-4 lg:grid-cols-[5fr_9fr_6fr]">
       <Panel
         step={1}
         title="고유명사 탐지"
@@ -154,10 +197,31 @@ export default function PlanStructureResult({
       <Panel
         step={2}
         title="변경 슬롯 추출"
-        subtitle="수치 델타만으로 버프·너프를 판단하지 않고 대상의 역할부터 확인합니다"
-        aside={`${slots.length}개 슬롯`}
+        badge={draft ? "수정 중" : undefined}
+        subtitle={
+          draft
+            ? "값을 직접 고쳐 시스템이 놓친 대상·속성·범위를 바로잡습니다"
+            : "수치 델타만으로 버프·너프를 판단하지 않고 대상의 역할부터 확인합니다"
+        }
+        aside={
+          draft
+            ? `${draft.length}개 슬롯 · 빈 슬롯 ${draft.filter(isEmptySlot).length}개`
+            : `${slots.length}개 슬롯`
+        }
       >
-        {slots.length === 0 ? (
+        {draft ? (
+          <ul className="flex flex-col gap-sb-2">
+            {draft.map((slot, index) => (
+              <SlotEditCard
+                key={slot.id}
+                index={index + 1}
+                slot={slot}
+                isEmpty={isEmptySlot(slot)}
+                onChange={(next) => updateDraft(index, next)}
+              />
+            ))}
+          </ul>
+        ) : slots.length === 0 ? (
           <p className="text-sb-ink-mute">추출된 변경 슬롯이 없습니다.</p>
         ) : (
           <ul className="flex flex-col gap-sb-2">
@@ -171,11 +235,16 @@ export default function PlanStructureResult({
       <Panel
         step={3}
         title="재진술 확인"
-        subtitle="시스템이 이해한 내용입니다. 다르면 기획안을 수정해 다시 구조화하세요."
+        subtitle={
+          draft
+            ? "저장하면 수정한 슬롯이 유사 사례 검색에 반영됩니다."
+            : "시스템이 이해한 내용입니다. 다르면 직접 수정하세요."
+        }
       >
-        <p className="leading-relaxed">{restatement.text}</p>
+        <p className={`leading-relaxed ${draft ? "text-sb-ink-mute" : ""}`}>{restatement.text}</p>
         <hr className="border-sb-hairline" />
         <KeyValueList
+          muted={draft !== null}
           rows={[
             ["변경 대상", restatement.highlights.primaryRole],
             ["변경 속성", restatement.highlights.attributes.join(" · ")],
@@ -183,32 +252,55 @@ export default function PlanStructureResult({
             ["적용 범위", restatement.highlights.scope ?? "범위 미확인"],
           ]}
         />
-        {restatement.warnings.length > 0 && (
-          <ul aria-label="주의 사항" className="flex flex-col gap-sb-2">
-            {restatement.warnings.map((warning) => (
-              <li
-                key={`${warning.code}-${warning.entityName ?? ""}`}
-                className="flex gap-sb-2 rounded-sb-control border border-sb-line-amber bg-sb-tint-amber px-sb-3 py-sb-2 text-sb-ink-mute"
-              >
-                <span aria-hidden="true" className="text-sb-amber-text">
-                  ⚠
+        {draft
+          ? unknownSlotIndex >= 0 && (
+              <p className="flex gap-sb-2 rounded-sb-control border border-sb-hairline-strong bg-sb-tint-blue px-sb-3 py-sb-2 text-sb-ink-mute">
+                <span aria-hidden="true" className="text-sb-primary">
+                  ⓘ
                 </span>
-                {warning.message}
-              </li>
-            ))}
-          </ul>
-        )}
+                슬롯 {unknownSlotIndex + 1}의 대상 역할을 UNKNOWN이 아닌 값으로 지정하면{" "}
+                {slots[unknownSlotIndex].targetName}가 검색에 정상 반영됩니다.
+              </p>
+            )
+          : restatement.warnings.length > 0 && (
+              <ul aria-label="주의 사항" className="flex flex-col gap-sb-2">
+                {restatement.warnings.map((warning) => (
+                  <li
+                    key={`${warning.code}-${warning.entityName ?? ""}`}
+                    className="flex gap-sb-2 rounded-sb-control border border-sb-line-amber bg-sb-tint-amber px-sb-3 py-sb-2 text-sb-ink-mute"
+                  >
+                    <span aria-hidden="true" className="text-sb-amber-text">
+                      ⚠
+                    </span>
+                    {warning.message}
+                  </li>
+                ))}
+              </ul>
+            )}
         <div className="mt-auto flex flex-col gap-sb-2 pt-sb-3">
-          <Button variant="secondary" disabled className="w-full">
-            <PencilIcon />
-            슬롯 직접 수정
-          </Button>
-          <Button variant="primary" onClick={onSearchCases} className="w-full">
-            유사 사례 검색
-            <span aria-hidden="true">→</span>
-          </Button>
+          {draft ? (
+            <>
+              <Button variant="secondary" onClick={() => setDraft(null)} className="w-full">
+                취소
+              </Button>
+              <Button variant="primary" type="submit" className="w-full">
+                저장
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={startEditing} className="w-full">
+                <PencilIcon />
+                슬롯 직접 수정
+              </Button>
+              <Button variant="primary" onClick={onSearchCases} className="w-full">
+                유사 사례 검색
+                <span aria-hidden="true">→</span>
+              </Button>
+            </>
+          )}
         </div>
       </Panel>
-    </div>
+    </form>
   )
 }

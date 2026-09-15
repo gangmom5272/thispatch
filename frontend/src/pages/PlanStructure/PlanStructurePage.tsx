@@ -8,6 +8,7 @@ import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
 import { gameCasesPath, paths } from "@/router/paths"
+import type { PlanSlot } from "@/types"
 import PlanStructureResult from "./components/PlanStructureResult"
 
 const MAX_TEXT_LENGTH = 500
@@ -30,6 +31,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
   const genreLabelId = useId()
   const [text, setText] = useState("")
   const [excludedGenreIds, setExcludedGenreIds] = useState<number[]>([])
+  const [editedSlots, setEditedSlots] = useState<PlanSlot[] | null>(null)
   const navigate = useNavigate()
   const game = useGameDetail(gameId)
   const structure = useCreatePlanStructure()
@@ -44,7 +46,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!canSubmit) return
-    structure.mutate({ gameId, text: trimmedText })
+    structure.mutate({ gameId, text: trimmedText }, { onSuccess: () => setEditedSlots(null) })
   }
 
   const toggleGenre = (id: number) =>
@@ -170,9 +172,14 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
         {structure.isSuccess && (
           <PlanStructureResult
             structure={structure.data}
+            slots={editedSlots ?? structure.data.slots}
+            onSaveSlots={setEditedSlots}
             onSearchCases={() =>
               navigate(gameCasesPath(gameId), {
-                state: { slots: structure.data.slots, genreIds: selectedGenreIds },
+                state: {
+                  slots: editedSlots ?? structure.data.slots,
+                  genreIds: selectedGenreIds,
+                },
               })
             }
           />

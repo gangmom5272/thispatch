@@ -69,12 +69,15 @@
 
 **Error Responses**
 
-- `503`: 세션 정보 조회 불가
+- `503`: DB 접근 또는 조회 트랜잭션 실패로 세션 정보 조회 불가 (`SESSION_UNAVAILABLE`, `세션 정보를 조회할 수 없습니다.`)
 - `401`: Access Token 위조·형식 오류·용도 불일치, Bearer 형식 오류·중복 Authorization 헤더 (`UNAUTHORIZED`, `인증이 필요합니다.`)
 
 > `/session`은 로그인 수행 API가 아니라 현재 로그인 상태 확인용이다.
 
 - Authorization 헤더가 없거나 정상 Access Token이 만료된 경우에는 위의 비로그인 `200` 응답을 사용한다. 그 외 잘못된 토큰은 `401`이며, Refresh Token도 일반 인증에 사용할 수 없다.
+
+- 유효한 Access Token이라도 회원이 없거나 `status != ACTIVE`이면 `200`, `authenticated=false`, `user=null`을 반환한다. 이 상태 판정은 `GET /session`에 적용한다.
+- `ACTIVE` 회원은 닉네임이 `null`이어도 정상 로그인이다. 토큰 없음·만료 시에는 회원 DB를 조회하지 않는다. DB 조회 실패는 비로그인으로 바꾸지 않고 `503`으로 반환한다.
 
 ## 로그인
 

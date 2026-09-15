@@ -12,9 +12,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ssafy.thispatch.domain.member.service.SteamLoginService;
+import com.ssafy.thispatch.domain.member.service.SteamTokenService;
 import com.ssafy.thispatch.global.config.AppConfig;
 import com.ssafy.thispatch.global.config.JwtConfig;
 import com.ssafy.thispatch.global.config.SecurityConfig;
@@ -27,6 +29,9 @@ class SteamAuthControllerTest {
 
 	@Autowired
 	private MockMvc mvc;
+
+	@MockitoBean
+	private SteamTokenService steamTokenService;
 
 	@Test
 	void redirectsAnonymousBrowserWithoutJsonOrSession() throws Exception {

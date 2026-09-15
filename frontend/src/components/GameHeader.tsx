@@ -1,11 +1,10 @@
 import { Link } from "react-router"
 import { isApiError } from "@/api/error"
+import Button from "@/components/Button"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { gameDetailPath } from "@/router/paths"
 import type { GameDetail } from "@/types"
 
-const secondaryButtonClass =
-  "h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
 const thumbnailClass =
   "aspect-[460/215] w-46 shrink-0 rounded-sb-control border border-sb-hairline-cool bg-sb-canvas object-cover"
 
@@ -107,14 +106,9 @@ export default function GameHeader({ gameId }: { gameId: number }) {
                 ? query.error.message
                 : "게임 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
             </p>
-            <button
-              type="button"
-              onClick={() => query.refetch()}
-              disabled={query.isFetching}
-              className={secondaryButtonClass}
-            >
+            <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
               다시 시도
-            </button>
+            </Button>
           </div>
         )}
         {query.isSuccess && <GameInfo game={query.data} />}

@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react"
 import { Link, useParams } from "react-router"
 import { isApiError } from "@/api/error"
+import Button from "@/components/Button"
 import GameHeader from "@/components/GameHeader"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
@@ -11,10 +12,6 @@ import PlanStructureResult from "./components/PlanStructureResult"
 const MAX_TEXT_LENGTH = 500
 const STEPS = ["기획안 확인", "유사 사례 검색", "사례 비교"]
 
-const primaryButtonClass =
-  "h-sb-control cursor-pointer rounded-sb-control bg-sb-primary px-sb-4 font-medium text-sb-on-primary hover:bg-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary active:bg-sb-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
-const secondaryButtonClass =
-  "h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
 const genreChipClass =
   "flex h-sb-control cursor-pointer items-center gap-sb-1 rounded-sb-tag border px-sb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
 const panelClass = "rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface"
@@ -126,22 +123,21 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
                   )
                 })}
                 {genres.length > 0 && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setExcludedGenreIds([])}
                     disabled={excludedGenreIds.length === 0}
-                    className={secondaryButtonClass}
                   >
                     전체 장르
-                  </button>
+                  </Button>
                 )}
               </div>
               <p className="font-sb-mono text-sb-ink-mute tabular-nums sm:ml-auto">
                 {text.length} / {MAX_TEXT_LENGTH}자
               </p>
-              <button type="submit" disabled={!canSubmit} className={primaryButtonClass}>
+              <Button variant="primary" type="submit" disabled={!canSubmit}>
                 {structure.isPending ? "구조화 중…" : "변경점 구조화"}
-              </button>
+              </Button>
             </div>
             {structure.error && (
               <div role="alert" className="flex flex-wrap items-center gap-sb-2 text-sb-neg-text">

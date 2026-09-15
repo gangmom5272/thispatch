@@ -19,6 +19,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByEmail(String email);
 
+	// 조회 후 저장 사이의 경합에서도 닉네임을 덮어쓰거나 비활성 회원을 갱신하지 않는다.
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update Member m set m.nickname = :nickname, m.updatedAt = :updatedAt
+		where m.memberId = :memberId and m.status = 'ACTIVE' and m.nickname is null
+		""")
+	int setNicknameIfUnset(@Param("memberId") long memberId, @Param("nickname") String nickname,
+		@Param("updatedAt") Instant updatedAt);
+
 	// 호출 서비스의 트랜잭션 안에서 실행한다. 신규 회원 INSERT를 먼저 반영하고 조회 캐시를 비운다.
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""

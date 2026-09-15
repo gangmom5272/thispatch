@@ -49,7 +49,7 @@ class SecurityConfigTest {
 	@CsvSource({
 		"GET, /session", "GET, /auth/steam/login", "GET, /auth/steam/callback",
 		"POST, /auth/login", "POST, /auth/signup", "POST, /auth/refresh",
-		"POST, /auth/steam/token", "POST, /auth/steam/signup"
+		"POST, /auth/steam/token"
 	})
 	void publicEndpointsPassWithoutAuthenticationOrCsrfToken(String method, String path) throws Exception {
 		var result = mvc.perform(request(HttpMethod.valueOf(method), path))
@@ -59,7 +59,7 @@ class SecurityConfigTest {
 
 	@ParameterizedTest
 	@CsvSource({
-		"POST, /auth/logout", "DELETE, /members/me", "GET, /genres", "GET, /games", "GET, /games/1",
+		"POST, /auth/steam/signup", "POST, /auth/logout", "DELETE, /members/me", "GET, /genres", "GET, /games", "GET, /games/1",
 		"POST, /games/1/my-game", "GET, /games/1/reviews", "GET, /games/1/reviews/representative",
 		"GET, /games/1/reaction-trends", "GET, /games/1/summaries/reaction-trends",
 		"GET, /games/1/playtime-topics", "GET, /games/1/summaries/playtime-topics",

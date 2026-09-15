@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router"
 import { isApiError } from "../../api/error"
 import Header from "../../components/Header"
+import LoadMoreSentinel from "../../components/LoadMoreSentinel"
 import {
   DEFAULT_GAME_FILTER,
   DEFAULT_GAME_SORT,
@@ -303,27 +304,5 @@ function GameSections({
         />
       )}
     </>
-  )
-}
-
-const PREFETCH_ROOT_MARGIN = "240px"
-
-function LoadMoreSentinel({ isLoading, onReach }: { isLoading: boolean; onReach: () => void }) {
-  const observe = (node: HTMLDivElement | null) => {
-    if (!node) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) onReach()
-      },
-      { rootMargin: PREFETCH_ROOT_MARGIN },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }
-
-  return (
-    <div ref={observe} aria-live="polite" className="flex justify-center py-sb-4 text-sb-ink-mute">
-      {isLoading ? "다음 게임을 불러오는 중…" : ""}
-    </div>
   )
 }

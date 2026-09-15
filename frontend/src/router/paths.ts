@@ -3,6 +3,9 @@ export const paths = {
   home: "/",
   games: "/games",
   gameDetailPattern: "/games/:gameId",
+  gamePlanPattern: "/games/:gameId/plan",
+  gameCasesPattern: "/games/:gameId/cases",
+  gameCaseDetailPattern: "/games/:gameId/cases/:patchId",
   methodology: "/methodology",
   login: "/login",
   signup: "/signup",
@@ -35,12 +38,6 @@ export const GAME_DETAIL_MAIN_TABS: GameDetailTab[] = [
   GAME_DETAIL_TABS.languageAnalysis,
 ]
 
-/** All detail segments for nested route registration (main tabs + plan CTA). */
-export const GAME_DETAIL_TAB_ORDER: GameDetailTab[] = [
-  ...GAME_DETAIL_MAIN_TABS,
-  GAME_DETAIL_TABS.plan,
-]
-
 /** Default tab URL (reaction-trends). Bare `/games/:id` still redirects via index route. */
 export function gameDetailPath(gameId: string | number): string {
   return gameDetailTabPath(gameId, DEFAULT_GAME_DETAIL_TAB)
@@ -48,6 +45,14 @@ export function gameDetailPath(gameId: string | number): string {
 
 export function gameDetailTabPath(gameId: string | number, tab: GameDetailTab): string {
   return `/games/${gameId}/${tab}`
+}
+
+export function gameCasesPath(gameId: string | number): string {
+  return `/games/${gameId}/cases`
+}
+
+export function gameCaseDetailPath(gameId: string | number, patchId: string): string {
+  return `/games/${gameId}/cases/${patchId}`
 }
 
 /** Nested route segment under `/` (leading slash removed). */

@@ -1,20 +1,22 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import { useReactionTrends, useReactionTrendsSummary } from "@/hooks/queries/statisticsQueries"
 import { AiSummaryCard } from "@/pages/GameDetail/ReactionTrends/components/AiSummaryCard"
 import { ChannelPanel } from "@/pages/GameDetail/ReactionTrends/components/ChannelPanel"
-import { PatchNoteModal } from "@/pages/GameDetail/ReactionTrends/components/PatchNoteModal"
-import {
-  DAY_WIDTH,
-  ReactionTrendsChart,
-} from "@/pages/GameDetail/ReactionTrends/components/ReactionTrendsChart"
+import { PatchNotesPanel } from "@/pages/GameDetail/ReactionTrends/components/PatchNotesPanel"
+import { ReactionTrendsChart } from "@/pages/GameDetail/ReactionTrends/components/ReactionTrendsChart"
 import {
   formatCount,
   formatRate,
   sumDailyRange,
   toChartRows,
 } from "@/pages/GameDetail/ReactionTrends/lib/aggregate"
+import {
+  MIN_DAY_WIDTH,
+  useChartDayWidth,
+  VISIBLE_DAYS,
+} from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
 import {
   addDaysIso,
   formatCollectedLabel,
@@ -38,10 +40,11 @@ function visibleSlice(
   dailyLength: number,
   scrollLeft: number,
   clientWidth: number,
+  dayWidth: number,
 ): { startIndex: number; endIndex: number } {
-  if (dailyLength === 0) return { startIndex: 0, endIndex: 0 }
-  const startIndex = Math.max(0, Math.floor(scrollLeft / DAY_WIDTH))
-  const endIndex = Math.min(dailyLength, Math.ceil((scrollLeft + clientWidth) / DAY_WIDTH))
+  if (dailyLength === 0 || dayWidth <= 0) return { startIndex: 0, endIndex: 0 }
+  const startIndex = Math.max(0, Math.floor(scrollLeft / dayWidth))
+  const endIndex = Math.min(dailyLength, Math.ceil((scrollLeft + clientWidth) / dayWidth))
   return { startIndex, endIndex: Math.max(startIndex + 1, endIndex) }
 }
 
@@ -50,23 +53,34 @@ export default function ReactionTrendsPage() {
   const gameId = parseGameId(rawGameId)
   const [startDate, setStartDate] = useState(() => initialReactionTrendsStartDate())
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null)
-  const [modalPatchId, setModalPatchId] = useState<string | null>(null)
   const [aiRange, setAiRange] = useState<{ start: string; end: string } | null>(null)
   const [viewport, setViewport] = useState<{ startIndex: number; endIndex: number } | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
+  const chartScrollRef = useRef<HTMLDivElement | null>(null)
   const prevDayCountRef = useRef(0)
+  const needsEndPinRef = useRef(true)
   const aiTimerRef = useRef<number | null>(null)
   const loadingMoreRef = useRef(false)
+  const dayWidth = useChartDayWidth(scrollEl)
 
   const query = useReactionTrends(gameId, startDate)
   const daily = useMemo(() => query.data?.daily ?? [], [query.data?.daily])
   const rows = useMemo(() => toChartRows(daily), [daily])
 
+  // Prefer scroll-idle range; before first idle, use the latest VISIBLE_DAYS window.
+  const resolvedAiRange = useMemo(() => {
+    if (aiRange) return aiRange
+    if (daily.length === 0) return null
+    const end = daily.at(-1)!.date
+    const start = daily[Math.max(0, daily.length - VISIBLE_DAYS)]!.date
+    return { start, end }
+  }, [aiRange, daily])
+
   const summaryQuery = useReactionTrendsSummary(
     gameId,
-    aiRange?.start ?? null,
-    aiRange?.end ?? null,
-    Boolean(aiRange),
+    resolvedAiRange?.start ?? null,
+    resolvedAiRange?.end ?? null,
+    Boolean(resolvedAiRange),
   )
 
   const patches = useMemo(() => {
@@ -82,7 +96,7 @@ export default function ReactionTrendsPage() {
 
   const visibleDaily = useMemo(() => {
     if (daily.length === 0) return daily
-    const startIndex = viewport?.startIndex ?? 0
+    const startIndex = viewport?.startIndex ?? Math.max(0, daily.length - VISIBLE_DAYS)
     const endIndex = viewport?.endIndex ?? daily.length
     if (endIndex <= startIndex) return daily
     return daily.slice(startIndex, Math.min(endIndex, daily.length))
@@ -94,16 +108,41 @@ export default function ReactionTrendsPage() {
       ? formatDisplayRange(visibleDaily[0].date, visibleDaily.at(-1)!.date, visibleDaily.length)
       : null
 
+  const scrollToIndex = (index: number, behavior: ScrollBehavior = "smooth") => {
+    const el = chartScrollRef.current
+    if (!el || dayWidth <= 0) return
+    const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+    const target = Math.min(
+      maxLeft,
+      Math.max(0, index * dayWidth - el.clientWidth / 2 + dayWidth / 2),
+    )
+    el.scrollTo({ left: target, behavior })
+  }
+
+  const scrollToLatest = (behavior: ScrollBehavior = "smooth") => {
+    const el = chartScrollRef.current
+    if (!el) return
+    el.scrollTo({ left: Math.max(0, el.scrollWidth - el.clientWidth), behavior })
+  }
+
+  const scrollToPatch = (patchId: string) => {
+    const patch = patches.find((item) => item.id === patchId)
+    if (!patch) return
+    const index = daily.findIndex((day) => day.date === patch.patchedOn)
+    if (index < 0) return
+    scrollToIndex(index)
+  }
+
   const scheduleAiFromViewport = useEffectEvent(() => {
     if (daily.length === 0) return
-    const el = scrollRef.current?.querySelector("[data-chart-scroll]")
-    if (!(el instanceof HTMLElement)) {
+    const el = chartScrollRef.current
+    if (!el) {
       const end = daily.at(-1)!.date
-      const start = daily[Math.max(0, daily.length - 14)]!.date
+      const start = daily[Math.max(0, daily.length - VISIBLE_DAYS)]!.date
       setAiRange({ start, end })
       return
     }
-    const sliceIndexes = visibleSlice(daily.length, el.scrollLeft, el.clientWidth)
+    const sliceIndexes = visibleSlice(daily.length, el.scrollLeft, el.clientWidth, dayWidth)
     const slice = daily.slice(sliceIndexes.startIndex, sliceIndexes.endIndex)
     if (slice.length === 0) return
     setAiRange({ start: slice[0].date, end: slice.at(-1)!.date })
@@ -122,26 +161,48 @@ export default function ReactionTrendsPage() {
     setStartDate(clamped)
   })
 
+  const bindScrollEl = useCallback((node: HTMLDivElement | null) => {
+    chartScrollRef.current = node
+    setScrollEl((prev) => (prev === node ? prev : node))
+  }, [])
+
   useEffect(() => {
     if (!query.isFetching) loadingMoreRef.current = false
   }, [query.isFetching])
 
   useEffect(() => {
     const prev = prevDayCountRef.current
-    if (prev > 0 && daily.length > prev) {
-      const el = scrollRef.current?.querySelector("[data-chart-scroll]")
-      if (el instanceof HTMLElement) {
-        el.scrollLeft += (daily.length - prev) * DAY_WIDTH
-      }
+    const el = chartScrollRef.current
+    if (!el || daily.length === 0) {
+      prevDayCountRef.current = daily.length
+      return
     }
+
+    if (prev > 0 && daily.length > prev) {
+      el.scrollLeft += (daily.length - prev) * dayWidth
+      needsEndPinRef.current = false
+      prevDayCountRef.current = daily.length
+      return
+    }
+
     prevDayCountRef.current = daily.length
-  }, [daily.length])
+
+    if (!needsEndPinRef.current) return
+
+    const pinToEnd = () => {
+      const node = chartScrollRef.current
+      if (!node || !needsEndPinRef.current) return
+      node.scrollLeft = Math.max(0, node.scrollWidth - node.clientWidth)
+    }
+
+    pinToEnd()
+    const raf = requestAnimationFrame(pinToEnd)
+    return () => cancelAnimationFrame(raf)
+  }, [daily.length, dayWidth])
 
   useEffect(() => {
-    const root = scrollRef.current
-    if (!root || daily.length === 0) return
-    const el = root.querySelector("[data-chart-scroll]")
-    if (!(el instanceof HTMLElement)) return
+    const el = scrollEl
+    if (!el || daily.length === 0) return
 
     const clearAiTimer = () => {
       if (aiTimerRef.current !== null) {
@@ -159,7 +220,11 @@ export default function ReactionTrendsPage() {
     }
 
     const onScroll = () => {
-      setViewport(visibleSlice(daily.length, el.scrollLeft, el.clientWidth))
+      const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+      if (el.scrollLeft < maxLeft - 1) needsEndPinRef.current = false
+      setViewport(
+        visibleSlice(daily.length, el.scrollLeft, el.clientWidth, dayWidth || MIN_DAY_WIDTH),
+      )
       queueAiAfterIdle()
       if (el.scrollLeft < LOAD_EDGE_PX) loadEarlier()
     }
@@ -170,7 +235,7 @@ export default function ReactionTrendsPage() {
       el.removeEventListener("scroll", onScroll)
       clearAiTimer()
     }
-  }, [daily.length])
+  }, [daily.length, dayWidth, scrollEl])
 
   if (gameId === null) {
     return (
@@ -227,7 +292,11 @@ export default function ReactionTrendsPage() {
             <select
               className="h-sb-control min-w-56 rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-3 text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               value={resolvedPatchId ?? ""}
-              onChange={(event) => setSelectedPatchId(event.target.value || null)}
+              onChange={(event) => {
+                const nextId = event.target.value || null
+                setSelectedPatchId(nextId)
+                if (nextId) scrollToPatch(nextId)
+              }}
             >
               {patches.length === 0 ? <option value="">패치 없음</option> : null}
               {patches.map((patch) => (
@@ -237,15 +306,13 @@ export default function ReactionTrendsPage() {
               ))}
             </select>
           </label>
-          {resolvedPatchId ? (
-            <button
-              type="button"
-              className="h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-body text-sb-ink hover:bg-sb-canvas-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-              onClick={() => setModalPatchId(resolvedPatchId)}
-            >
-              패치 노트 보기
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-body text-sb-ink hover:bg-sb-canvas-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+            onClick={() => scrollToLatest()}
+          >
+            최근 날짜로
+          </button>
           {selectedPatch ? (
             <p className="text-sb-caption text-sb-ink-mute">
               {selectedPatch.totalPatchCount}개 패치 중 {selectedPatch.patchIndex}번째
@@ -256,42 +323,38 @@ export default function ReactionTrendsPage() {
           ) : null}
         </div>
 
-        <div ref={scrollRef} className="mt-sb-4">
+        <div className="mt-sb-4">
           <ReactionTrendsChart
             rows={rows}
             selectedPatchId={resolvedPatchId}
+            dayWidth={dayWidth}
+            visibleDays={VISIBLE_DAYS}
+            scrollRef={bindScrollEl}
             onSelectDay={(date) => {
               const day = daily.find((item) => item.date === date)
               const patch = day?.patches[0]
-              if (patch) {
-                setSelectedPatchId(patch.id)
-                setModalPatchId(patch.id)
-              }
+              if (patch) setSelectedPatchId(patch.id)
             }}
           />
         </div>
         <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-          좌우로 스크롤하여 이전·이후 날짜를 보세요. 왼쪽 끝에서 이전 일자가 더 로드됩니다. (기준일{" "}
-          {todaySeoul()})
+          한 화면에 약 {VISIBLE_DAYS}일이 보입니다. 좌우 스크롤로 이전·이후 날짜를 보고, 왼쪽 끝에서
+          이전 일자가 더 로드됩니다. (기준일 {todaySeoul()})
         </p>
       </section>
 
       <div className="grid gap-sb-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <AiSummaryCard
-          data={summaryQuery.data}
-          isPending={summaryQuery.isPending}
-          isError={summaryQuery.isError}
-        />
+        <div className="flex flex-col gap-sb-4">
+          <AiSummaryCard
+            data={summaryQuery.data}
+            isPending={summaryQuery.isFetching && !summaryQuery.data}
+            isError={summaryQuery.isError}
+            awaitingRange={!resolvedAiRange && daily.length > 0}
+          />
+          <PatchNotesPanel gameId={gameId} patchId={resolvedPatchId} />
+        </div>
         <ChannelPanel summary={rangeSummary} dayCount={visibleDaily.length || daily.length} />
       </div>
-
-      {modalPatchId ? (
-        <PatchNoteModal
-          gameId={gameId}
-          patchId={modalPatchId}
-          onClose={() => setModalPatchId(null)}
-        />
-      ) : null}
     </div>
   )
 }

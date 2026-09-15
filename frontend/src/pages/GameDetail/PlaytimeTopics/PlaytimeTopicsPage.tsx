@@ -71,22 +71,36 @@ export default function PlaytimeTopicsPage() {
 
   return (
     <div className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
-      <header>
-        <h1 className="text-sb-title font-medium text-sb-ink">플레이타임 구간별 토픽</h1>
-        <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">
-          데이터 구간 {formatDisplayRange(period.startDate, period.endDate, period.dayCount)} · 오늘
-          기준 최근 {period.dayCount}일 · 리뷰 {data.overall.reviewCount.toLocaleString("en-US")}건
-        </p>
-        <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
-          구간 경계는 게임 전체 리뷰 p25·중앙·p75(
-          {data.scale.p25Minutes}/{data.scale.medianMinutes}/{data.scale.p75Minutes}분) 기준입니다.
-        </p>
-      </header>
+      <section className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
+        <header>
+          <h1 className="text-sb-title font-medium text-sb-ink">플레이타임 구간별 토픽</h1>
+          <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">
+            데이터 구간 {formatDisplayRange(period.startDate, period.endDate, period.dayCount)} ·
+            오늘 기준 최근 {period.dayCount}일 · 리뷰{" "}
+            {data.overall.reviewCount.toLocaleString("en-US")}건
+          </p>
+          <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
+            구간 경계는 게임 전체 리뷰 p25·중앙·p75(
+            {data.scale.p25Minutes}/{data.scale.medianMinutes}/{data.scale.p75Minutes}분)
+            기준입니다.
+          </p>
+          <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
+            표본 {data.minimumSampleCount}건 미만 구간은 리뷰 원문으로 대체합니다. (목 데이터:
+            마지막 구간을 선택하면 원문 fallback을 볼 수 있습니다.)
+          </p>
+        </header>
 
-      <BandCards data={data} selectedBandNo={selectedBandNo} onSelectBandNo={setSelectedBandNo} />
+        <div className="mt-sb-4">
+          <BandCards
+            data={data}
+            selectedBandNo={selectedBandNo}
+            onSelectBandNo={setSelectedBandNo}
+          />
+        </div>
+      </section>
 
       {data.sampleSufficient ? (
-        <>
+        <div className="grid gap-sb-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <TopicBars
             topics={data.topics}
             reviewCount={selectedReviewCount}
@@ -97,7 +111,7 @@ export default function PlaytimeTopicsPage() {
             isPending={summaryQuery.isFetching && !summaryQuery.data}
             isError={summaryQuery.isError}
           />
-        </>
+        </div>
       ) : data.fallback ? (
         <SampleFallback
           fallback={data.fallback}

@@ -7,7 +7,7 @@ import {
 
 interface BandCardsProps {
   data: PlaytimeTopics
-  /** 현재 선택: null=전체 보기 */
+  /** 현재 선택: null=전체(4구간 합계) */
   selectedBandNo: number | null
   onSelectBandNo: (bandNo: number | null) => void
 }
@@ -20,46 +20,27 @@ export function BandCards({ data, selectedBandNo, onSelectBandNo }: BandCardsPro
   const overallSelected = selectedBandNo === null
 
   return (
-    <div className="flex flex-col gap-sb-3">
-      <div className="flex flex-wrap items-center justify-between gap-sb-2">
-        <p className="text-sb-caption text-sb-ink-mute">
-          표본 {data.minimumSampleCount}건 미만 구간은 리뷰 원문으로 대체
-        </p>
-        <button
-          type="button"
-          className={`h-sb-control cursor-pointer rounded-sb-control px-sb-4 text-sb-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary ${
-            overallSelected
-              ? "bg-sb-primary text-sb-on-primary"
-              : "border border-sb-hairline-strong bg-sb-canvas text-sb-ink hover:bg-sb-canvas-soft"
-          }`}
-          onClick={() => onSelectBandNo(null)}
-        >
-          전체 보기
-        </button>
-      </div>
-
-      <div className="grid gap-sb-3 sm:grid-cols-2 lg:grid-cols-5">
-        <OverallCard
-          overall={data.overall}
-          selected={overallSelected}
-          onSelect={() => onSelectBandNo(null)}
-        />
-        {data.bands.map((band) => {
-          // bandNo: API 쿼리용 1~4
-          const bandNo = bandIdToBandNo(band.band)
-          const selected = bandNo !== null && bandNo === selectedBandNo
-          return (
-            <BandCard
-              key={band.band}
-              band={band}
-              selected={selected}
-              onSelect={() => {
-                if (bandNo !== null) onSelectBandNo(bandNo)
-              }}
-            />
-          )
-        })}
-      </div>
+    <div className="grid gap-sb-3 sm:grid-cols-2 lg:grid-cols-5">
+      <OverallCard
+        overall={data.overall}
+        selected={overallSelected}
+        onSelect={() => onSelectBandNo(null)}
+      />
+      {data.bands.map((band) => {
+        // bandNo: API 쿼리용 1~4
+        const bandNo = bandIdToBandNo(band.band)
+        const selected = bandNo !== null && bandNo === selectedBandNo
+        return (
+          <BandCard
+            key={band.band}
+            band={band}
+            selected={selected}
+            onSelect={() => {
+              if (bandNo !== null) onSelectBandNo(bandNo)
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -68,6 +49,22 @@ interface OverallCardProps {
   overall: PlaytimeBandStats
   selected: boolean
   onSelect: () => void
+}
+
+/** 긍정·부정 건수를 라벨과 함께 표시한다. */
+function SentimentCounts({
+  positiveCount,
+  negativeCount,
+}: {
+  positiveCount: number
+  negativeCount: number
+}) {
+  return (
+    <div className="mt-sb-2 flex flex-col gap-0.5 font-sb-mono text-sb-caption tabular-nums">
+      <span className="text-sb-pos-text">긍정 {positiveCount.toLocaleString("en-US")}</span>
+      <span className="text-sb-neg-text">부정 {negativeCount.toLocaleString("en-US")}</span>
+    </div>
+  )
 }
 
 /** 4구간 합계(전체) 카드. */
@@ -86,11 +83,10 @@ function OverallCard({ overall, selected, onSelect }: OverallCardProps) {
       <p className="mt-sb-2 font-sb-mono text-sb-title tabular-nums text-sb-ink">
         {formatPositiveRate(overall.positiveRate)}
       </p>
-      <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">긍정</p>
-      <div className="mt-sb-2 flex gap-sb-4 font-sb-mono text-sb-caption tabular-nums text-sb-ink-mute">
-        <span className="text-sb-pos-text">{overall.positiveCount}</span>
-        <span className="text-sb-neg-text">{overall.negativeCount}</span>
-      </div>
+      <SentimentCounts
+        positiveCount={overall.positiveCount}
+        negativeCount={overall.negativeCount}
+      />
       <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
         최근 14일 {overall.reviewCount.toLocaleString("en-US")}건
       </p>
@@ -121,20 +117,16 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
       {insufficient ? (
         <>
           <p className="mt-sb-2 text-sb-title text-sb-amber-text">—</p>
-          <p className="mt-sb-1 text-sb-caption text-sb-amber-text">표본 부족</p>
-          <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">{band.reviewCount}건</p>
+          <p className="mt-sb-1 text-sb-caption text-sb-neg-text">표본 부족 {band.reviewCount}건</p>
         </>
       ) : (
         <>
           <p className="mt-sb-2 font-sb-mono text-sb-title tabular-nums text-sb-ink">
             {formatPositiveRate(band.positiveRate)}
           </p>
-          <div className="mt-sb-2 flex gap-sb-4 font-sb-mono text-sb-caption tabular-nums">
-            <span className="text-sb-pos-text">{band.positiveCount}</span>
-            <span className="text-sb-neg-text">{band.negativeCount}</span>
-          </div>
+          <SentimentCounts positiveCount={band.positiveCount} negativeCount={band.negativeCount} />
           <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-            {band.sampleSufficient ? "표본 충족" : "표본 부족"} · {band.reviewCount}건
+            표본 충족 · {band.reviewCount}건
           </p>
         </>
       )}

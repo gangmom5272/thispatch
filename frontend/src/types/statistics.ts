@@ -136,6 +136,8 @@ export interface PlaytimeFallbackReview {
   reviewDate: string
   playtimeMinutes: number
   languageCode: string
+  /** 도움됨(추천) 수. 없으면 0. */
+  helpfulCount?: number
   body: string
 }
 
@@ -165,6 +167,18 @@ export interface PlaytimeTopics {
 
 export type PlaytimeTopicsSummaryStatus = "COMPLETED" | "SKIPPED"
 
+/** AI 요약 근거로 노출하는 대표 리뷰 원문. */
+export interface PlaytimeEvidenceReview {
+  id: number
+  sentiment: "POSITIVE" | "NEGATIVE"
+  reviewDate: string
+  playtimeMinutes: number
+  languageCode: string
+  /** 도움됨(추천) 수. API에 없으면 0. */
+  helpfulCount: number
+  body: string
+}
+
 export interface PlaytimeTopicsAiSummary {
   meta: PlaytimeTopicsMeta
   selectedBand: PlaytimeBandId
@@ -182,4 +196,6 @@ export interface PlaytimeTopicsAiSummary {
     } | null
     reasonCode: "INSUFFICIENT_SAMPLE" | null
   }
+  /** 요약 카드 아래 대표 리뷰 2건. 없으면 빈 배열. */
+  evidenceReviews: PlaytimeEvidenceReview[]
 }

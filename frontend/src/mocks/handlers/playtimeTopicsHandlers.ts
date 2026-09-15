@@ -93,11 +93,12 @@ function buildBands(): PlaytimeBandStats[] {
       band: "B4",
       minMinutes: p75Minutes,
       maxMinutesExclusive: null,
-      reviewCount: 66,
-      positiveCount: 32,
-      negativeCount: 34,
-      positiveRate: 48.5,
-      sampleSufficient: true,
+      // 표본 부족 시나리오: 어느 게임에서든 B4 카드·선택으로 fallback 확인 가능
+      reviewCount: 8,
+      positiveCount: 3,
+      negativeCount: 5,
+      positiveRate: null,
+      sampleSufficient: false,
     },
   ]
 }
@@ -132,7 +133,9 @@ function buildTopics(selected: PlaytimeBandId): PlaytimeTopicRow[] {
     B4: [68.2, 40.9, 22.7, 16.0, 19.0],
   }
   const rates = selected === "ALL" ? overallRates : bandRates[selected]
-  const reviewBase = selected === "ALL" ? 486 : selected === "B4" ? 66 : 120
+  // reviewBase: 선택 구간 리뷰 수(언급 건수 계산용). B4는 표본 부족이라 여기선 거의 안 씀.
+  const reviewBase =
+    selected === "ALL" ? 428 : selected === "B4" ? 8 : selected === "B2" ? 171 : 120
 
   return TOPIC_NAMES.map((name, index) => {
     const mentionRate = rates[index]!
@@ -200,6 +203,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -12),
               playtimeMinutes: 11640,
               languageCode: "english",
+              helpfulCount: 412,
               body: "A12 이상에서 드로우가 줄면서 기존 덱 아키타입이 전부 무너졌다. 상위 난이도를 계속 돌던 사람 입장에선 사실상 다른 게임이 됐다.",
             },
             {
@@ -208,6 +212,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -11),
               playtimeMinutes: 16260,
               languageCode: "schinese",
+              helpfulCount: 288,
               body: "보상 재화까지 같이 줄어서 반복 플레이 동기가 사라졌다. 두 변경을 한 패치에 같이 넣은 게 문제.",
             },
             {
@@ -216,6 +221,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -8),
               playtimeMinutes: 18720,
               languageCode: "russian",
+              helpfulCount: 176,
               body: "난이도 표기가 바뀌었는데 인게임 설명이 그대로라 무엇이 조정됐는지 알 수 없다.",
             },
             {
@@ -224,6 +230,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -7),
               playtimeMinutes: 13680,
               languageCode: "english",
+              helpfulCount: 132,
               body: "재화 획득량이 줄어든 만큼 언락에 걸리는 시간이 늘었다. 시간을 파는 구조로 바뀐 느낌.",
             },
             {
@@ -232,6 +239,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -5),
               playtimeMinutes: 20160,
               languageCode: "korean",
+              helpfulCount: 92,
               body: "밸런스 패치 이후 즐기던 빌드가 전부 막혀서 장기 플레이어만 피해를 본다.",
             },
             {
@@ -239,7 +247,8 @@ function buildInsufficientPayload(): PlaytimeTopics {
               sentiment: "POSITIVE",
               reviewDate: addDaysIso(endDate, -4),
               playtimeMinutes: 7200,
-              languageCode: "english",
+              languageCode: "japanese",
+              helpfulCount: 64,
               body: "초반 튜토리얼은 나아졌지만 100시간 구간 콘텐츠는 여전히 얇다.",
             },
             {
@@ -248,6 +257,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: addDaysIso(endDate, -2),
               playtimeMinutes: 9600,
               languageCode: "korean",
+              helpfulCount: 48,
               body: "엔드게임 보상 테이블이 nerf된 뒤로 주간 루틴이 끊겼다.",
             },
             {
@@ -256,6 +266,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               reviewDate: endDate,
               playtimeMinutes: 14400,
               languageCode: "english",
+              helpfulCount: 31,
               body: "패치 노트가 모호해서 무엇이 의도인지 커뮤니티가 추측만 하고 있다.",
             },
           ],
@@ -307,8 +318,8 @@ export const playtimeTopicsHandlers = [
       return respond(400, "유효하지 않은 bandNo입니다.")
     }
 
-    // 1517290(Battlefield)에서 B4 선택 시 표본 부족 시나리오
-    if (gameId === 1517290 && parsed === "B4") {
+    // B4는 항상 표본 부족 → 리뷰 원문 fallback (모든 게임에서 확인 가능)
+    if (parsed === "B4") {
       return respond(200, "OK", buildInsufficientPayload())
     }
 
@@ -335,7 +346,7 @@ export const playtimeTopicsHandlers = [
     const startDate = addDaysIso(endDate, -13)
     const selectedBand = parsed === "ALL" ? "ALL" : parsed
 
-    if (gameId === 1517290 && selectedBand === "B4") {
+    if (selectedBand === "B4") {
       const skipped: PlaytimeTopicsAiSummary = {
         meta: {
           period: { startDate, endDate, dayCount: 14 },
@@ -354,9 +365,32 @@ export const playtimeTopicsHandlers = [
           selection: null,
           reasonCode: "INSUFFICIENT_SAMPLE",
         },
+        evidenceReviews: [],
       }
       return respond(200, "OK", skipped)
     }
+
+    // evidenceReviews: AI 요약 아래 카드에 넣을 대표 원문 2건
+    const evidenceReviews = [
+      {
+        id: 901,
+        sentiment: "NEGATIVE" as const,
+        reviewDate: addDaysIso(endDate, -12),
+        playtimeMinutes: 11640,
+        languageCode: "english",
+        helpfulCount: 412,
+        body: "A12 이상에서 드로우가 줄면서 기존 덱 아키타입이 전부 무너졌다. 상위 난이도를 계속 돌던 사람 입장에선 사실상 다른 게임이 됐다.",
+      },
+      {
+        id: 902,
+        sentiment: "NEGATIVE" as const,
+        reviewDate: addDaysIso(endDate, -11),
+        playtimeMinutes: 16260,
+        languageCode: "schinese",
+        helpfulCount: 288,
+        body: "보상 재화까지 같이 줄어서 반복 플레이 동기가 사라졌다. 두 변경을 한 패치에 같이 넣은 게 문제.",
+      },
+    ]
 
     const completed: PlaytimeTopicsAiSummary = {
       meta: {
@@ -371,25 +405,26 @@ export const playtimeTopicsHandlers = [
         text:
           selectedBand === "ALL"
             ? "전 구간에서 밸런스 언급이 가장 많고, 부정 비중은 플레이타임이 길수록 높아집니다. 초반은 최적화·안정성, 장기 구간은 밸런스·보상 재화가 반복됩니다."
-            : "선택 구간에서는 밸런스·보상 재화 불만이 두드러집니다. 장기 플레이어일수록 패치 체감이 크게 나타납니다.",
+            : "밸런스 조정 이후 빌드 선택지가 줄어든 데 대한 불만이 큽니다. 장기 플레이어일수록 패치 체감이 강하게 나타나며, 보상 재화 감소와 맞물려 반복 동기가 약해졌다는 반응이 이어집니다.",
         recurringExpressions: [
-          "밸런스 조정",
-          "보상 재화",
-          "크래시",
           "빌드 다양성",
-          "프레임 드랍",
-          "튜토리얼",
+          "선택지 감소",
+          "보상 재화",
+          "밸런스 조정",
+          "반복 동기",
+          "상위 난이도",
         ],
         targetPeriod: { startDate, endDate, dayCount: 14 },
-        targetReviewCount: selectedBand === "ALL" ? 486 : 120,
-        usedReviewCount: 40,
+        targetReviewCount: selectedBand === "ALL" ? 428 : selectedBand === "B2" ? 171 : 120,
+        usedReviewCount: 20,
         selection: {
           code: "HELPFUL_DESC_PER_PLAYTIME_BUCKET",
-          limit: 40,
+          limit: 20,
           description: "선택 구간 기준 도움됨 상위 리뷰를 사용해 요약했습니다.",
         },
         reasonCode: null,
       },
+      evidenceReviews,
     }
     return respond(200, "OK", completed)
   }),

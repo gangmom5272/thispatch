@@ -61,6 +61,36 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     static final String KEY_NEXT_REQUEST_AT = "review.nextRequestAt";
     private static final int EMPTY_PAGE_LIMIT = 4;
 
+    /** 긴 백오프 중에 '잡이 멈췄나' 를 얼마 만에 한 번 확인할 것인가. */
+    private static final long STOP_CHECK_INTERVAL_MILLIS = 5_000L;
+
+    /** 몇 페이지마다 시간 배분을 로그에 남길 것인가. */
+    private static final long STATS_EVERY_PAGES = 200L;
+
+    // ── 시간이 어디로 가는지 재는 곳 ──────────────────────────────
+    //
+    // 2026-09-15 실측으로 조각 하나가 페이지 하나에 8.3초를 썼는데, 밖에서 잰
+    // 것들(스팀 0.5초 · HDFS 0.2초 · 간격 1초 · DB 조회 0.4초)을 다 더해도
+    // 3.3초밖에 안 됐다. 남은 5초를 밖에서 찾을 방법이 없어서 안에서 잰다.
+    //
+    // 워커 한 대의 모든 조각이 함께 더한다. 200페이지마다 한 줄 남기고 0 으로
+    // 되돌린다 — 페이지마다 찍으면 로그가 그 자체로 부담이 된다.
+    private final AtomicLong statPages = new AtomicLong();
+    private final AtomicLong statSteamMillis = new AtomicLong();
+    private final AtomicLong statWriteMillis = new AtomicLong();
+    private final AtomicLong statWaitMillis = new AtomicLong();
+    private final AtomicLong statStopCheckMillis = new AtomicLong();
+    private final AtomicLong statFrameworkMillis = new AtomicLong();
+
+    /**
+     * 직전 청크가 끝난 시각. 조각마다 자기 스레드에서 도므로 스레드에 붙여 둔다.
+     *
+     * <p>이것과 다음 {@code execute} 시작 사이가 <b>우리 코드가 아닌 시간</b>이다 —
+     * Spring Batch 의 트랜잭션 커밋, 컨텍스트 직렬화, 메시지 처리 같은 것들.
+     * 설명 안 되던 5초가 여기 있는지 본다.
+     */
+    private final ThreadLocal<Long> chunkEndMillis = new ThreadLocal<>();
+
     private final SteamReviewClient client;
     private final ReviewLandingWriter writer;
     private final JobExplorer jobExplorer;
@@ -140,6 +170,9 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
         gate.leave();
+        // ⚠ 스레드는 다음 조각이 다시 쓴다. 안 지우면 조각과 조각 사이의
+        //   긴 시간이 '우리 코드 밖' 으로 잘못 더해진다.
+        chunkEndMillis.remove();
         return null;   // null 이면 Spring Batch 가 원래 상태를 그대로 쓴다
     }
 
@@ -155,6 +188,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         //   그대로 집어간다.
         if (gate.isStopping()) {
             step.setTerminateOnly();
+        }
+        Long previousChunkEnd = chunkEndMillis.get();
+        if (previousChunkEnd != null) {
+            statFrameworkMillis.addAndGet(Math.max(0, clock.millis() - previousChunkEnd));
         }
         checkInterrupted(step);
         ExecutionContext ctx = step.getExecutionContext();
@@ -174,6 +211,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         String cursor = ctx.getString(KEY_CURSOR, SteamReviewClient.FIRST_CURSOR);
         SteamReviewPage page;
         lane(step).set(Math.addExact(clock.millis(), requestIntervalMillis));
+        long steamStart = clock.millis();
         try {
             page = client.fetchPage(appid, cursor);
         } catch (InterruptedException e) {
@@ -181,8 +219,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             step.setTerminateOnly();
             throw new JobInterruptedException("Interrupted while requesting Steam reviews");
         } catch (IOException e) {
+            statSteamMillis.addAndGet(clock.millis() - steamStart);
             return retryOrFail(step, ctx, appid, e);
         }
+        statSteamMillis.addAndGet(clock.millis() - steamStart);
         var collectedAt = clock.instant();
         checkInterrupted(step);
         int emptyPages = ctx.getInt(KEY_EMPTY_PAGES, 0);
@@ -193,8 +233,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
                 throw new IOException("Steam returned a non-advancing cursor for appid " + appid);
             }
             // 저장이 실패하면 아래 진행 위치를 바꾸지 않고 스텝을 실패시킨다.
+            long writeStart = clock.millis();
             writer.writePage(appid, page, collectedAt).orElseThrow(
                     () -> new IOException("No landing file for a non-empty review page"));
+            statWriteMillis.addAndGet(clock.millis() - writeStart);
             for (int i = 0; i < page.reviews().size(); i++) {
                 contribution.incrementReadCount();
             }
@@ -214,7 +256,29 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         ctx.putInt(KEY_EMPTY_PAGES, emptyPages);
         ctx.putInt(KEY_RETRIES, 0);
         defer(step, ctx, requestIntervalMillis);
+        reportStats();
         return index == appids.size() ? RepeatStatus.FINISHED : RepeatStatus.CONTINUABLE;
+    }
+
+    /**
+     * 페이지 하나를 세고, {@link #STATS_EVERY_PAGES} 마다 시간 배분을 한 줄 남긴다.
+     *
+     * <p>워커 한 대의 조각 전부를 합친 값이라 「페이지 하나에 평균 몇 초」로 읽으면
+     * 된다. 남긴 뒤에는 0 으로 되돌려서 최근 구간만 보이게 한다.
+     */
+    private void reportStats() {
+        if (statPages.incrementAndGet() % STATS_EVERY_PAGES != 0) {
+            return;
+        }
+        long pages = STATS_EVERY_PAGES;
+        long steam = statSteamMillis.getAndSet(0);
+        long write = statWriteMillis.getAndSet(0);
+        long wait = statWaitMillis.getAndSet(0);
+        long stop = statStopCheckMillis.getAndSet(0);
+        long outside = statFrameworkMillis.getAndSet(0);
+        log.info("시간 배분 (페이지 {}개 평균) — 스팀 {}ms · HDFS {}ms · 대기 {}ms"
+                        + " · 멈춤확인 {}ms · 우리 코드 밖 {}ms",
+                pages, steam / pages, write / pages, wait / pages, stop / pages, outside / pages);
     }
 
     private RepeatStatus retryOrFail(StepExecution step, ExecutionContext ctx, long appid,
@@ -293,28 +357,55 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         if (ctx.getInt(KEY_APP_INDEX, 0) >= appids(ctx).size()) {
             return;
         }
-        long nextStopCheck = clock.millis();
+        // ⚠ 첫 바퀴부터 확인하면 안 된다.
+        //
+        //   여기 있던 코드는 nextStopCheck 를 '지금' 으로 시작해서, 대기에 들어서자마자
+        //   무조건 한 번 jobExplorer 를 불렀다. 보통 대기는 1초 미만이라 사실상
+        //   페이지마다 한 번씩 나갔다.
+        //
+        //   getJobExecution 은 그 잡의 스텝을 전부 끌고 온다. 조각이 234개면 235행,
+        //   약 100KB 다. 마스터에서 재면 0.24ms 인데 워커에서 재면 404~455ms 다
+        //   (2026-09-15 실측) — 무선으로 그만큼을 받아오기 때문이다.
+        //
+        //   조각을 잘게 쪼갤수록 더 나빠진다. 1,167개면 500KB 가 된다.
+        //
+        //   이 확인은 '사람이 잡을 멈췄는지' 를 보려는 것이고, 긴 백오프(403 은
+        //   1시간) 중에 빠져나오라고 둔 것이다. 1초짜리 대기에는 필요가 없다.
+        long waitStart = clock.millis();
+        long nextStopCheck = clock.millis() + STOP_CHECK_INTERVAL_MILLIS;
         while (nextRequestAt(step, ctx) > clock.millis()) {
             if (step.isTerminateOnly() || Thread.currentThread().isInterrupted()) {
                 step.setTerminateOnly();
+                finishChunk(waitStart);
                 return;
             }
             if (clock.millis() >= nextStopCheck) {
+                long t0 = clock.millis();
                 var job = jobExplorer.getJobExecution(step.getJobExecutionId());
+                statStopCheckMillis.addAndGet(clock.millis() - t0);
                 if (job != null && job.isStopping()) {
                     step.setTerminateOnly();
+                    finishChunk(waitStart);
                     return;
                 }
-                nextStopCheck = clock.millis() + 5_000;
+                nextStopCheck = clock.millis() + STOP_CHECK_INTERVAL_MILLIS;
             }
             try {
                 sleeper.sleep(Math.min(1_000, Math.max(1, nextRequestAt(step, ctx) - clock.millis())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 step.setTerminateOnly();
+                finishChunk(waitStart);
                 return;
             }
         }
+        finishChunk(waitStart);
+    }
+
+    /** 대기에 쓴 시간을 더하고, 청크가 끝난 시각을 남긴다. */
+    private void finishChunk(long waitStart) {
+        statWaitMillis.addAndGet(Math.max(0, clock.millis() - waitStart));
+        chunkEndMillis.set(clock.millis());
     }
 
     private static List<Long> appids(ExecutionContext ctx) {

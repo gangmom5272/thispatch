@@ -3,6 +3,7 @@ import { useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import { usePlaytimeTopics } from "@/hooks/queries/statisticsQueries"
 import { BandCards } from "@/pages/GameDetail/PlaytimeTopics/components/BandCards"
+import { SampleFallback } from "@/pages/GameDetail/PlaytimeTopics/components/SampleFallback"
 import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
 import { formatDisplayRange } from "@/lib/seoulDate"
 
@@ -53,12 +54,16 @@ export default function PlaytimeTopicsPage() {
   if (!data) return null
 
   const period = data.meta.period
+  // selectedBandStats: 카드·fallback 라벨에 쓰는 선택 밴드
+  const selectedBandStats =
+    selectedBandNo === null
+      ? undefined
+      : data.bands.find((band) => band.band === `B${selectedBandNo}`)
   // selectedReviewCount: 현재 선택 구간의 리뷰 수(전체면 overall)
   const selectedReviewCount =
     selectedBandNo === null
       ? data.overall.reviewCount
-      : (data.bands.find((band) => band.band === `B${selectedBandNo}`)?.reviewCount ??
-        data.overall.reviewCount)
+      : (selectedBandStats?.reviewCount ?? data.overall.reviewCount)
 
   return (
     <div className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
@@ -82,7 +87,17 @@ export default function PlaytimeTopicsPage() {
           reviewCount={selectedReviewCount}
           isOverall={selectedBandNo === null}
         />
-      ) : null}
+      ) : data.fallback ? (
+        <SampleFallback
+          fallback={data.fallback}
+          band={selectedBandStats}
+          minimumSampleCount={data.minimumSampleCount}
+        />
+      ) : (
+        <p className="text-sb-body text-sb-ink-mute">
+          표본이 부족해 토픽 분포를 표시할 수 없습니다.
+        </p>
+      )}
     </div>
   )
 }

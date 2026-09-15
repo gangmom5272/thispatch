@@ -8,7 +8,9 @@
 #   bash 12-deploy-collector.sh stop      워커에서 내린다
 #   bash 12-deploy-collector.sh status    어느 워커가 떠 있나
 #   bash 12-deploy-collector.sh log       워커 로그 꼬리 (N=20 으로 줄 수 조절)
-#   bash 12-deploy-collector.sh run       매니저를 돌린다 (마스터에서)
+#   bash 12-deploy-collector.sh run        리뷰 수집 매니저를 돌린다 (마스터에서)
+#   bash 12-deploy-collector.sh run-news   공지(패치노트) 수집 매니저를 돌린다
+#                                          ⚠ 리뷰와 동시에 돌리지 않는다
 #   bash 12-deploy-collector.sh all       build + deploy + start
 #
 # 워커 목록은 하둡의 workers 파일을 그대로 쓴다. 마스터 자신은 뺀다.
@@ -290,6 +292,30 @@ run)
     "dt=${DT:-$(date +%Y-%m-%d)}" 2>&1 \
     | grep --line-buffered -E "Job: |Step: |수집 대상|appid 를|ERROR|Exception" \
     | sed -u 's/^/  /'
+  close_service_tunnel
+  ;;
+
+run-news)
+  banner "공지(패치노트) 매니저 실행"
+  # ⚠ 리뷰 수집이 도는 동안에는 돌리지 않는다. 소비자 40개를 두 일이 나눠 갖게
+  #   되어 둘 다 느려진다. 리뷰가 끝난 뒤에 돌린다.
+  [ -f "$JAR" ] || { echo "  jar 가 없다." >&2; exit 1; }
+  export JAVA_HOME="${JAVA_HOME:-$(ls -d /usr/lib/jvm/java-17-openjdk-* 2>/dev/null | head -1)}"
+
+  SERVICE_DB_PASSWORD=""
+  if [ -z "${APPIDS:-}" ]; then
+    [ -f "$SERVICE_DB_PW_FILE" ] || {
+      echo "  서비스 DB 비밀번호가 없습니다: $SERVICE_DB_PW_FILE" >&2
+      echo "  리허설이면 APPIDS=730,570 처럼 직접 줘도 됩니다." >&2
+      exit 1; }
+    open_service_tunnel || exit 1
+    SERVICE_DB_PASSWORD="$(tr -d '
+' < "$SERVICE_DB_PW_FILE")"
+  else
+    echo "  APPIDS 를 직접 받았습니다: $APPIDS (game 테이블을 읽지 않습니다)"
+  fi
+
+  BATCH_DB_PASSWORD="$BATCH_DB_PASSWORD" MQ_PASSWORD="$MQ_PASSWORD"   SERVICE_DB_URL="$SERVICE_DB_URL" SERVICE_DB_USER="$SERVICE_DB_USER"   SERVICE_DB_PASSWORD="$SERVICE_DB_PASSWORD"   "$JAVA_HOME/bin/java" -jar "$JAR"     --spring.profiles.active=news-manager     --spring.batch.job.enabled=true     --thispatch.collect.grid-size="${GRID:-4}"     ${PARTITIONS:+--thispatch.collect.partitions="$PARTITIONS"}     ${APPIDS:+--thispatch.collect.appids="$APPIDS"}     "dt=${DT:-$(date +%Y-%m-%d)}" 2>&1     | grep --line-buffered -E "Job: |Step: |공지 수집 대상|공지 수집|appid 를|ERROR|Exception"     | sed -u 's/^/  /'
   close_service_tunnel
   ;;
 

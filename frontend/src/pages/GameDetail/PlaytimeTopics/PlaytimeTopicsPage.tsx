@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { useParams } from "react-router"
 import { isApiError } from "@/api/error"
-import { usePlaytimeTopics } from "@/hooks/queries/statisticsQueries"
+import { usePlaytimeTopics, usePlaytimeTopicsSummary } from "@/hooks/queries/statisticsQueries"
 import { BandCards } from "@/pages/GameDetail/PlaytimeTopics/components/BandCards"
 import { SampleFallback } from "@/pages/GameDetail/PlaytimeTopics/components/SampleFallback"
+import { TopicAiSummaryCard } from "@/pages/GameDetail/PlaytimeTopics/components/TopicAiSummaryCard"
 import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
 import { formatDisplayRange } from "@/lib/seoulDate"
 
@@ -16,7 +17,7 @@ function parseGameId(raw: string | undefined): number | null {
 
 /**
  * 플레이타임 × 토픽 탭 페이지.
- * 밴드 선택(null=전체)에 따라 playtime-topics API를 재조회한다.
+ * 밴드 선택(null=전체)에 따라 playtime-topics·AI 요약 API를 재조회한다.
  */
 export default function PlaytimeTopicsPage() {
   const { gameId: rawGameId } = useParams()
@@ -25,6 +26,9 @@ export default function PlaytimeTopicsPage() {
   const [selectedBandNo, setSelectedBandNo] = useState<number | null>(null)
 
   const query = usePlaytimeTopics(gameId, selectedBandNo)
+  // summaryEnabled: 표본 충분할 때만 AI 요청 (disabled 시 isPending 함정 회피)
+  const summaryEnabled = Boolean(query.data?.sampleSufficient)
+  const summaryQuery = usePlaytimeTopicsSummary(gameId, selectedBandNo, summaryEnabled)
 
   if (gameId === null) {
     return (
@@ -82,11 +86,18 @@ export default function PlaytimeTopicsPage() {
       <BandCards data={data} selectedBandNo={selectedBandNo} onSelectBandNo={setSelectedBandNo} />
 
       {data.sampleSufficient ? (
-        <TopicBars
-          topics={data.topics}
-          reviewCount={selectedReviewCount}
-          isOverall={selectedBandNo === null}
-        />
+        <>
+          <TopicBars
+            topics={data.topics}
+            reviewCount={selectedReviewCount}
+            isOverall={selectedBandNo === null}
+          />
+          <TopicAiSummaryCard
+            data={summaryQuery.data}
+            isPending={summaryQuery.isFetching && !summaryQuery.data}
+            isError={summaryQuery.isError}
+          />
+        </>
       ) : data.fallback ? (
         <SampleFallback
           fallback={data.fallback}

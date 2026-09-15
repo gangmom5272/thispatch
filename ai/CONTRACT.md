@@ -21,7 +21,7 @@
 
 | 경로 | 형식 | 필요한 컬럼 | 비고 |
 |---|---|---|---|
-| `/news_raw/dt=D/` | Parquet | `gid` string, `appid` long, `title`, `contents`, `published_at` long(unix초), `is_patch` bool | `news` 테이블과 동일. **`is_patch=true`인 행만 처리** |
+| `/news_raw/dt=D/` | Parquet | `gid` string, `appid` long, `title`, `contents`(BBCode 원문), `feed_tags` string(쉼표 연결), `published_ts` long(unix초), `collected_ts` long, `is_patch` bool, `patch_reason` string | 수집 담당 스키마(9/15 확정). **`is_patch=true`인 행만 처리**. 같은 공지가 여러 날 들어올 수 있어 `gid` 당 `collected_ts` 최신 한 벌만 읽는다(`NewsLake.latest` 와 같은 기준, `common.read_news`) |
 | `/review_raw/base/`, `/review_raw/delta/dt=D/` | Parquet | `recommendationid` long, `appid` long, `review_text`, `language_code`, `created_ts` long, `updated_ts` long | `ReviewSchema.REVIEW_RAW` 그대로. 초기 1회는 base 전체, 이후 delta만. **같은 `recommendationid` 가 여러 판 있을 수 있음**(수정본·재수집, `common/ReviewLake` 주석 참고) → AI 노드는 `updated_ts` 최신 한 벌에만 토픽을 붙인다 |
 
 > 제안: 공지 원문 → 청크 분리 → 규칙 슬롯(방향·변경 유형)은 **AI 노드(Python)** 가 한다. 코드가 이미 있고(동료 `sections.py`, PoC 규칙), Spark 쪽은 아직 리뷰 변환만 있다. Spark 담당이 원하면 옮길 수 있게 청크 출력 컬럼을 아래처럼 고정한다.
@@ -73,7 +73,7 @@
 
 ## 4. 정해야 남은 것 (상대 확인 필요)
 
-1. `/news_raw`가 Parquet인지 `.jsonl.gz`인지, `dt=` 파티션인지 — 수집 담당
+1. ~~`/news_raw` 형식~~ → **해소(9/15)**: Parquet, `dt=` 파티션, `is_patch`·`patch_reason` 포함, 게임당 공지 전량(기간 제한 없음). 판정 코드는 `spark/.../PatchJudge.java`(부록 A 와 동일, JUnit 5건)
 2. 청크 분리·규칙 슬롯을 AI 노드가 하는 것에 이견 없는지 — Spark 담당
 3. `target`, `attribute` 컬럼 채택 여부 — ERD 담당 (미채택이면 Loader가 두 컬럼만 버림, AI 쪽 변경 없음)
 4. 초기 적재 시 `review_raw/base` 전체를 토픽 분류할지, 패치 창(전후 7일) 안 리뷰만 할지 — 백엔드. 기본값: 전체
@@ -110,7 +110,7 @@ RELEASE  (out now|now available|now live|is live|has arrived|released|launch(es|
 VERSION  \bv?\d+\.\d+(\.\d+)?\b
 ```
 
-원본 코드: `0904/poc/scripts/16_rule_slots_3games.py` 의 `judge()`. Java 로 옮길 때 `\b` 와 `%\s*off` 이스케이프만 주의.
+원본 코드: `0904/poc/scripts/16_rule_slots_3games.py` 의 `judge()`. Java 판은 `spark/src/main/java/com/ssafy/thispatch/spark/PatchJudge.java`(9/15 수집 담당이 이동해 `NewsToParquet` 에서 호출, `ai/docs/` 사본은 이동 뒤 삭제).
 AI 노드는 `is_patch=true` 행만 읽으므로 이 판정이 곧 임베딩·Qwen 대상 범위다.
 
 ## 부록 B. 규칙 슬롯과 Qwen 의 관계 (검토 요청 회신)

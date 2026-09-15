@@ -41,6 +41,34 @@ def has_success(d):
     return (Path(d) / SUCCESS).exists()
 
 
+NEWS_COLS = ["gid", "appid", "title", "contents", "published_ts", "is_patch"]
+
+
+def read_news(dt=None, columns=None, patch_only=True):
+    """news_raw 읽기. dt 를 주면 그 날 파티션(_SUCCESS 필요), None 이면 dt=* 전체.
+    같은 공지가 여러 날 들어올 수 있어(수집 담당 NewsLake.latest 와 같은 기준) gid 당 collected_ts 최신 한 벌만 남긴다."""
+    cols = list(dict.fromkeys((columns or NEWS_COLS) + ["collected_ts"]))
+    root = in_dir("news_raw")
+    parts = [root / f"dt={dt}"] if dt else sorted(root.glob("dt=*"))
+    parts = [p for p in parts if has_success(p)]
+    if not parts:
+        return pd.DataFrame(columns=cols)
+    frames = []
+    for p in parts:
+        have = set(pq.read_schema(next(p.glob("*.parquet"))).names) if list(p.glob("*.parquet")) else set()
+        want = [c for c in cols if c in have] + (["published_at"] if "published_ts" in cols and "published_ts" not in have and "published_at" in have else [])
+        frames.append(read_parquet_dir(p, columns=want or None))
+    df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=cols)
+    if "published_ts" not in df and "published_at" in df:   # 9/15 이전 개발용 입력(dev_make_news_input 구판) 호환
+        df = df.rename(columns={"published_at": "published_ts"})
+    if "collected_ts" in df:
+        df = df.sort_values(["gid", "collected_ts"], ascending=[True, False])
+    df = df.drop_duplicates("gid", keep="first")
+    if patch_only and "is_patch" in df:
+        df = df[df["is_patch"] == True]  # noqa: E712
+    return df.reset_index(drop=True)
+
+
 def read_parquet_dir(d, columns=None):
     """폴더 안 *.parquet 전부를 하나의 DataFrame 으로. 없으면 빈 프레임."""
     files = sorted(Path(d).glob("*.parquet"))

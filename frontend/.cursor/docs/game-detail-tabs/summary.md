@@ -12,9 +12,9 @@
 ## 구현 요약
 
 - 중첩 라우트: `/games/:gameId/:tab` + index → `reaction-trends` redirect
-- 탭: 반응 추세 / 플레이타임 · 토픽 / 리뷰 / 언어별 분석 / 기획안 입력
-- `GameDetailTabs` (`NavLink`, 선택 시 민트 2px 하단선) + `TabPlaceholder` 본문
-- `paths.ts`: `GAME_DETAIL_TABS`, `gameDetailTabPath`, `gameDetailPath` → 기본 탭 URL
+- 진단 탭(왼쪽): 반응 추세 / 플레이타임 · 토픽 / 리뷰 / 언어별 분석 — underline 활성
+- 기획안 입력: 탭 행 **오른쪽 끝** primary CTA (`NavLink` → `/plan`), 헤더가 아님
+- `paths.ts`: `GAME_DETAIL_MAIN_TABS` + `GAME_DETAIL_TAB_ORDER`(라우트용), `gameDetailTabPath`
 
 ## 제외
 

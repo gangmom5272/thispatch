@@ -28,11 +28,16 @@ export const GAME_DETAIL_TAB_LABELS: Record<GameDetailTab, string> = {
   [GAME_DETAIL_TABS.plan]: "기획안 입력",
 }
 
-export const GAME_DETAIL_TAB_ORDER: GameDetailTab[] = [
+export const GAME_DETAIL_MAIN_TABS: GameDetailTab[] = [
   GAME_DETAIL_TABS.reactionTrends,
   GAME_DETAIL_TABS.playtimeTopics,
   GAME_DETAIL_TABS.reviews,
   GAME_DETAIL_TABS.languageAnalysis,
+]
+
+/** All detail segments for nested route registration (main tabs + plan CTA). */
+export const GAME_DETAIL_TAB_ORDER: GameDetailTab[] = [
+  ...GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TABS.plan,
 ]
 

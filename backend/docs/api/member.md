@@ -511,7 +511,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 - `400`: 필드 검증 실패 (`VALIDATION_FAILED`), 잘못된 JSON·요청 본문 누락 (`INVALID_REQUEST`). 코드·메시지는 공통 오류 계약을 따른다.
 - `401`: Access Token 인증 필요·무효·만료. Security에서 인증된 사용자가 없는 경우 `UNAUTHORIZED`, `인증이 필요합니다.`를 반환한다.
 - `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
-- `401`: Refresh Token 소유자 불일치·무효·만료 (`REFRESH_TOKEN_INVALID`, `유효하지 않은 Refresh Token입니다.`). 원인을 구분하지 않으며 `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다. 다른 사용자의 토큰을 무효화해서는 안 된다.
+- `401`: Refresh Token 소유자 불일치·무효·만료 (`LOGOUT_TOKEN_INVALID`, `유효하지 않은 Refresh Token입니다.`). 원인을 구분하지 않으며 `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다. 다른 사용자의 토큰을 무효화해서는 안 된다.
 
 **Processing Rules / Notes — 구현 메모**
 
@@ -523,7 +523,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 - 유효한 Access Token과 소유자 확인을 전제로, 이미 해당 Refresh Token이 무효화된 경우에도 성공하도록 멱등하게 처리한다.
 - 폐기 이력을 보관하지 않으므로 반복 요청의 소유자는 서명·용도·만료 검증을 통과한 JWT의 회원 ID와 현재 인증된 회원 ID를 비교해 확인한다.
 - 위 검증을 통과하고 소유자가 같으면 저장값이 이미 없거나 다른 토큰으로 교체되었어도 성공한다. 과거 토큰으로 새 로그인 토큰을 폐기하지 않는다. 미저장 토큰과 폐기된 토큰의 이력은 구분하지 않는다.
-- 만료된 Refresh Token은 기존 JWT 검증에서 `EXPIRED`로 구분되지만, 로그아웃 응답에서는 소유자 불일치·무효와 동일한 `401 REFRESH_TOKEN_INVALID`로 처리한다. 검증에 실패하면 저장된 토큰은 변경하지 않는다.
+- 만료된 Refresh Token은 기존 JWT 검증에서 `EXPIRED`로 구분되지만, 로그아웃 응답에서는 소유자 불일치·무효와 동일한 `401 LOGOUT_TOKEN_INVALID`로 처리한다. 검증에 실패하면 저장된 토큰은 변경하지 않는다.
 
 ## 회원탈퇴
 

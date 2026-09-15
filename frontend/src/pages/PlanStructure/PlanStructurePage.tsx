@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import GameHeader from "@/components/GameHeader"
+import Textarea from "@/components/Textarea"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
@@ -91,15 +92,13 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
             <label htmlFor={textId} className="sr-only">
               기획안 본문
             </label>
-            <textarea
+            <Textarea
               id={textId}
               value={text}
               maxLength={MAX_TEXT_LENGTH}
-              rows={3}
               required
               placeholder="예: Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다. 고통 4 이상 난이도에서만 적용한다."
               onChange={(event) => setText(event.target.value)}
-              className="w-full resize-y rounded-sb-control border border-sb-hairline-strong bg-sb-canvas-base p-sb-3 leading-relaxed text-sb-ink placeholder:text-sb-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
             />
             <div className="flex flex-wrap items-center gap-sb-2">
               <span id={genreLabelId} className="text-sb-ink-mute">

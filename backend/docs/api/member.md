@@ -327,7 +327,13 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 }
 ```
 
-Request Body는 필수 `string`인 `nickname`만 사용한다. 닉네임 상세 검증 규칙은 미정이다.
+Request Body는 필수 `string`인 `nickname`만 사용한다.
+
+- 닉네임은 1~50자(Unicode 코드 포인트 기준)이며, 빈 문자열·공백으로만 이루어진 값은 허용하지 않는다.
+- 문자 종류·다른 회원과의 중복은 제한하지 않는다. 다만 PostgreSQL 문자열에 저장할 수 없는 NUL(U+0000)은 검증 오류로 처리한다.
+- 앞뒤 공백 제거나 대소문자 변환 없이 입력값 그대로 저장한다.
+- 누락·null·공백만 있는 값·길이 초과·NUL은 `400 VALIDATION_FAILED`, 문자열이 아닌 JSON 값은 `400 INVALID_REQUEST`로 처리한다.
+
 대상 회원은 검증된 Access Token의 회원 ID로 확인한다. 클라이언트는 회원 ID나 Steam ID를 지정하지 않는다.
 
 **Response 200**
@@ -348,7 +354,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다. 닉네임 상세 
 
 - `400`: 필수 필드 누락·빈 값, 닉네임 검증 실패 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`)
 - `400`: 잘못된 JSON·요청 본문 누락 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
-- `401`: Access Token 인증 필요·무효·만료 (`UNAUTHORIZED`, `인증이 필요합니다.`). 공통 Security 계약을 따른다.
+- `401`: Access Token 인증 필요·무효·만료 또는 회원 부재·`status != ACTIVE` (`UNAUTHORIZED`, `인증이 필요합니다.`). `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다.
 - `409`: 이미 닉네임이 설정됨 (`NICKNAME_ALREADY_SET`, `이미 닉네임이 설정된 회원입니다.`)
 - `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
 
@@ -377,12 +383,12 @@ Request Body는 필수 `string`인 `nickname`만 사용한다. 닉네임 상세 
 **Processing Rules / Notes — 구현 메모**
 
 1. Authorization Bearer Access Token으로 현재 회원을 식별한다.
-2. 해당 회원을 조회한다.
+2. 해당 회원이 존재하고 `status = ACTIVE`인지 확인한다. 로그인 유형(`LOCAL`/`STEAM`)은 제한하지 않는다. 회원 부재·비활성 상태는 이미 설정된 닉네임 여부보다 먼저 판정한다.
 3. 닉네임을 검증한다.
 4. 현재 닉네임이 `null`인 경우에만 최초 닉네임을 저장한다. 이미 값이 있으면 `409 NICKNAME_ALREADY_SET`을 반환한다.
 5. 저장된 닉네임을 `data.nickname`에 필수 `string`으로 반환한다.
 
-- 동일 회원의 동시 설정 요청에서도 최초 저장 한 번만 성공하고, 이후 요청은 `409`로 처리한다. 이미 설정된 닉네임을 덮어쓰지 않는다.
+- 동일 회원의 동시 설정 요청에서도 최초 저장 한 번만 성공하고, 이후 요청은 `409`로 처리한다. 이미 설정된 닉네임을 덮어쓰지 않는다. 저장 시에도 `status = ACTIVE`와 `nickname IS NULL` 조건을 확인하고, 성공한 경우에만 `updated_at`을 갱신한다.
 - 닉네임 검증 실패 시 회원의 기존 정보는 변경하지 않으며, 입력을 수정해 다시 요청할 수 있다.
 - 이 API는 최초 닉네임 설정용이다. 회원 생성, Steam 인증, Access/Refresh Token 발급·저장은 수행하지 않는다.
 - 성공 후 프론트는 메인 화면으로 이동한다. 이후 `/session`은 저장된 닉네임을 반환한다.
@@ -558,7 +564,5 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 
 ## 미정 정책
 
-- 닉네임 상세 검증 규칙: 미정.
-- 최초 닉네임 설정 시 회원 부재·탈퇴 상태·STEAM 이외 회원 요청의 처리 정책과 도메인 오류 응답: 미정.
 - 탈퇴한 Steam 계정의 재가입 정책: 미정.
 - 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

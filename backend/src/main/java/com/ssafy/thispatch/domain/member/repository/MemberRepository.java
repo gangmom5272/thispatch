@@ -19,6 +19,16 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByEmail(String email);
 
+	// 이메일 충돌만 무시한다. 회원 생성과 토큰 저장은 호출 서비스의 같은 트랜잭션에 참여한다.
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query(value = """
+		insert into member (login_type, email, password, nickname, status, created_at)
+		values ('LOCAL', :email, :passwordHash, :nickname, 'ACTIVE', current_timestamp)
+		on conflict on constraint uk_member_email do nothing
+		""", nativeQuery = true)
+	int insertLocalMemberIfAbsent(@Param("email") String email, @Param("passwordHash") String passwordHash,
+		@Param("nickname") String nickname);
+
 	// 조회 후 저장 사이의 경합에서도 닉네임을 덮어쓰거나 비활성 회원을 갱신하지 않는다.
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""

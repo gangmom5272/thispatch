@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.JobInterruptedException;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.explore.JobExplorer;
@@ -81,6 +82,19 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
      */
     private final AtomicLong[] lanes;
 
+    /**
+     * 워커가 꺼질 때 조각을 깨끗이 내려놓게 해 주는 것.
+     *
+     * <p>기본값은 아무 일도 안 하는 새 것이다. 실제로 쓰려면 {@code WorkerConfig}
+     * 가 생명주기 빈으로 등록한 것과 <b>같은 인스턴스</b>를 넣어 줘야 한다.
+     * 테스트는 그냥 두면 된다 — 종료 신호가 올 일이 없다.
+     */
+    private volatile ShutdownGate gate = new ShutdownGate();
+
+    public void setShutdownGate(ShutdownGate gate) {
+        this.gate = Objects.requireNonNull(gate);
+    }
+
     public CollectTasklet(SteamReviewClient client, ReviewLandingWriter writer, JobExplorer jobExplorer,
                           Duration requestInterval, int maxRetries, int lanes) {
         this(client, writer, jobExplorer, requestInterval, maxRetries, lanes, Clock.systemUTC(), Thread::sleep);
@@ -109,6 +123,7 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
 
     @Override
     public void beforeStep(StepExecution stepExecution) {
+        gate.enter();
         ExecutionContext ctx = stepExecution.getExecutionContext();
         int partitionNo = ctx.containsKey(AppidPartitioner.KEY_PARTITION)
                 ? ctx.getInt(AppidPartitioner.KEY_PARTITION) : -1;
@@ -116,9 +131,31 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
                 partitionNo, whereAmI(), appids(ctx).size(), ctx.getInt(KEY_APP_INDEX, 0));
     }
 
+    /**
+     * 조각이 끝났다고 알린다. 성공이든 실패든 불린다.
+     *
+     * <p>{@link ShutdownGate} 가 이 수를 세고 있다가 0 이 되면 워커를 닫는다.
+     * 여기서 빠뜨리면 종료할 때 영원히 기다리게 된다.
+     */
+    @Override
+    public ExitStatus afterStep(StepExecution stepExecution) {
+        gate.leave();
+        return null;   // null 이면 Spring Batch 가 원래 상태를 그대로 쓴다
+    }
+
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         StepExecution step = chunkContext.getStepContext().getStepExecution();
+        // 워커가 꺼지는 중이면 여기서 손을 뗀다. 페이지 경계라 진행 위치는
+        // 직전 청크에서 이미 커밋돼 있다 — 많아야 페이지 하나를 다시 받는다.
+        //
+        // ⚠ FINISHED 를 돌려주면 안 된다. 그러면 조각이 COMPLETED 로 남아
+        //   아직 안 받은 게임이 다 받은 것으로 둔갑한다.
+        //   setTerminateOnly 로 두면 STOPPED 가 되고, STOPPED 는 이어 돌릴 때
+        //   그대로 집어간다.
+        if (gate.isStopping()) {
+            step.setTerminateOnly();
+        }
         checkInterrupted(step);
         ExecutionContext ctx = step.getExecutionContext();
         List<Long> appids = appids(ctx);

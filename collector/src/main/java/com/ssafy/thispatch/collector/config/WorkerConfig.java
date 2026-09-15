@@ -1,6 +1,7 @@
 package com.ssafy.thispatch.collector.config;
 
 import com.ssafy.thispatch.collector.worker.CollectTasklet;
+import com.ssafy.thispatch.collector.worker.ShutdownGate;
 import com.ssafy.thispatch.collector.client.SteamReviewClient;
 import com.ssafy.thispatch.collector.writer.ReviewLandingWriter;
 import com.ssafy.thispatch.common.HdfsPaths;
@@ -72,14 +73,32 @@ public class WorkerConfig {
         return new ReviewLandingWriter(reviewFileSystem);
     }
 
+    /**
+     * 종료할 때 조각을 먼저 내보내는 문지기.
+     *
+     * <p>⚠ 이 빈이 없으면 종료 신호가 왔을 때 {@link #reviewFileSystem} 이
+     * 먼저 닫히고, 그때 HDFS 에 쓰던 조각들이 {@code Filesystem closed} 로
+     * 죽는다. 2026-09-15 전량 수집에서 실패 86건 중 19건이 이것이었다.
+     */
+    @Bean
+    public ShutdownGate shutdownGate() {
+        return new ShutdownGate();
+    }
+
     @Bean
     public CollectTasklet collectTasklet(SteamReviewClient client, ReviewLandingWriter writer,
                                         JobExplorer jobExplorer,
+                                        ShutdownGate shutdownGate,
                                         @Value("${thispatch.collect.request-interval}") Duration interval,
                                         @Value("${thispatch.collect.max-retries}") int maxRetries,
                                         @Value("${thispatch.collect.consumers:10}") int consumers) {
         // ⚠ 차례 수를 소비자 수와 맞춘다. 적으면 조각들이 서로를 막는다.
-        return new CollectTasklet(client, writer, jobExplorer, interval, maxRetries, consumers);
+        CollectTasklet tasklet =
+                new CollectTasklet(client, writer, jobExplorer, interval, maxRetries, consumers);
+        // ⚠ 문지기와 같은 인스턴스를 써야 한다. 조각 수를 세는 쪽과 종료를
+        //   기다리는 쪽이 다르면 아무도 기다리지 않는다.
+        tasklet.setShutdownGate(shutdownGate);
+        return tasklet;
     }
 
     /** AMQP 로 들어온 작업 요청을 채널로 흘려보낸다. */

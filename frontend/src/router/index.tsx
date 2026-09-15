@@ -6,9 +6,8 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
-  GAME_DETAIL_TAB_ORDER,
-  GAME_DETAIL_TABS,
   paths,
   routeSegment,
 } from "@/router/paths"
@@ -38,16 +37,15 @@ export const router = createBrowserRouter([
             index: true,
             element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
           },
-          ...GAME_DETAIL_TAB_ORDER.map((tab) => ({
+          ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
             path: tab,
-            element:
-              tab === GAME_DETAIL_TABS.plan ? (
-                <PlanStructurePage />
-              ) : (
-                <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
-              ),
+            element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
           })),
         ],
+      },
+      {
+        path: routeSegment(paths.gamePlanPattern),
+        element: <PlanStructurePage />,
       },
       {
         path: routeSegment(paths.gameCasesPattern),

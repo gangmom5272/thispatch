@@ -3,6 +3,7 @@ export const paths = {
   home: "/",
   games: "/games",
   gameDetailPattern: "/games/:gameId",
+  gamePlanPattern: "/games/:gameId/plan",
   gameCasesPattern: "/games/:gameId/cases",
   methodology: "/methodology",
   login: "/login",
@@ -34,12 +35,6 @@ export const GAME_DETAIL_MAIN_TABS: GameDetailTab[] = [
   GAME_DETAIL_TABS.playtimeTopics,
   GAME_DETAIL_TABS.reviews,
   GAME_DETAIL_TABS.languageAnalysis,
-]
-
-/** All detail segments for nested route registration (main tabs + plan CTA). */
-export const GAME_DETAIL_TAB_ORDER: GameDetailTab[] = [
-  ...GAME_DETAIL_MAIN_TABS,
-  GAME_DETAIL_TABS.plan,
 ]
 
 /** Default tab URL (reaction-trends). Bare `/games/:id` still redirects via index route. */

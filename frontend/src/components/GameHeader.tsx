@@ -1,118 +1,179 @@
 import { Link } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
+import { GameHeaderSkeleton } from "@/components/GameHeaderSkeleton"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
-import { gameDetailPath } from "@/router/paths"
+import { gameDetailPath, paths } from "@/router/paths"
 import type { GameDetail } from "@/types"
 
-const thumbnailClass =
-  "aspect-[460/215] w-46 shrink-0 rounded-sb-control border border-sb-hairline-cool bg-sb-canvas object-cover"
+const UPDATED_AT_COPY = "수정일 기준 집계"
 
-function formatCollectedAt(iso: string): string {
+function formatCollectedAt(iso: string | null): string | null {
+  if (!iso) return null
   const date = new Date(iso)
-  const pad = (value: number) => String(value).padStart(2, "0")
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ""
+  return `수집 ${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`
 }
 
-function Fact({ label, value }: { label: string; value: string | null }) {
+function formatReviewCount(count: number | null): string {
+  if (count === null) return "—"
+  return count.toLocaleString("en-US")
+}
+
+function formatPositiveRate(rate: number | null): string {
+  if (rate === null) return "—"
+  const rounded = Number.isInteger(rate) ? String(rate) : rate.toFixed(1)
+  return `${rounded}%`
+}
+
+function BackArrowIcon() {
   return (
-    <div className="flex gap-sb-1">
-      <dt className="text-sb-ink-mute">{label}</dt>
-      <dd className={value ? "font-sb-mono font-medium tabular-nums" : "text-sb-ink-mute"}>
-        {value ?? "—"}
-      </dd>
-    </div>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-[17px] shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </svg>
   )
 }
 
 function GameInfo({ game }: { game: GameDetail }) {
+  const collectedLabel = formatCollectedAt(game.lastCollectedAt)
+  const basisText = collectedLabel ? `${collectedLabel} · ${UPDATED_AT_COPY}` : UPDATED_AT_COPY
+
   return (
-    <div className="flex flex-col gap-sb-4 sm:flex-row sm:items-center">
-      {game.capsuleImageUrl ? (
-        <img src={game.capsuleImageUrl} alt="" className={thumbnailClass} />
-      ) : (
-        <div aria-hidden="true" className={thumbnailClass} />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-sb-2">
-        <div className="flex flex-wrap items-baseline gap-x-sb-3 gap-y-sb-1">
-          <h1 className="text-sb-heading font-medium">{game.title}</h1>
-          {game.lastCollectedAt && (
-            <p className="font-sb-mono text-sb-ink-mute tabular-nums sm:ml-auto">
-              수집 {formatCollectedAt(game.lastCollectedAt)} · 수정일 기준 집계
-            </p>
-          )}
+    <div className="flex flex-col gap-sb-4 border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-4 md:flex-row md:items-center md:gap-[18px] md:px-sb-12 md:pb-3.5 md:pt-sb-4">
+      <div className="h-[86px] w-[184px] shrink-0 overflow-hidden rounded-sb-control border border-sb-hairline-cool bg-sb-canvas">
+        {game.capsuleImageUrl ? (
+          <img src={game.capsuleImageUrl} alt="" className="size-full object-cover" />
+        ) : null}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-col gap-sb-2 sm:flex-row sm:items-center sm:gap-sb-2">
+          <h1 className="text-sb-heading font-medium tracking-[-0.42px] text-sb-ink">
+            {game.title}
+          </h1>
+          <p className="shrink-0 font-sb-mono text-sb-body tabular-nums text-sb-ink-mute sm:ml-auto">
+            {basisText}
+          </p>
         </div>
-        {game.description && <p>{game.description}</p>}
+
+        {game.description ? (
+          <p className="text-sb-body leading-normal text-sb-ink">{game.description}</p>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-sb-2">
-          {game.tags.length > 0 && (
-            <>
-              <ul aria-label="장르" className="flex flex-wrap gap-sb-2">
-                {game.tags.map((tag) => (
-                  <li
-                    key={tag.id}
-                    className="rounded-sb-tag border border-sb-hairline bg-sb-canvas-soft px-sb-2 py-sb-1 text-sb-ink-mute"
-                  >
-                    {tag.name}
-                  </li>
-                ))}
-              </ul>
-              <span aria-hidden="true" className="h-4 w-px bg-sb-hairline-strong" />
-            </>
-          )}
-          <dl className="flex flex-wrap gap-sb-3">
-            <Fact label="출시" value={game.releasedOn} />
-            <Fact label="리뷰" value={game.reviewCount?.toLocaleString("ko-KR") ?? null} />
-            <Fact
-              label="전체 긍정률"
-              value={game.positiveRate === null ? null : `${game.positiveRate}%`}
-            />
-          </dl>
+          {game.tags.map((tag) => (
+            <span
+              key={tag.id}
+              className="rounded-sb-tag border border-sb-hairline bg-sb-canvas-soft px-sb-2 py-[3px] text-sb-body text-sb-ink-mute"
+            >
+              {tag.name}
+            </span>
+          ))}
+
+          {game.tags.length > 0 ? (
+            <span aria-hidden="true" className="hidden h-4 w-px bg-sb-hairline-strong sm:block" />
+          ) : null}
+
+          <span className="inline-flex items-center gap-1.5 text-sb-body text-sb-ink-mute">
+            <span>출시</span>
+            <span className="font-sb-mono tabular-nums text-sb-ink">{game.releasedOn ?? "—"}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-sb-body text-sb-ink-mute">
+            <span>리뷰</span>
+            <span className="font-sb-mono tabular-nums text-sb-ink">
+              {formatReviewCount(game.reviewCount)}
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-sb-body text-sb-ink-mute">
+            <span>전체 긍정률</span>
+            <span className="font-sb-mono tabular-nums text-sb-ink">
+              {formatPositiveRate(game.positiveRate)}
+            </span>
+          </span>
         </div>
       </div>
     </div>
   )
 }
 
-export default function GameHeader({ gameId }: { gameId: number }) {
+type GameHeaderBack = "games" | "gameDetail"
+
+interface GameHeaderProps {
+  gameId: number
+  /** 진단 탭 화면은 게임 목록으로, 다음 패치 화면은 게임 분석(상세)으로 돌아간다. */
+  back?: GameHeaderBack
+}
+
+export function GameHeader({ gameId, back = "games" }: GameHeaderProps) {
   const query = useGameDetail(gameId)
 
+  if (query.isPending) {
+    return <GameHeaderSkeleton />
+  }
+
+  const backLink =
+    back === "games"
+      ? { to: paths.games, label: "게임 목록" }
+      : { to: gameDetailPath(gameId), label: "게임 분석" }
+
   return (
-    <div className="border-b border-sb-hairline-cool bg-sb-canvas-surface">
-      <div className="border-b border-sb-hairline">
-        <div className="mx-auto max-w-sb-page px-sb-4 py-sb-2 md:px-sb-12">
-          <Link
-            to={gameDetailPath(gameId)}
-            className="inline-flex items-center gap-sb-1 rounded-sb-tag text-sb-primary hover:text-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-          >
-            <span aria-hidden="true">←</span>
-            게임 분석
-          </Link>
-        </div>
+    <header className="border-b border-sb-hairline-cool bg-sb-canvas-base">
+      <div className="border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 pt-sb-3 md:px-sb-12">
+        <Link
+          to={backLink.to}
+          className="inline-flex items-center gap-1.5 text-sb-body text-sb-primary hover:text-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+        >
+          <BackArrowIcon />
+          {backLink.label}
+        </Link>
       </div>
-      <div className="mx-auto max-w-sb-page px-sb-4 py-sb-4 md:px-sb-12">
-        {query.isPending && (
-          <div aria-label="게임 정보 불러오는 중" aria-busy="true" className="flex gap-sb-4">
-            <div className={`${thumbnailClass} animate-pulse motion-reduce:animate-none`} />
-            <div className="flex flex-1 flex-col gap-sb-2">
-              <div className="h-8 w-64 animate-pulse rounded-sb-tag bg-sb-canvas-soft motion-reduce:animate-none" />
-              <div className="h-6 w-full max-w-2xl animate-pulse rounded-sb-tag bg-sb-canvas-soft motion-reduce:animate-none" />
-            </div>
-          </div>
-        )}
-        {query.isError && (
-          <div role="alert" className="flex flex-wrap items-center gap-sb-3">
-            <p>
-              {isApiError(query.error)
-                ? query.error.message
-                : "게임 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
-            </p>
+
+      {query.isError ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-sb-3 border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-4 md:px-sb-12"
+        >
+          <p className="text-sb-body text-sb-ink">
+            {isApiError(query.error)
+              ? query.error.message
+              : "게임 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
+          </p>
+          {isApiError(query.error) && query.error.status === 401 ? (
+            <Link
+              to={paths.login}
+              className="rounded-sb-tag text-sb-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+            >
+              로그인하기
+            </Link>
+          ) : (
             <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
               다시 시도
             </Button>
-          </div>
-        )}
-        {query.isSuccess && <GameInfo game={query.data} />}
-      </div>
-    </div>
+          )}
+        </div>
+      ) : (
+        <GameInfo game={query.data} />
+      )}
+    </header>
   )
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import { GameHeader } from "@/components/GameHeader"
+import PlanSteps from "@/components/PlanSteps"
 import Textarea from "@/components/Textarea"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
@@ -12,7 +13,6 @@ import type { PlanSlot } from "@/types"
 import PlanStructureResult from "./components/PlanStructureResult"
 
 const MAX_TEXT_LENGTH = 500
-const STEPS = ["기획안 확인", "유사 사례 검색", "사례 비교"]
 
 const genreChipClass =
   "flex h-sb-control cursor-pointer items-center gap-sb-1 rounded-sb-tag border px-sb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
@@ -58,30 +58,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
     <>
       <GameHeader gameId={gameId} back="gameDetail" />
       <main className="mx-auto flex max-w-sb-page flex-col gap-sb-4 px-sb-4 py-sb-6 md:px-sb-12">
-        <ol
-          aria-label="진행 단계"
-          className="flex flex-wrap items-center gap-sb-4 border border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-3"
-        >
-          {STEPS.map((step, index) => (
-            <li key={step} className="flex items-center gap-sb-4">
-              {index > 0 && (
-                <span aria-hidden="true" className="text-sb-ink-mute-2">
-                  →
-                </span>
-              )}
-              <span
-                aria-current={index === 0 ? "step" : undefined}
-                className={
-                  index === 0
-                    ? "border-b-2 border-sb-primary pb-sb-1 font-medium"
-                    : "text-sb-ink-mute"
-                }
-              >
-                {index + 1} {step}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <PlanSteps current={0} />
 
         <form onSubmit={handleSubmit} className={panelClass}>
           <div className="flex flex-wrap items-baseline gap-x-sb-2 gap-y-sb-1 border-b border-sb-hairline px-sb-4 py-sb-3">

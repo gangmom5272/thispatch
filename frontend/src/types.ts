@@ -109,3 +109,66 @@ export interface PlanStructure {
   slots: PlanSlot[]
   restatement: PlanRestatement
 }
+
+export type CaseSearchSort = "REVIEW_COUNT_DESC"
+
+export type CaseOutcome = "NEGATIVE_SHIFT" | "NO_CHANGE" | "POSITIVE_SHIFT"
+
+export interface ConfirmedSlot {
+  target: { name: string; role: string }
+  attribute: string
+  direction: string
+  scope: string | null
+}
+
+export interface CaseSearchInput {
+  confirmedSlots: ConfirmedSlot[]
+  genreIds: number[]
+  sort: CaseSearchSort
+}
+
+export interface CaseComparisonItem {
+  title: string
+  description: string
+}
+
+export interface SimilarCase {
+  gameId: number
+  gameTitle: string
+  capsuleImageUrl: string | null
+  genres: number[]
+  patchId: string
+  patchTitle: string
+  patchedOn: string
+  similarity: number
+  reviewCount: number
+  positiveRateBefore: number
+  positiveRateAfter: number
+  deltaPp: number
+  avgPatchIntervalDays: number | null
+  nextPatchIntervalDays: number | null
+  followUpSpeedRatio: number | null
+  commonalitySummary: string
+  differenceSummary: string
+  comparison: {
+    commonalities: CaseComparisonItem[]
+    differences: CaseComparisonItem[]
+  }
+}
+
+export interface CaseGroup {
+  outcome: CaseOutcome
+  name: string
+  caseCount: number
+  observedPatterns: string[]
+  cases: SimilarCase[]
+}
+
+/** POST /games/{gameId}/case-searches */
+export interface CaseSearch extends CaseSearchInput {
+  status: string
+  gameId: number
+  totalCount: number
+  groups: CaseGroup[]
+  notices: string[]
+}

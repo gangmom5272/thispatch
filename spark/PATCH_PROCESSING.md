@@ -21,8 +21,8 @@ v2 최종 검증: WSL Java 17에서 `:spark:test :spark:jar --offline` 성공. *
 `spark/` 안에 순수 규칙 추출기, Spark 변경점 처리기, Spark 통계 집계기를 구현했다.
 Flyway V1/V2를 기준으로 만들었으며 마이그레이션이나 DB 데이터는 수정하지 않았다.
 LLM·임베딩 실행, 토큰 제한 기반 최종 청크 생성, DB 적재는 이 코드에 포함하지 않는다.
-적용일 규칙 결정은 별도 `PatchDateResolver`에 추가했다. 입력·보류 기준은 [PATCH_DATE.md](PATCH_DATE.md)를 따른다.
-`ESTIMATED`는 게시일 기반 추정이며 확정 적용일 통계에 자동으로 포함하지 않는다. 날짜와 함께 상태·근거를 전달해야 한다.
+패치 결정일은 공지 게시 시각의 KST 날짜다. `PatchDateResolver`의 게시일 정책은 [PATCH_DATE.md](PATCH_DATE.md)를 따른다.
+본문 날짜 추출과 날짜 확정·추정·보류 구분은 폐기했다.
 입력 어댑터와 드라이버 적재 통로는 팀 계약이 연결된 후 작업해야 한다.
 
 ## patch_change
@@ -70,21 +70,21 @@ Spark 변환은 결정적이지만, 이것만으로 DB 재실행 중복까지 �
 `PatchStatAggregator.aggregate(reviews, patches, coverageStart, coverageEndExclusive, aggregatedAt)`를 호출한다.
 
 - reviews: `common.ReviewSchema`의 `appid`, `recommendationid`, `created_ts`, `updated_ts`, `collected_ts`, `voted_up`.
-- patches: `gid STRING`, `appid LONG`, `patched_ts LONG`, `eligible_for_review_stats BOOLEAN`.
+- patches: `gid STRING`, `appid LONG`, `published_ts LONG`, `eligible_for_review_stats BOOLEAN`.
 - 패치 입력은 **모듈 내부 계약**이며 합의된 공지 HDFS 스키마나 DB 신규 컬럼이 아니다.
-- patched_ts는 확인된 적용시각이다. 날짜만 확인된 경우 `TimeRule.startOfDay(적용일)`로 전달한다. 게시일로 자동 대체하지 않는다.
-- eligible_for_review_stats는 적용 대상과 시점이 검증된 경우에만 true다. 판정기 PATCH/DEFAULT만 보고 true로 바꾸면 안 된다.
+- published_ts는 Steam 공지의 date 필드(게시 시각, Unix 초)다. 본문에서 추출한 적용시각은 입력하지 않는다.
+- eligible_for_review_stats는 패치 여부와 적용 대상이 통계에 적합한 경우 true다. 실제 적용일 검증은 요구하지 않는다.
 - coverageStart/End는 모든 대상 게임의 리뷰 수정 이력이 수집 완료되었다고 호출자가 보증하는 KST 날짜 구간이다.
   파일의 min/max 날짜나 하루치 샘플만 보고 완전 수집으로 간주하면 안 된다.
 - 마감 이전 수집된 관측만 사용하며 수집 이후에 알려진 정보는 해당 실행에 포함하지 않는다.
 
 ### 계산 기준
 
-적용일 D는 `TimeRule.statDate(patched_ts)`로 구한다. 정확한 시각이 있더라도 이번 집계는 날짜 단위로 통일한다.
+패치 결정일 D는 `PatchDateResolver.resolve(Instant.ofEpochSecond(published_ts))`로 구한 공지 게시일(KST)이다.
 
 - 이전: `[D-7일 00:00 KST, D일 00:00 KST)`.
-- 이후: `[D일 00:00 KST, D+7일 00:00 KST)` — 적용일을 포함한다.
-- 따라서 당일 패치 적용 전 몇 시간의 리뷰도 이후 구간에 포함될 수 있다. 날짜 단위 비교의 명시적인 한계다.
+- 이후: `[D일 00:00 KST, D+7일 00:00 KST)` — 공지 게시일을 포함한다.
+- 따라서 공지 게시 당일 게시 전 리뷰도 이후 구간에 포함된다. 날짜 단위 비교의 명시적인 한계다.
 - 리뷰 버전의 `updated_ts`가 해당 구간에 있을 때만 집계한다. 작성일 기준 신규 리뷰만 세는 방식은 아니다.
 - **패치·이전/이후 구간·리뷰 ID별 마지막 수정 버전 1개**를 사용한다. updated_ts 내림차순, 같으면 collected_ts 내림차순이다.
 - 같은 리뷰가 이전과 이후에 각각 수정됐다면 양쪽에 한 번씩 들어갈 수 있다.
@@ -94,7 +94,7 @@ Spark 변환은 결정적이지만, 이것만으로 DB 재실행 중복까지 �
 - 긍정률 = 추천 리뷰 수 / 리뷰 수 × 100. 리뷰 0건이면 긍정률 NULL.
 - delta_pct = 이후 긍정률 - 이전 긍정률, 단위는 **%p**. 한쪽이 NULL이면 차이도 NULL이다.
 - 비율은 반올림 전 값을 빼고 최종 소수 둘째 자리에서 표시한다.
-- 날짜 미확인, 대상 미승인, 양쪽 7일 이력 미완료 또는 이후 7일이 아직 지나지 않은 패치는 완료 행을 반환하지 않는다.
+- 게시 시각 누락, 대상 미승인, 양쪽 7일 이력 미완료 또는 이후 7일이 아직 지나지 않은 패치는 완료 행을 반환하지 않는다.
 - 여러 패치 기간이 겹치면 각각 독립적으로 계산한다. 함께 바뀐 패치·이벤트 효과를 분리하거나 인과관계를 추론하지 않는다.
 
 ### 출력
@@ -102,7 +102,7 @@ Spark 변환은 결정적이지만, 이것만으로 DB 재실행 중복까지 �
 V1 patch_stat의 `gid`, `appid`, `patched_at`, `before_review_count`, `before_positive_pct`,
 `after_review_count`, `after_positive_pct`, `delta_pct`, `stat_date`, `aggregated_at`을 반환한다.
 건수는 INTEGER 범위를 넘으면 오류를 내고, 비율은 DECIMAL(5,2)로 반환한다.
-patched_at은 전달받은 적용시각을 보존한다. stat_date는 실행 시각의 KST 날짜, aggregated_at은 호출자가 전달한 고정 실행시각이다.
+patched_at은 공지 게시 시각을 보존한다. stat_date는 실행 시각의 KST 날짜, aggregated_at은 호출자가 전달한 고정 실행시각이다.
 입력 원본의 unix 초는 바꾸지 않고 최종 출력에서만 시각 타입으로 변환한다.
 
 전체 리뷰를 드라이버로 collect하지 않고 Spark에서 조인·기간별 중복 제거·집계한다.

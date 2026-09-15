@@ -3,7 +3,7 @@
 ## 2026-09-15 서버 오류 수정 공지 보완: patch-rules-4 (현재)
 
 제목에 수정 완료(`fixed`)가 있고 본문에 서버 오류 수정 완료 또는 fix 배포 완료가 명시된 경우를
-변경 근거에 포함한다. 날짜 추출과 모바일/Steam 배포 줄 구분은 [PatchDateResolver](PATCH_DATE.md)가 담당한다.
+변경 근거에 포함한다. 패치 결정일은 [PatchDateResolver](PATCH_DATE.md)에서 공지 게시일(KST)로 정한다.
 기존 범위 판정과 예정·홍보·회고 제외 기준은 유지한다.
 
 ## 2026-09-14 추가 표본 보완: patch-rules-3

@@ -21,10 +21,10 @@ public final class PatchStatAggregator {
     private PatchStatAggregator() {}
 
     /**
-     * Internal patch input: gid STRING, appid LONG, patched_ts LONG (nullable), eligible_for_review_stats BOOLEAN.
-     * Eligibility must be confirmed upstream; PatchClassifier.DEFAULT alone is not confirmation.
+     * Internal patch input: gid STRING, appid LONG, published_ts LONG (nullable), eligible_for_review_stats BOOLEAN.
+     * Eligibility describes patch relevance and scope, not deployment-date verification.
      * coverageStart/End describe COMPLETE review activity history, not just min/max timestamps in a sample.
-     * Missing applied dates, unapproved patches and incomplete windows produce no completed stat row.
+     * Missing publication times, unapproved patches and incomplete windows produce no completed stat row.
      */
     public static Dataset<Row> aggregate(Dataset<Row> reviews, Dataset<Row> patches,
                                          LocalDate coverageStart, LocalDate coverageEndExclusive,
@@ -35,20 +35,20 @@ public final class PatchStatAggregator {
         }
         requireType(patches, "gid", DataTypes.StringType);
         requireType(patches, "appid", DataTypes.LongType);
-        requireType(patches, "patched_ts", DataTypes.LongType);
+        requireType(patches, "published_ts", DataTypes.LongType);
         requireType(patches, "eligible_for_review_stats", DataTypes.BooleanType);
         Dataset<Row> approved = patches.filter(col("eligible_for_review_stats").equalTo(true)
-                        .and(col("patched_ts").isNotNull()))
-                .select("gid", "appid", "patched_ts").dropDuplicates();
+                        .and(col("published_ts").isNotNull()))
+                .select("gid", "appid", "published_ts").dropDuplicates();
         if (approved.filter(col("gid").isNull().or(length(trim(col("gid"))).equalTo(0))
                         .or(length(col("gid")).gt(20)).or(col("appid").isNull()).or(col("appid").leq(0))
-                        .or(col("patched_ts").lt(0))).limit(1).count() != 0
+                        .or(col("published_ts").lt(0))).limit(1).count() != 0
                 || approved.groupBy("gid").count().filter(col("count").gt(1)).limit(1).count() != 0) {
-            throw new IllegalArgumentException("Invalid or conflicting patch identifiers / applied timestamps");
+            throw new IllegalArgumentException("Invalid or conflicting patch identifiers / publication timestamps");
         }
         var kstStart = udf((UDF1<Long, Long>) timestamp ->
-                TimeRule.startOfDay(TimeRule.statDate(timestamp)), DataTypes.LongType);
-        Dataset<Row> windows = approved.withColumn("day_start", kstStart.apply(col("patched_ts")))
+                TimeRule.startOfDay(PatchDateResolver.resolve(Instant.ofEpochSecond(timestamp))), DataTypes.LongType);
+        Dataset<Row> windows = approved.withColumn("day_start", kstStart.apply(col("published_ts")))
                 .withColumn("window_start", col("day_start").minus(SEVEN_DAYS_SECONDS))
                 .withColumn("window_end", col("day_start").plus(SEVEN_DAYS_SECONDS))
                 .filter(col("window_start").geq(TimeRule.startOfDay(coverageStart))
@@ -98,7 +98,7 @@ public final class PatchStatAggregator {
         }
         Column beforePct = positivePercent("before");
         Column afterPct = positivePercent("after");
-        return result.select(col("gid"), col("appid"), timestamp_seconds(col("patched_ts")).alias("patched_at"),
+        return result.select(col("gid"), col("appid"), timestamp_seconds(col("published_ts")).alias("patched_at"),
                 col("before_review_count").cast(DataTypes.IntegerType),
                 round(beforePct, 2).cast(DataTypes.createDecimalType(5, 2)).alias("before_positive_pct"),
                 col("after_review_count").cast(DataTypes.IntegerType),

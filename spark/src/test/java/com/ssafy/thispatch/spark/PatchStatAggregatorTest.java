@@ -26,7 +26,7 @@ class PatchStatAggregatorTest {
             .add("collected_ts", DataTypes.LongType).add("voted_up", DataTypes.BooleanType);
     private static final StructType PATCH_SCHEMA = new StructType()
             .add("gid", DataTypes.StringType).add("appid", DataTypes.LongType)
-            .add("patched_ts", DataTypes.LongType).add("eligible_for_review_stats", DataTypes.BooleanType);
+            .add("published_ts", DataTypes.LongType).add("eligible_for_review_stats", DataTypes.BooleanType);
 
     @BeforeAll static void start() {
         spark = SparkSessions.builder("patch_stat_test").master("local[2]")
@@ -66,6 +66,20 @@ class PatchStatAggregatorTest {
         rate(row, "after_positive_pct", "66.67");
         rate(row, "delta_pct", "66.67");
         assertEquals("2026-09-16", row.getAs("stat_date").toString());
+    }
+
+    @Test void publicationTimeDefinesWindowAndOutputEvenWhenAnOldAppliedTimeExists() {
+        long publishedAt = PATCH_DAY + 60;
+        Dataset<Row> candidates = patches(RowFactory.create("100", 1L, publishedAt, true))
+                .withColumn("patched_ts", lit(PATCH_DAY - 86400L));
+        Row row = result(reviews(review(1, PATCH_DAY - 1, false), review(2, PATCH_DAY, true)), candidates).get(0);
+
+        assertEquals(1, (int) row.getAs("before_review_count"));
+        assertEquals(1, (int) row.getAs("after_review_count"));
+        rate(row, "before_positive_pct", "0.00");
+        rate(row, "after_positive_pct", "100.00");
+        assertEquals(Instant.ofEpochSecond(publishedAt),
+                row.<java.sql.Timestamp>getAs("patched_at").toInstant());
     }
 
     @Test void noObservedOriginalVoteIsInventedAndEmptyPeriodIsNull() {
@@ -129,7 +143,7 @@ class PatchStatAggregatorTest {
         assertThrows(IllegalArgumentException.class, () -> result(reviews(), patches(patch("100", 1), patch("100", 2))));
         assertThrows(IllegalArgumentException.class, () -> result(reviews(review(1, PATCH_DAY, true), review(1, PATCH_DAY, false)), patches(patch("100", 1))));
         assertThrows(IllegalArgumentException.class, () -> result(reviews(review(1, 1, PATCH_DAY, PATCH_DAY - 1, true)), patches(patch("100", 1))));
-        assertThrows(IllegalArgumentException.class, () -> result(reviews(), patches(patch("100", 1)).withColumn("patched_ts", lit("wrong"))));
+        assertThrows(IllegalArgumentException.class, () -> result(reviews(), patches(patch("100", 1)).withColumn("published_ts", lit("wrong"))));
         assertThrows(IllegalArgumentException.class, () -> PatchStatAggregator.aggregate(reviews(), patches(), END, START, Instant.now()));
     }
 }

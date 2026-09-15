@@ -1,4 +1,28 @@
-# 패치 적용일 실데이터 검증 재현
+# 공지 게시일 정책 검증
+
+현재 `PatchDateValidation.java`는 본문과 분류 결과를 읽지 않고 저장된 Steam `date`로 KST 패치 결정일을 만든다.
+입력은 기존 수집기의 7열 TSV이며 출력은 `appid`, `gid`, `published_at`, `patch_date` 4열이다.
+
+```bash
+bash gradlew :spark:test :spark:jar --offline
+mkdir -p out/publication-date/classes
+javac --release 17 -cp spark/build/libs/thispatch-spark.jar \
+  -d out/publication-date/classes spark/tools/patch-date-validation/PatchDateValidation.java
+java -cp out/publication-date/classes:spark/build/libs/thispatch-spark.jar \
+  com.ssafy.thispatch.spark.PatchDateValidation out/date-validation/input.tsv out/publication-date/output.tsv
+```
+
+기존 `collect_date_validation.py`의 수집 자료를 재사용할 수 있다. 출력 파일은 새 경로여야 한다.
+모든 입력 공지에 날짜를 계산하지만, 이 실행은 공지가 패치인지 판정하지 않는다.
+현재 API와 통계 연결은 [PATCH_DATE.md](../../PATCH_DATE.md)를 따른다.
+
+## 폐기한 v1/v2 추출 방식의 재현 기록
+
+**아래 명령과 Python 집계기는 과거 출력 형식 전용이다.** 현재 4열 출력에 적용하지 않는다.
+과거 실험 재현이 필요하면 별도 체크아웃의 `c4378cd` 코드와 그 시점의 Java 실행기를 함께 사용한다.
+저장된 v1/v2 결과는 과거 기록으로만 보존한다.
+
+### 과거 실데이터 검증 절차
 
 순수 Java 17과 Python 3 표준 라이브러리를 사용한다. 저장소 루트에서 실행한다.
 새 수집 결과는 실행 시각에 따라 달라진다. 2026-09-15 고정 결과는 `results-20260915/`를 참고한다.

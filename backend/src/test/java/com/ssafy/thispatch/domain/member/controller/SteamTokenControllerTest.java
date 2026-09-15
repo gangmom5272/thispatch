@@ -40,6 +40,7 @@ import com.ssafy.thispatch.domain.member.entity.LoginType;
 import com.ssafy.thispatch.domain.member.entity.Member;
 import com.ssafy.thispatch.domain.member.repository.MemberRepository;
 import com.ssafy.thispatch.domain.member.service.RefreshTokenService;
+import com.ssafy.thispatch.domain.member.service.SteamCallbackService;
 import com.ssafy.thispatch.domain.member.service.SteamLoginCodeService;
 import com.ssafy.thispatch.domain.member.service.SteamLoginService;
 import com.ssafy.thispatch.domain.member.service.SteamTokenService;
@@ -67,6 +68,8 @@ class SteamTokenControllerTest {
 	private JwtTokenProvider tokens;
 	@MockitoBean
 	private SteamLoginService login;
+	@MockitoBean
+	private SteamCallbackService steamCallbackService;
 	@MockitoBean
 	private SteamLoginCodeService codes;
 	@MockitoBean

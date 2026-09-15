@@ -26,8 +26,10 @@ $PY batch/dev_make_review_input.py --src ../0904/poc --dt 2026-09-11
 $PY batch/embed_chunks.py     --dt 2026-09-11
 $PY batch/classify_reviews.py --dt 2026-09-11
 $PY batch/qwen_backfill.py    --dt 2026-09-11 --limit 60          # 테스트. 전체는 --max-seconds 로 예산
-cd api && $PY -m uvicorn main:app --port 8100
+cd api && $PY -m uvicorn main:app --port 8100     # 또는 .\start.ps1 (Ollama 확인 → 서버 → 워밍업 → ready 표시)
 ```
+
+AI 서버는 **사용자가 직접 켠다**(자동 기동 없음). `api/start.ps1`(Windows) 또는 `bash api/start.sh`(WSL) 를 실행하면 Ollama 를 확인하고 서버를 띄운 뒤 `/health` 가 `ready:true` 가 될 때까지 진행을 보여 준다. 임베딩 모델(약 35초)·Qwen(약 10초)은 기동 시 백그라운드로 미리 올린다. 백엔드는 `GET /health` 의 `ready` 가 true 일 때부터 호출한다.
 
 운영(WSL)은 `pip install -r requirements.txt`(torch 는 CUDA 빌드 별도) 후 `DT=… bash batch/run_daily.sh`.
 Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네트워크).

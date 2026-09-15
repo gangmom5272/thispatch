@@ -34,6 +34,27 @@ from qwen_prompt import FORMAT, MESSAGES, MODEL, OPTIONS, PROMPT_VERSION  # noqa
 from rules import slots  # noqa: E402
 
 app = FastAPI(title="This Patch AI", version="0.1")
+_ready = {"embedder": False, "qwen": False, "error": None}   # 기동 워밍업 상태. /health 가 돌려준다
+
+
+@app.on_event("startup")
+def warmup():
+    """모델을 미리 올린다. 첫 요청이 35초(임베딩 적재)·10초(Qwen 적재)를 기다리지 않게.
+    실패해도 서버는 뜬다 - /health 의 ready 가 false 로 남고, 첫 요청 때 다시 시도한다."""
+    import threading
+
+    def run():
+        try:
+            embedder().encode(["warmup"], normalize_embeddings=True)
+            _ready["embedder"] = True
+            httpx.post(OLLAMA_URL + "/api/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "ok"}],
+                                                       "stream": False, "options": {"num_predict": 1}, "keep_alive": "2h"},
+                       timeout=180).raise_for_status()
+            _ready["qwen"] = True
+        except Exception as e:  # noqa: BLE001
+            _ready["error"] = f"{type(e).__name__}: {str(e)[:120]}"
+
+    threading.Thread(target=run, daemon=True, name="warmup").start()
 _embedder = None
 
 
@@ -137,7 +158,9 @@ def health():
         ok = httpx.get(OLLAMA_URL + "/api/version", timeout=3).status_code == 200
     except Exception:  # noqa: BLE001
         ok = False
-    return {"status": "ok", "ollama": ok, "embed_model": EMBED_MODEL_TAG}
+    ready = ok and _ready["embedder"] and _ready["qwen"]
+    return {"status": "ready" if ready else "warming", "ready": ready, "ollama": ok, "embedder_loaded": _ready["embedder"],
+            "qwen_loaded": _ready["qwen"], "warmup_error": _ready["error"], "embed_model": EMBED_MODEL_TAG, "llm_model": MODEL}
 
 
 def restate(c, codes):

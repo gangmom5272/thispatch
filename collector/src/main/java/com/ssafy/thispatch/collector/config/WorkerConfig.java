@@ -194,9 +194,12 @@ public class WorkerConfig {
                                                  ShutdownGate shutdownGate,
                                                  @Value("${thispatch.collect.request-interval}") Duration interval,
                                                  @Value("${thispatch.collect.max-retries}") int maxRetries,
-                                                 @Value("${thispatch.collect.consumers:10}") int consumers) {
+                                                 @Value("${thispatch.collect.consumers:10}") int consumers,
+                                                 @Value("${thispatch.collect.news.full-count:10000}") int fullCount,
+                                                 @Value("${thispatch.collect.news.incremental-count:100}") int incrementalCount) {
         NewsCollectTasklet tasklet =
-                new NewsCollectTasklet(client, writer, interval, maxRetries, consumers);
+                new NewsCollectTasklet(client, writer, interval, maxRetries, consumers,
+                        fullCount, incrementalCount);
         tasklet.setShutdownGate(shutdownGate);
         return tasklet;
     }

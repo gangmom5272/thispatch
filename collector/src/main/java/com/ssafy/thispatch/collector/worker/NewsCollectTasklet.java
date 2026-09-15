@@ -75,9 +75,16 @@ public class NewsCollectTasklet implements Tasklet, ChunkListener, StepExecution
     private final AtomicInteger laneCursor = new AtomicInteger();
     private final ThreadLocal<AtomicLong> myLane;
 
+    /** 전량 수집에서 한 게임에 달라고 할 건수. */
+    private final int fullCount;
+
+    /** 증분 수집에서 달라고 할 건수. 게임 하나가 하루에 이만큼 올릴 일은 없다. */
+    private final int incrementalCount;
+
     private final AtomicLong statGames = new AtomicLong();
     private final AtomicLong statItems = new AtomicLong();
     private final AtomicLong statEmpty = new AtomicLong();
+    private final AtomicLong statSkipped = new AtomicLong();
 
     private volatile ShutdownGate gate = new ShutdownGate();
 
@@ -87,12 +94,26 @@ public class NewsCollectTasklet implements Tasklet, ChunkListener, StepExecution
 
     public NewsCollectTasklet(SteamNewsClient client, NewsLandingWriter writer,
                               Duration requestInterval, int maxRetries, int lanes) {
-        this(client, writer, requestInterval, maxRetries, lanes, Clock.systemUTC(), Thread::sleep);
+        this(client, writer, requestInterval, maxRetries, lanes,
+                SteamNewsClient.DEFAULT_COUNT, 100, Clock.systemUTC(), Thread::sleep);
+    }
+
+    public NewsCollectTasklet(SteamNewsClient client, NewsLandingWriter writer,
+                              Duration requestInterval, int maxRetries, int lanes,
+                              int fullCount, int incrementalCount) {
+        this(client, writer, requestInterval, maxRetries, lanes,
+                fullCount, incrementalCount, Clock.systemUTC(), Thread::sleep);
     }
 
     NewsCollectTasklet(SteamNewsClient client, NewsLandingWriter writer,
                        Duration requestInterval, int maxRetries, int lanes,
+                       int fullCount, int incrementalCount,
                        Clock clock, Sleeper sleeper) {
+        if (fullCount < 1 || incrementalCount < 1) {
+            throw new IllegalArgumentException("counts must be >= 1");
+        }
+        this.fullCount = fullCount;
+        this.incrementalCount = incrementalCount;
         this.client = Objects.requireNonNull(client);
         this.writer = Objects.requireNonNull(writer);
         this.clock = Objects.requireNonNull(clock);
@@ -157,15 +178,30 @@ public class NewsCollectTasklet implements Tasklet, ChunkListener, StepExecution
         long nextSlot = Math.addExact(clock.millis(), requestIntervalMillis);
         myLane.get().accumulateAndGet(nextSlot, Math::max);
 
+        // 증분이면 지난 배치 이후에 올라온 것만 필요하다. 적게 달라고 한다.
+        //
+        // ⚠ 리뷰처럼 '중간에 멈추기' 를 할 수 없다. ISteamNews 는 페이지를 넘기는
+        //   방식이 아니라 한 번에 다 주고, 정렬도 게시일(date) 순이라 filter=updated
+        //   같은 것이 없다. 그래서 받아서 버리는 수밖에 없다.
+        //   다행히 호출은 어차피 게임당 한 번이라 시간 손해는 없다.
+        long sinceTs = ctx.getLong(AppidPartitioner.KEY_SINCE_TS, 0);
+        int howMany = sinceTs > 0 ? incrementalCount : fullCount;
+
         List<ObjectNode> items;
         try {
-            items = client.fetch(appid);
+            items = client.fetch(appid, howMany);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             step.setTerminateOnly();
             throw new JobInterruptedException("Interrupted while requesting Steam news");
         } catch (IOException e) {
             return retryOrFail(ctx, appid, e);
+        }
+
+        if (sinceTs > 0) {
+            int before = items.size();
+            items = onlySince(items, sinceTs);
+            statSkipped.addAndGet(before - items.size());
         }
 
         // ⚠ 저장이 실패하면 진행 위치를 옮기지 않는다. 그래야 다시 받는다.
@@ -295,8 +331,26 @@ public class NewsCollectTasklet implements Tasklet, ChunkListener, StepExecution
         }
         long items = statItems.getAndSet(0);
         long empty = statEmpty.getAndSet(0);
-        log.info("공지 수집 — 게임 {}개 중 {}개는 공지 없음, 공지 {}건",
-                STATS_EVERY_GAMES, empty, items);
+        long skipped = statSkipped.getAndSet(0);
+        log.info("공지 수집 — 게임 {}개 중 {}개는 공지 없음 · 저장 {}건 · 이미 있어 버림 {}건",
+                STATS_EVERY_GAMES, empty, items, skipped);
+    }
+
+    /**
+     * 기준 시각 이후에 올라온 공지만 남긴다.
+     *
+     * <p>⚠ {@code date} 가 없는 공지는 <b>남긴다.</b> 시각을 모른다고 버리면 조용히
+     * 사라진다. 중복은 {@code NewsLake.latest()} 가 정리하므로 남기는 쪽이 안전하다.
+     */
+    static List<ObjectNode> onlySince(List<ObjectNode> items, long sinceTs) {
+        List<ObjectNode> kept = new java.util.ArrayList<>(items.size());
+        for (ObjectNode item : items) {
+            var date = item.get("date");
+            if (date == null || !date.isNumber() || date.asLong() >= sinceTs) {
+                kept.add(item);
+            }
+        }
+        return kept;
     }
 
     private static List<Long> appids(ExecutionContext ctx) {

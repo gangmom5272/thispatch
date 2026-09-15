@@ -85,8 +85,8 @@ export default function PlaytimeTopicsPage() {
             기준입니다.
           </p>
           <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-            표본 {data.minimumSampleCount}건 미만 구간은 리뷰 원문으로 대체합니다. (목 데이터:
-            마지막 구간을 선택하면 원문 fallback을 볼 수 있습니다.)
+            표본 {data.minimumSampleCount}건 미만 구간은 리뷰 원문으로 대체합니다. 게임을 바꾸면
+            구간 경계(시간대)가 달라집니다. 마지막 구간을 선택하면 원문 fallback을 볼 수 있습니다.
           </p>
         </header>
 

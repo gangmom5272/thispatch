@@ -5,6 +5,7 @@ import { addDaysIso, todaySeoul } from "@/lib/seoulDate"
 import type {
   PlaytimeBandId,
   PlaytimeBandStats,
+  PlaytimeScale,
   PlaytimeTopicRow,
   PlaytimeTopics,
   PlaytimeTopicsAiSummary,
@@ -30,13 +31,59 @@ function isAuthorized(request: Request) {
   return userFromAuthHeader(request) !== null
 }
 
-/** 게임 전체 리뷰 기준 사분위 경계(분). */
-const SCALE = {
-  source: "ALL_GAME_REVIEWS" as const,
-  sampleCount: 84210,
-  p25Minutes: 120,
-  medianMinutes: 1200,
-  p75Minutes: 6000,
+/**
+ * 게임별 사분위 경계(분). 게임을 바꾸면 구간 카드 시간대가 달라진다.
+ * (실제 API는 게임 전체 리뷰 playtime으로 Q1/Q2/Q3를 산출)
+ */
+function scaleForGame(gameId: number): PlaytimeScale {
+  // 대표 게임별 확연히 다른 경계 — 목록에서 게임을 바꿔 비교할 수 있음
+  const byGame: Record<number, Omit<PlaytimeScale, "source">> = {
+    // Call of Duty — 짧은 세션
+    1938090: { sampleCount: 412000, p25Minutes: 45, medianMinutes: 120, p75Minutes: 300 },
+    // Battlefield — 중·단 세션
+    1517290: { sampleCount: 220000, p25Minutes: 120, medianMinutes: 480, p75Minutes: 1800 },
+    // Starfield — 긴 RPG
+    1716740: { sampleCount: 118000, p25Minutes: 600, medianMinutes: 2400, p75Minutes: 7200 },
+    // ELDEN RING — 매우 긴 세션
+    1245620: { sampleCount: 780000, p25Minutes: 900, medianMinutes: 3600, p75Minutes: 9000 },
+    // Stardew Valley — 중장시간
+    413150: { sampleCount: 810000, p25Minutes: 300, medianMinutes: 1500, p75Minutes: 4800 },
+    // Hades — 런 단위
+    1145360: { sampleCount: 260000, p25Minutes: 90, medianMinutes: 600, p75Minutes: 2400 },
+  }
+
+  const preset = byGame[gameId]
+  if (preset) {
+    return { source: "ALL_GAME_REVIEWS", ...preset }
+  }
+
+  // 그 외 게임: id로 분산된 기본 경계 (서로 겹치지 않게)
+  const bucket = gameId % 3
+  if (bucket === 0) {
+    return {
+      source: "ALL_GAME_REVIEWS",
+      sampleCount: 50000,
+      p25Minutes: 60,
+      medianMinutes: 240,
+      p75Minutes: 900,
+    }
+  }
+  if (bucket === 1) {
+    return {
+      source: "ALL_GAME_REVIEWS",
+      sampleCount: 90000,
+      p25Minutes: 180,
+      medianMinutes: 900,
+      p75Minutes: 3600,
+    }
+  }
+  return {
+    source: "ALL_GAME_REVIEWS",
+    sampleCount: 70000,
+    p25Minutes: 480,
+    medianMinutes: 1800,
+    p75Minutes: 5400,
+  }
 }
 
 const TOPIC_NAMES = [
@@ -55,9 +102,9 @@ function parseBandNo(raw: string | null): PlaytimeBandId | "INVALID" | "ALL" {
   return `B${n}` as PlaytimeBandId
 }
 
-/** 고정 4밴드 통계(최근 14일 숫자). */
-function buildBands(): PlaytimeBandStats[] {
-  const { p25Minutes, medianMinutes, p75Minutes } = SCALE
+/** scale 경계로 4밴드 통계(최근 14일 숫자)를 만든다. */
+function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
+  const { p25Minutes, medianMinutes, p75Minutes } = scale
   return [
     {
       band: "B1",
@@ -158,21 +205,10 @@ function buildTopics(selected: PlaytimeBandId): PlaytimeTopicRow[] {
 }
 
 /** 표본 부족(B4만 부족) fallback 페이로드. */
-function buildInsufficientPayload(): PlaytimeTopics {
+function buildInsufficientPayload(scale: PlaytimeScale): PlaytimeTopics {
   const endDate = todaySeoul()
   const startDate = addDaysIso(endDate, -13)
-  const bands = buildBands().map((band) =>
-    band.band === "B4"
-      ? {
-          ...band,
-          reviewCount: 8,
-          positiveCount: 3,
-          negativeCount: 5,
-          positiveRate: null,
-          sampleSufficient: false,
-        }
-      : band,
-  )
+  const bands = buildBands(scale)
   const overall = buildOverall(bands)
 
   return {
@@ -185,7 +221,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
     selectedBand: "B4",
     minimumSampleCount: 30,
     sampleSufficient: false,
-    scale: SCALE,
+    scale,
     overall,
     bands,
     topics: [],
@@ -201,7 +237,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 101,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -12),
-              playtimeMinutes: 11640,
+              playtimeMinutes: Math.max(scale.p75Minutes + 120, 11640),
               languageCode: "english",
               helpfulCount: 412,
               body: "A12 이상에서 드로우가 줄면서 기존 덱 아키타입이 전부 무너졌다. 상위 난이도를 계속 돌던 사람 입장에선 사실상 다른 게임이 됐다.",
@@ -210,7 +246,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 102,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -11),
-              playtimeMinutes: 16260,
+              playtimeMinutes: Math.max(scale.p75Minutes + 600, 16260),
               languageCode: "schinese",
               helpfulCount: 288,
               body: "보상 재화까지 같이 줄어서 반복 플레이 동기가 사라졌다. 두 변경을 한 패치에 같이 넣은 게 문제.",
@@ -219,7 +255,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 103,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -8),
-              playtimeMinutes: 18720,
+              playtimeMinutes: Math.max(scale.p75Minutes + 900, 18720),
               languageCode: "russian",
               helpfulCount: 176,
               body: "난이도 표기가 바뀌었는데 인게임 설명이 그대로라 무엇이 조정됐는지 알 수 없다.",
@@ -228,7 +264,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 104,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -7),
-              playtimeMinutes: 13680,
+              playtimeMinutes: Math.max(scale.p75Minutes + 300, 13680),
               languageCode: "english",
               helpfulCount: 132,
               body: "재화 획득량이 줄어든 만큼 언락에 걸리는 시간이 늘었다. 시간을 파는 구조로 바뀐 느낌.",
@@ -237,7 +273,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 105,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -5),
-              playtimeMinutes: 20160,
+              playtimeMinutes: Math.max(scale.p75Minutes + 1200, 20160),
               languageCode: "korean",
               helpfulCount: 92,
               body: "밸런스 패치 이후 즐기던 빌드가 전부 막혀서 장기 플레이어만 피해를 본다.",
@@ -246,16 +282,16 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 106,
               sentiment: "POSITIVE",
               reviewDate: addDaysIso(endDate, -4),
-              playtimeMinutes: 7200,
+              playtimeMinutes: Math.max(scale.p75Minutes + 60, 7200),
               languageCode: "japanese",
               helpfulCount: 64,
-              body: "초반 튜토리얼은 나아졌지만 100시간 구간 콘텐츠는 여전히 얇다.",
+              body: "초반 튜토리얼은 나아졌지만 장기 구간 콘텐츠는 여전히 얇다.",
             },
             {
               id: 107,
               sentiment: "NEGATIVE",
               reviewDate: addDaysIso(endDate, -2),
-              playtimeMinutes: 9600,
+              playtimeMinutes: Math.max(scale.p75Minutes + 480, 9600),
               languageCode: "korean",
               helpfulCount: 48,
               body: "엔드게임 보상 테이블이 nerf된 뒤로 주간 루틴이 끊겼다.",
@@ -264,7 +300,7 @@ function buildInsufficientPayload(): PlaytimeTopics {
               id: 108,
               sentiment: "NEGATIVE",
               reviewDate: endDate,
-              playtimeMinutes: 14400,
+              playtimeMinutes: Math.max(scale.p75Minutes + 240, 14400),
               languageCode: "english",
               helpfulCount: 31,
               body: "패치 노트가 모호해서 무엇이 의도인지 커뮤니티가 추측만 하고 있다.",
@@ -277,10 +313,10 @@ function buildInsufficientPayload(): PlaytimeTopics {
 }
 
 /** 정상 표본 응답. */
-function buildSufficientPayload(selected: PlaytimeBandId): PlaytimeTopics {
+function buildSufficientPayload(selected: PlaytimeBandId, scale: PlaytimeScale): PlaytimeTopics {
   const endDate = todaySeoul()
   const startDate = addDaysIso(endDate, -13)
-  const bands = buildBands()
+  const bands = buildBands(scale)
   const overall = buildOverall(bands)
 
   return {
@@ -293,7 +329,7 @@ function buildSufficientPayload(selected: PlaytimeBandId): PlaytimeTopics {
     selectedBand: selected,
     minimumSampleCount: 30,
     sampleSufficient: true,
-    scale: SCALE,
+    scale,
     overall,
     bands,
     topics: buildTopics(selected),
@@ -318,12 +354,15 @@ export const playtimeTopicsHandlers = [
       return respond(400, "유효하지 않은 bandNo입니다.")
     }
 
+    // scale: 게임별 사분위 → 구간 카드 시간대
+    const scale = scaleForGame(gameId)
+
     // B4는 항상 표본 부족 → 리뷰 원문 fallback (모든 게임에서 확인 가능)
     if (parsed === "B4") {
-      return respond(200, "OK", buildInsufficientPayload())
+      return respond(200, "OK", buildInsufficientPayload(scale))
     }
 
-    return respond(200, "OK", buildSufficientPayload(parsed === "ALL" ? "ALL" : parsed))
+    return respond(200, "OK", buildSufficientPayload(parsed === "ALL" ? "ALL" : parsed, scale))
   }),
 
   http.get(`${baseURL}/games/:gameId/summaries/playtime-topics`, async ({ params, request }) => {

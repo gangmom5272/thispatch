@@ -209,7 +209,7 @@ DB의 `review_id`와 Steam의 `recommendationid`는 같은 키로 간주하지 �
 
 ### DB 변경과 진행 상태
 
-`V3__add_band_topic_positive_count.sql`은 `positive_count`와 음수 방지 CHECK를 추가합니다.
+`V7__add_band_topic_positive_count.sql`은 `positive_count`와 음수 방지 CHECK를 추가합니다.
 기존에는 비추천 수만 저장했으므로 과거 행의 추천 수를 0으로 추정하지 않고 NULL로 둡니다.
 새 집계 결과는 0을 포함한 실제 건수를 넣고, 과거 행은 게임 단위로 구간과 토픽을 함께 재집계합니다.
 재집계 전 NULL을 0으로 바꿔 비율을 표시하면 안 됩니다. 모두 재집계한 뒤 NOT NULL 전환이 가능합니다.

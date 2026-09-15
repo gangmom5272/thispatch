@@ -31,6 +31,15 @@ LAST="$STATE_DIR/pipeline-last"
 SPARK_SUBMIT=${SPARK_SUBMIT:-/opt/spark/bin/spark-submit}
 SPARK_JAR=${SPARK_JAR:-$(cd "$HERE/../.." && pwd)/spark/build/libs/thispatch-spark.jar}
 
+# 배치 DB — collect 단계 앞의 안전장치가 본다. 23-collect-retry.sh 와 같은 값.
+BATCH_DB_HOST=${BATCH_DB_HOST:-127.0.0.1}
+BATCH_DB_NAME=${BATCH_DB_NAME:-thispatch_batch}
+BATCH_DB_USER=${BATCH_DB_USER:-thispatch}
+BATCH_DB_PASSWORD=${BATCH_DB_PASSWORD:-dispatch-batch-local}
+
+# 안전장치를 끄는 탈출구. 정말로 전량을 다시 받을 때만 쓴다.
+COLLECT_GUARD=${COLLECT_GUARD:-on}
+
 HOOK_FILE=${HOOK_FILE:-$STATE_DIR/mattermost-webhook}
 WEBHOOK=${MATTERMOST_WEBHOOK:-}
 [ -z "$WEBHOOK" ] && [ -f "$HOOK_FILE" ] && WEBHOOK=$(head -1 "$HOOK_FILE")
@@ -47,7 +56,7 @@ mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR" 2>/dev/null || true
 # ⚠ 순서를 바꾸기 전에 위 「왜 필요한가」를 읽을 것.
 STAGES=(
   "catalog|스팀 카탈로그 전량|daily"
-  "collect|리뷰 수집|daily"
+  "collect|리뷰 증분 수집|daily"
   "retry|실패 조각 재투입|daily"
   "convert|리뷰 landing → delta|daily"
   "news|공지 수집|daily"
@@ -97,7 +106,9 @@ PY
 run_stage() {
   case "$1" in
     catalog)      bash "$HERE/21-catalog.sh" now ;;
-    collect)      ensure_workers && bash "$HERE/12-deploy-collector.sh" run ;;
+    # ⚠ COLLECT_INCREMENTAL 을 여기서 못박는다. application.yaml 의 기본값도 true 지만,
+    #   환경에 false 가 남아 있으면 조용히 전량이 된다. 파이프라인에서는 그럴 수 없다.
+    collect)      guard_collect && ensure_workers                     && COLLECT_INCREMENTAL=true bash "$HERE/12-deploy-collector.sh" run ;;
     retry)        bash "$HERE/23-collect-retry.sh" now ;;
     convert)      spark_job com.ssafy.thispatch.spark.JsonToParquet ;;
     news)         ensure_workers && bash "$HERE/12-deploy-collector.sh" run-news ;;
@@ -129,6 +140,74 @@ ensure_workers() {
   up=$(bash "$HERE/12-deploy-collector.sh" status 2>/dev/null | grep -c "systemd active")
   [ "${up:-0}" -ge 1 ] || { echo "  워커를 띄우지 못했다." >&2; return 1; }
   echo "  워커 $up 대 기동"
+}
+
+# ── collect 앞의 안전장치 ────────────────────────────────────
+#
+# 이 단계는 '증분' 이다. 전량 수집이 아니다.
+#
+#   전량은 2026-09-15 에 한 번 받았고 다시 받을 일이 없다. 그래서 파이프라인이
+#   전량을 돌릴 수 있는 길 자체를 막는다. 막는 게 사고를 줄이는 것보다 쉽다.
+#
+# 전량과 증분은 무엇이 가르는가
+#   단계가 아니라 ManagerConfig.resolveSince 가 실행할 때 정한다.
+#   '성공으로 끝난 지난 수집' 이 있으면 그 시작 시각 이후만 받고(증분),
+#   하나도 없으면 0 을 돌려준다 — 그것이 '끝까지 받는다' 는 뜻이다.
+#
+#   그래서 여기서 보는 것은 하나다. 기준으로 삼을 수집이 있는가.
+#   없으면 이 단계는 전량이 되어 버리므로 돌리지 않는다.
+#
+# ⚠ 이것이 흔한 상황이라는 뜻은 아니다.
+#   2026-09-11 리허설 3건이 COMPLETED 로 남아 있어서 기준은 이미 있다.
+#   여기는 그 기준이 사라졌을 때를 위한 마지막 방어선이지, 일상적인 검사가 아니다.
+#   일상적으로 걸리는 것은 아래 '이미 돌고 있다' 쪽이다 — 2026-09-15 실측.
+#
+# ⚠ DB 를 못 읽으면 통과시키지 않고 멈춘다.
+#   모르는 채로 돌렸을 때의 최악이 전량 재수집(약 10시간)이다. 멈추는 쪽이 싸다.
+q_batch() {
+  PGPASSWORD="$BATCH_DB_PASSWORD" psql -h "$BATCH_DB_HOST" -U "$BATCH_DB_USER"     -d "$BATCH_DB_NAME" -tAq -c "$1" 2>/dev/null
+}
+
+guard_collect() {
+  [ "$COLLECT_GUARD" = off ] && { echo "  안전장치 꺼짐 (COLLECT_GUARD=off)"; return 0; }
+
+  local total done_ running
+  total=$(q_batch "select count(*) from batch_job_execution e
+                   join batch_job_instance i using(job_instance_id)
+                   where i.job_name='collectJob';")
+  case "${total:-}" in ''|*[!0-9]*)
+    echo "  배치 DB 를 읽지 못했다 ($BATCH_DB_HOST/$BATCH_DB_NAME)." >&2
+    echo "  전량을 다시 받을 수도 있어서 멈춘다. DB 를 확인할 것." >&2
+    return 1 ;;
+  esac
+
+  running=$(q_batch "select count(*) from batch_job_execution e
+                     join batch_job_instance i using(job_instance_id)
+                     where i.job_name='collectJob' and e.status in ('STARTED','STARTING');")
+  if [ "${running:-0}" -ge 1 ]; then
+    echo "  수집이 이미 돌고 있다. 또 띄우지 않는다." >&2
+    return 1
+  fi
+
+  done_=$(q_batch "select count(*) from batch_job_execution e
+                   join batch_job_instance i using(job_instance_id)
+                   where i.job_name='collectJob' and e.status='COMPLETED';")
+  if [ "${done_:-0}" -ge 1 ]; then
+    echo "  성공으로 끝난 지난 수집 $done_ 건 — 증분으로 돈다."
+    return 0
+  fi
+
+  echo "  기준으로 삼을 수집이 없다 (전체 $total 건 · 성공 0 건)." >&2
+  echo "  이대로 돌리면 증분이 아니라 '전량' 이 된다 (1.47억 건 · 약 10시간)." >&2
+  echo "  파이프라인은 전량을 돌리지 않는다. 여기서 멈춘다." >&2
+  echo >&2
+  echo "  지난 수집이 파킹된 조각 때문에 안 끝난 것이라면, 살려서 COMPLETED 로 만든다:" >&2
+  echo "    bash 23-collect-retry.sh now" >&2
+  echo "    bash 24-pipeline.sh daily --from convert      # 수집을 건너뛰고 이어서" >&2
+  echo >&2
+  echo "  정말로 전량을 다시 받을 작정이라면 파이프라인 밖에서 손으로 돌릴 것:" >&2
+  echo "    COLLECT_INCREMENTAL=false bash 12-deploy-collector.sh run" >&2
+  return 1
 }
 
 # ── 오늘 돌 단계를 고른다 ────────────────────────────────────

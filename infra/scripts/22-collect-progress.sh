@@ -92,8 +92,14 @@ part() {
 }
 P_DONE=$(part COMPLETED); P_RUN=$(part STARTED)
 P_WAIT=$(part STARTING);  P_FAIL=$(part FAILED)
-: "${P_DONE:=0}" "${P_RUN:=0}" "${P_WAIT:=0}" "${P_FAIL:=0}"
-P_ALL=$((P_DONE + P_RUN + P_WAIT + P_FAIL))
+# ⚠ STOPPED 를 빠뜨리면 조각이 통째로 사라진 것처럼 보인다.
+#   워커를 깨끗이 내렸을 때(ShutdownGate) 조각이 이 상태로 끝난다.
+#   2026-09-15 에 110개가 여기 있었는데 합계에서 빠져 235 가 125 로 보였다.
+P_STOP=$(part STOPPED)
+: "${P_DONE:=0}" "${P_RUN:=0}" "${P_WAIT:=0}" "${P_FAIL:=0}" "${P_STOP:=0}"
+P_ALL=$((P_DONE + P_RUN + P_WAIT + P_FAIL + P_STOP))
+# 실패든 멈춤이든 이번 판에서는 다시 하지 않는다. 사람이 이어 돌려야 한다.
+P_PARKED=$((P_FAIL + P_STOP))
 
 # ══ 3) HDFS ═══════════════════════════════════════════════════
 # ⚠ -ls 로 세지 않는다. 파일이 수십만 개라 목록을 받아오는 데만 몇 분이 걸리고,
@@ -133,8 +139,13 @@ if [ "$JOB_ST" = STARTED ]; then
     LEVEL=BAD; WHY="큐에 조각이 ${Q_MSG}개 쌓였는데 듣는 워커가 없습니다"
   elif [ "$HAVE_RATE" = 1 ] && [ "$D_FILE" = 0 ]; then
     LEVEL=BAD; WHY="지난 측정 이후 한 건도 안 늘었습니다 — 멈춘 것 같습니다"
-  elif [ "$P_FAIL" -gt 0 ]; then
-    LEVEL=WARN; WHY="조각 ${P_FAIL}개가 실패했습니다. 1차가 끝나면 다시 돌려야 합니다"
+  elif [ "$P_WAIT" = 0 ] && [ "$P_RUN" -lt "$Q_CON" ]; then
+    # ⚠ 일감보다 소비자가 많으면 노트북이 논다. 이어 돌릴 때가 된 것이다.
+    #   파킹된 조각은 큐로 안 돌아오므로 가만두면 계속 놀기만 한다.
+    LEVEL=WARN
+    WHY="일감 ${P_RUN}개 < 소비자 ${Q_CON}개 — 노트북이 놉니다. 23-collect-retry.sh 로 파킹된 ${P_PARKED}개를 이어 돌리세요"
+  elif [ "$P_PARKED" -gt 0 ]; then
+    LEVEL=WARN; WHY="조각 ${P_PARKED}개가 파킹됐습니다. 1차가 끝나면 다시 돌려야 합니다"
   fi
 elif [ "$JOB_ST" = FAILED ]; then
   LEVEL=WARN; WHY="잡이 실패로 끝났습니다"
@@ -145,6 +156,7 @@ render() {
   JOB_ST="$JOB_ST" JOB_FROM="$JOB_FROM" JOB_AGE="$JOB_AGE" \
   FILES="$FILES" BYTES="$BYTES" REVIEWS="$REVIEWS" TOTAL="$TOTAL_REVIEWS" \
   P_DONE="$P_DONE" P_RUN="$P_RUN" P_WAIT="$P_WAIT" P_FAIL="$P_FAIL" P_ALL="$P_ALL" \
+  P_STOP="$P_STOP" P_PARKED="$P_PARKED" \
   Q_MSG="$Q_MSG" Q_CON="$Q_CON" RPF="$REVIEWS_PER_FILE" \
   HAVE_RATE="$HAVE_RATE" D_SEC="$D_SEC" D_FILE="$D_FILE" \
   LEVEL="$LEVEL" WHY="$WHY" MODE="$1" WEBHOOK="$WEBHOOK" \
@@ -180,8 +192,9 @@ def man(n):
 rows = [
     ("진행", "%s / %s  (%.1f%%)" % (man(reviews), man(total), pct)),
     ("경과", "%s  (%s 시작)" % (dur(age), E["JOB_FROM"])),
-    ("조각", "완료 %s · 진행 %s · 대기 %s · 실패 %s  / %s"
-             % (E["P_DONE"], E["P_RUN"], E["P_WAIT"], E["P_FAIL"], E["P_ALL"])),
+    ("조각", "완료 %s · 진행 %s · 대기 %s · 파킹 %s (실패 %s·멈춤 %s)  / %s"
+             % (E["P_DONE"], E["P_RUN"], E["P_WAIT"], E["P_PARKED"],
+                E["P_FAIL"], E["P_STOP"], E["P_ALL"])),
 ]
 
 if i("HAVE_RATE") and i("D_SEC") > 0:

@@ -159,3 +159,4 @@ java -cp spark/build/libs/thispatch-spark.jar \
 - DB의 boolean `is_patch`만으로는 미확정을 표현할 수 없다.
   `REVIEW_REQUIRED`를 자동으로 false로 바꾸지 말고, 팀과 미확정 저장·재처리 방식을 합의해야 한다.
 - 적용 날짜, 플랫폼 범위, 출시 전후 리뷰 집계 기준은 이 판정 함수 밖에서 검증한다.
+  적용일 결정 함수 `PatchDateResolver`의 계약은 [PATCH_DATE.md](PATCH_DATE.md)에 정리했다.

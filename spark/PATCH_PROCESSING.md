@@ -20,7 +20,8 @@ v2 최종 검증: WSL Java 17에서 `:spark:test :spark:jar --offline` 성공. *
 
 `spark/` 안에 순수 규칙 추출기, Spark 변경점 처리기, Spark 통계 집계기를 구현했다.
 Flyway V1/V2를 기준으로 만들었으며 마이그레이션이나 DB 데이터는 수정하지 않았다.
-LLM·임베딩 실행, 토큰 제한 기반 최종 청크 생성, 적용일 자동 추출, DB 적재는 이 코드에 포함하지 않는다.
+LLM·임베딩 실행, 토큰 제한 기반 최종 청크 생성, DB 적재는 이 코드에 포함하지 않는다.
+적용일 규칙 결정은 별도 `PatchDateResolver`에 추가했다. 입력·보류 기준은 [PATCH_DATE.md](PATCH_DATE.md)를 따른다.
 입력 어댑터와 드라이버 적재 통로는 팀 계약이 연결된 후 작업해야 한다.
 
 ## patch_change

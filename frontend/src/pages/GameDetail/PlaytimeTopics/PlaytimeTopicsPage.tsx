@@ -3,6 +3,7 @@ import { useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import { usePlaytimeTopics } from "@/hooks/queries/statisticsQueries"
 import { BandCards } from "@/pages/GameDetail/PlaytimeTopics/components/BandCards"
+import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
 import { formatDisplayRange } from "@/lib/seoulDate"
 
 /** URL gameId 세그먼트를 양의 정수로 파싱한다. */
@@ -52,6 +53,12 @@ export default function PlaytimeTopicsPage() {
   if (!data) return null
 
   const period = data.meta.period
+  // selectedReviewCount: 현재 선택 구간의 리뷰 수(전체면 overall)
+  const selectedReviewCount =
+    selectedBandNo === null
+      ? data.overall.reviewCount
+      : (data.bands.find((band) => band.band === `B${selectedBandNo}`)?.reviewCount ??
+        data.overall.reviewCount)
 
   return (
     <div className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
@@ -68,6 +75,14 @@ export default function PlaytimeTopicsPage() {
       </header>
 
       <BandCards data={data} selectedBandNo={selectedBandNo} onSelectBandNo={setSelectedBandNo} />
+
+      {data.sampleSufficient ? (
+        <TopicBars
+          topics={data.topics}
+          reviewCount={selectedReviewCount}
+          isOverall={selectedBandNo === null}
+        />
+      ) : null}
     </div>
   )
 }

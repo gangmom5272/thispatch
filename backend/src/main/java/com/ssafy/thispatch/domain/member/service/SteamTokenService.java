@@ -11,6 +11,7 @@ import com.ssafy.thispatch.domain.member.entity.Member;
 import com.ssafy.thispatch.domain.member.repository.MemberRepository;
 import com.ssafy.thispatch.global.exception.BusinessException;
 import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
+import com.ssafy.thispatch.global.security.jwt.TokenValidationException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,7 +34,11 @@ public class SteamTokenService {
 
 		String accessToken = tokenProvider.issueAccessToken(memberId);
 		String refreshToken = tokenProvider.issueRefreshToken(memberId);
-		refreshTokens.store(memberId, refreshToken);
+		try {
+			refreshTokens.store(memberId, refreshToken);
+		} catch (TokenValidationException exception) {
+			throw new BusinessException(STEAM_LOGIN_CODE_INVALID);
+		}
 		return SteamTokenResponse.success(accessToken, refreshToken, member.getNickname());
 	}
 }

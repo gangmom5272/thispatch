@@ -54,7 +54,7 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 @Import({TokenRefreshService.class, RefreshTokenService.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
-class TokenRefreshControllerTest {
+class TokenRefreshControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	private static final long MEMBER_ID = 3_000_000_000L;
 

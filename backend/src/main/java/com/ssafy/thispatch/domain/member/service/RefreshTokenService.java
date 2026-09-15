@@ -18,7 +18,7 @@ import com.ssafy.thispatch.global.security.jwt.VerifiedToken;
 
 import lombok.RequiredArgsConstructor;
 
-/** 회원당 현재 Refresh Token 하나를 관리한다. 회원 상태별 허용 여부와 HTTP 오류 매핑은 호출 API의 책임이다. */
+/** ACTIVE 회원만 토큰을 저장한다. 검증 결과의 회원 상태와 HTTP 오류 매핑은 호출 API의 책임이다. */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -27,7 +27,7 @@ public class RefreshTokenService {
 	private final MemberRepository memberRepository;
 	private final JwtTokenProvider tokenProvider;
 
-	/** 발급된 토큰을 저장하고 기존 토큰을 대체한다. 회원 생성과 같은 트랜잭션에서 호출할 수 있다. */
+	/** ACTIVE 조건으로 저장해 동시 탈퇴 후 토큰 복구를 막는다. 회원 생성 트랜잭션에도 참여한다. */
 	@Transactional
 	public void store(long memberId, String refreshToken) {
 		VerifiedToken verified = tokenProvider.validateRefreshToken(refreshToken);

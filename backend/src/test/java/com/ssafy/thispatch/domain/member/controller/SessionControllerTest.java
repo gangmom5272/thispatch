@@ -56,7 +56,7 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 @Import({SessionService.class, CurrentMemberService.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
-class SessionControllerTest {
+class SessionControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	private static final long MEMBER_ID = 3_000_000_000L;
 

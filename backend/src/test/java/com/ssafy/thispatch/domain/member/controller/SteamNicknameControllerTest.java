@@ -57,7 +57,7 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 @Import({SteamNicknameService.class, CurrentMemberService.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
-class SteamNicknameControllerTest {
+class SteamNicknameControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	private static final long MEMBER_ID = 3_000_000_000L;
 	private static final String PATH = "/auth/steam/signup";

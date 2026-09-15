@@ -30,6 +30,10 @@ export const router = createBrowserRouter([
         element: <PlanStructurePage />,
       },
       {
+        path: routeSegment(paths.gameCasesPattern),
+        element: <PlaceholderPage title="유사 사례 검색" />,
+      },
+      {
         path: routeSegment(paths.methodology),
         element: <PlaceholderPage title="방법론" />,
       },

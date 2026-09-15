@@ -1,7 +1,26 @@
 import { Fragment, useId, type ReactNode } from "react"
+import Button from "@/components/Button"
 import type { PlanSlot, PlanStructure } from "@/types"
 
 const cardClass = "rounded-sb-control border bg-sb-canvas"
+
+function PencilIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
 
 function isUnknownRole(role: string): boolean {
   return role === "UNKNOWN"
@@ -81,7 +100,15 @@ function SlotCard({ index, slot }: { index: number; slot: PlanSlot }) {
   )
 }
 
-export default function PlanStructureResult({ structure }: { structure: PlanStructure }) {
+interface PlanStructureResultProps {
+  structure: PlanStructure
+  onSearchCases: () => void
+}
+
+export default function PlanStructureResult({
+  structure,
+  onSearchCases,
+}: PlanStructureResultProps) {
   const { entities, slots, restatement } = structure
   const hasUnknownEntity = entities.some((entity) => isUnknownRole(entity.role))
 
@@ -171,6 +198,16 @@ export default function PlanStructureResult({ structure }: { structure: PlanStru
             ))}
           </ul>
         )}
+        <div className="mt-auto flex flex-col gap-sb-2 pt-sb-3">
+          <Button variant="secondary" disabled className="w-full">
+            <PencilIcon />
+            슬롯 직접 수정
+          </Button>
+          <Button variant="primary" onClick={onSearchCases} className="w-full">
+            유사 사례 검색
+            <span aria-hidden="true">→</span>
+          </Button>
+        </div>
       </Panel>
     </div>
   )

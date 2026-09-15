@@ -1,12 +1,12 @@
 import { useId, useState, type FormEvent } from "react"
-import { Link, useParams } from "react-router"
+import { Link, useNavigate, useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import GameHeader from "@/components/GameHeader"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
-import { paths } from "@/router/paths"
+import { gameCasesPath, paths } from "@/router/paths"
 import PlanStructureResult from "./components/PlanStructureResult"
 
 const MAX_TEXT_LENGTH = 500
@@ -29,10 +29,14 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
   const genreLabelId = useId()
   const [text, setText] = useState("")
   const [excludedGenreIds, setExcludedGenreIds] = useState<number[]>([])
+  const navigate = useNavigate()
   const game = useGameDetail(gameId)
   const structure = useCreatePlanStructure()
 
   const genres = game.data?.tags ?? []
+  const selectedGenreIds = genres
+    .filter((genre) => !excludedGenreIds.includes(genre.id))
+    .map((genre) => genre.id)
   const trimmedText = text.trim()
   const canSubmit = trimmedText.length > 0 && !structure.isPending
 
@@ -164,7 +168,16 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
             변경점을 구조화하는 중입니다…
           </p>
         )}
-        {structure.isSuccess && <PlanStructureResult structure={structure.data} />}
+        {structure.isSuccess && (
+          <PlanStructureResult
+            structure={structure.data}
+            onSearchCases={() =>
+              navigate(gameCasesPath(gameId), {
+                state: { slots: structure.data.slots, genreIds: selectedGenreIds },
+              })
+            }
+          />
+        )}
         {structure.isIdle && (
           <div className={`${panelClass} flex flex-col gap-sb-2 p-sb-6`}>
             <p>아직 구조화한 결과가 없습니다.</p>

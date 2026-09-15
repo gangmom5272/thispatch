@@ -188,6 +188,8 @@ Location: https://steamcommunity.com/openid/login?...
 - 백엔드가 Steam OpenID 인증 URL을 생성하고 브라우저를 Steam 로그인 페이지로 이동시킨다.
 - `return_to`는 `{BACKEND_PUBLIC_URL}/auth/steam/callback`을 사용한다.
 - `realm`은 외부에서 접근 가능한 `BACKEND_PUBLIC_URL` 기준으로 설정한다.
+- OpenID 2.0 인증 요청은 `openid.mode=checkid_setup`과 `openid.claimed_id`·`openid.identity`의 `identifier_select` 값을 사용한다.
+- 외부 경로 접두사(예: `/api`)는 유지하고 끝 슬래시를 정리해 콜백 경로를 붙인다. 요청 헤더·파라미터로 Redirect 주소를 덮어쓰지 않는다.
 - 프론트는 fetch/axios 대신 브라우저 자체를 이 API URL로 이동시킨다.
 - 응답은 JSON이 아닌 `302 Redirect`다. URL 설정은 아래 Redirect URL 설정을 따른다.
 

@@ -64,8 +64,6 @@ export interface GameDetail {
   lastCollectedAt: string | null
 }
 
-export type PlanDirection = "INCREASE" | "DECREASE" | "MODIFY"
-
 export interface PlanEntity {
   id: number
   name: string
@@ -79,7 +77,7 @@ export interface PlanSlot {
   targetName: string
   targetRole: string
   attribute: string
-  direction: PlanDirection
+  direction: string
   magnitude: string | null
   scope: string | null
   editable: boolean
@@ -96,7 +94,7 @@ export interface PlanRestatement {
   highlights: {
     primaryRole: string
     attributes: string[]
-    direction: PlanDirection
+    direction: string
     scope: string | null
   }
   warnings: PlanWarning[]

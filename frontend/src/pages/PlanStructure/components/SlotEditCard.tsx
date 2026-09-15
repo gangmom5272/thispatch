@@ -1,10 +1,5 @@
 import Input from "@/components/Input"
-import type { PlanDirection, PlanSlot } from "@/types"
-
-const DIRECTIONS: PlanDirection[] = ["INCREASE", "DECREASE", "MODIFY"]
-
-const selectClass =
-  "h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-2 text-sb-body text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+import type { PlanSlot } from "@/types"
 
 interface SlotEditCardProps {
   index: number
@@ -56,33 +51,12 @@ export default function SlotEditCard({ index, slot, isEmpty, onChange }: SlotEdi
           onChange={(event) => update({ attribute: event.target.value })}
         />
         <span className="text-sb-ink-mute">변경</span>
-        <div className="flex gap-sb-2">
-          <select
-            aria-label={`${label} 변경 방향`}
-            value={slot.direction}
-            onChange={(event) =>
-              update({
-                direction:
-                  DIRECTIONS.find((direction) => direction === event.target.value) ??
-                  slot.direction,
-              })
-            }
-            className={selectClass}
-          >
-            {DIRECTIONS.map((direction) => (
-              <option key={direction} value={direction}>
-                {direction}
-              </option>
-            ))}
-          </select>
-          <Input
-            aria-label={`${label} 변경 폭`}
-            value={slot.magnitude ?? ""}
-            placeholder="예: +20%"
-            onChange={(event) => update({ magnitude: event.target.value || null })}
-            className="min-w-0 flex-1"
-          />
-        </div>
+        <Input
+          aria-label={`${label} 변경`}
+          value={slot.magnitude ? `${slot.direction} ${slot.magnitude}` : slot.direction}
+          placeholder="예: INCREASE +20%"
+          onChange={(event) => update({ direction: event.target.value, magnitude: null })}
+        />
         <span className="text-sb-ink-mute">범위</span>
         <Input
           aria-label={`${label} 적용 범위`}

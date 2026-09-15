@@ -41,7 +41,7 @@ function emptySlot(id: number): PlanSlot {
     targetName: "",
     targetRole: "",
     attribute: "",
-    direction: "MODIFY",
+    direction: "",
     magnitude: null,
     scope: null,
     editable: true,

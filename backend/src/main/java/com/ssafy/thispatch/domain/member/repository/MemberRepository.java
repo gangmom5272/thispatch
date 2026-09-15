@@ -19,6 +19,16 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByEmail(String email);
 
+	boolean existsByMemberIdAndStatus(long memberId, String status);
+
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update Member m set m.status = 'WITHDRAWN', m.updatedAt = :updatedAt,
+		m.refreshTokenHash = null, m.refreshTokenExpiresAt = null
+		where m.memberId = :memberId and m.status = 'ACTIVE'
+		""")
+	int withdrawIfActive(@Param("memberId") long memberId, @Param("updatedAt") Instant updatedAt);
+
 	// 이메일 충돌만 무시한다. 회원 생성과 토큰 저장은 호출 서비스의 같은 트랜잭션에 참여한다.
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query(value = """
@@ -51,7 +61,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 		update Member m set m.refreshTokenHash = :tokenHash, m.refreshTokenExpiresAt = :expiresAt
-		where m.memberId = :memberId
+		where m.memberId = :memberId and m.status = 'ACTIVE'
 		""")
 	int updateRefreshToken(@Param("memberId") long memberId, @Param("tokenHash") String tokenHash,
 		@Param("expiresAt") Instant expiresAt);

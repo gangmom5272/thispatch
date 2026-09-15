@@ -47,7 +47,7 @@ public class Member {
 	@Column(name = "nickname", length = 50)
 	private String nickname;
 
-	// 가입 상태 ACTIVE만 확정되어 있다. 탈퇴 등 미정 상태도 DB 값 그대로 읽는다.
+	// ACTIVE는 활성, WITHDRAWN은 탈퇴다. 그 외 상태도 DB 값 그대로 읽고 인증 시 거부한다.
 	@Column(name = "status", nullable = false, length = 10)
 	private String status;
 

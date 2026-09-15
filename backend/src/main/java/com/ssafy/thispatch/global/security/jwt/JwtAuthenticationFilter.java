@@ -10,6 +10,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.ssafy.thispatch.domain.member.service.MemberAccessService;
 import com.ssafy.thispatch.global.security.MemberPrincipal;
 import com.ssafy.thispatch.global.security.SecurityErrorHandler;
 import com.ssafy.thispatch.global.security.SecurityRequestMatchers;
@@ -22,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
-/** Security 체인에만 등록한다. 회원 상태 조회·Refresh Token 폐기는 별도 책임이다. */
+/** Security 체인에만 등록한다. 보호 API는 검증된 JWT와 현재 ACTIVE 회원 상태를 모두 요구한다. */
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -30,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtTokenProvider tokenProvider;
 	private final SecurityErrorHandler errorHandler;
+	private final MemberAccessService memberAccessService;
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -43,6 +45,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			String token = bearerToken(request);
 			if (token != null) {
 				VerifiedToken verified = tokenProvider.validateAccessToken(token);
+				if (!SecurityRequestMatchers.SESSION.matches(request)) {
+					boolean active;
+					try {
+						active = memberAccessService.isActive(verified.memberId());
+					} catch (RuntimeException exception) {
+						SecurityContextHolder.clearContext();
+						errorHandler.serverError(response, exception);
+						return;
+					}
+					if (!active) {
+						throw new TokenValidationException(Reason.INVALID);
+					}
+				}
 				var authentication = UsernamePasswordAuthenticationToken.authenticated(
 					new MemberPrincipal(verified.memberId()), null, List.of());
 				var context = SecurityContextHolder.createEmptyContext();

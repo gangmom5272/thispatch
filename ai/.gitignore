@@ -1,0 +1,9 @@
+# AI 노드 산출물·비밀·모델은 올리지 않는다
+.env
+work/
+out/
+*.parquet
+*.jsonl
+*.joblib
+models/
+__pycache__/

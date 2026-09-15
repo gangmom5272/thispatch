@@ -83,23 +83,27 @@ public final class BandStatAggregator {
                 min(when(col("cumulative_count").geq(ceil(col("game_count").multiply(0.75))),
                         col("playtime_at_review"))).alias("q3"));
         Dataset<Row> grouped = histogram.join(thresholds, "appid")
-                .withColumn("quartile", when(col("playtime_at_review").leq(col("q1")), 1)
-                        .when(col("playtime_at_review").leq(col("q2")), 2)
-                        .when(col("playtime_at_review").leq(col("q3")), 3).otherwise(4))
-                .groupBy("appid", "quartile")
+                .withColumn("band_no", when(col("playtime_at_review").lt(col("q1")), 1)
+                        .when(col("playtime_at_review").lt(col("q2")), 2)
+                        .when(col("playtime_at_review").lt(col("q3")), 3).otherwise(4))
+                .groupBy("appid", "band_no")
                 .agg(sum("review_count").alias("review_count"),
-                        sum("positive_count").alias("positive_count"),
-                        max("playtime_at_review").alias("last_minute"));
+                        sum("positive_count").alias("positive_count"));
 
-        // Empty quartiles are merged; boundaries are [from, to), with a null final upper bound.
-        // Use long arithmetic before casting so a maximum INT minute cannot overflow internally.
-        WindowSpec orderedBands = game.orderBy("quartile");
-        return grouped
-                .withColumn("band_no", row_number().over(orderedBands).cast(DataTypes.ShortType))
-                .withColumn("playtime_from", coalesce(lag(col("last_minute").cast(DataTypes.LongType), 1)
-                        .over(orderedBands).plus(1L), lit(0L)).cast(DataTypes.IntegerType))
-                .withColumn("playtime_to", when(lead(col("quartile"), 1).over(orderedBands).isNotNull(),
-                        col("last_minute").cast(DataTypes.LongType).plus(1L)).cast(DataTypes.IntegerType))
+        // Build all four ranges first: tied thresholds must not remove or renumber a band.
+        Dataset<Row> ranges = thresholds
+                .withColumn("band_no", explode(array(lit(1), lit(2), lit(3), lit(4))))
+                .withColumn("playtime_from", when(col("band_no").equalTo(1), lit(0))
+                        .when(col("band_no").equalTo(2), col("q1"))
+                        .when(col("band_no").equalTo(3), col("q2")).otherwise(col("q3")))
+                .withColumn("playtime_to", when(col("band_no").equalTo(1), col("q1"))
+                        .when(col("band_no").equalTo(2), col("q2"))
+                        .when(col("band_no").equalTo(3), col("q3"))
+                        .otherwise(lit(null).cast(DataTypes.IntegerType)));
+        return ranges.join(grouped, new String[] {"appid", "band_no"}, "left")
+                .withColumn("review_count", coalesce(col("review_count"), lit(0L)))
+                .withColumn("positive_count", coalesce(col("positive_count"), lit(0L)))
+                .withColumn("band_no", col("band_no").cast(DataTypes.ShortType))
                 .withColumn("aggregated_at", lit(Timestamp.from(aggregatedAt)))
                 .select("appid", "band_no", "playtime_from", "playtime_to", "review_count",
                         "positive_count", "aggregated_at");

@@ -33,10 +33,25 @@
 }
 ```
 
+**Processing Rules / Notes**
+
+- Path Variable, Query Parameter, Request Body는 없다.
+- `tag` 테이블 전체를 반환한다. `game_tag` 연결 여부로 필터링하지 않는다.
+- `tag.tag_id`를 `items[].id`(int), `tag.name_ko`를 `items[].name`(string)으로 매핑한다. 두 필드는 null이 아니다.
+- `tag_id` 오름차순으로 반환하며 pagination은 적용하지 않는다.
+- 조회 결과가 없으면 `200`과 `data.items: []`를 반환한다.
+- 장르 DB 조회 및 해당 읽기 트랜잭션의 시작·종료 실패는 `503 GENRE_LIST_UNAVAILABLE`로 반환한다.
+- 인증 단계의 회원 상태 조회 장애와 예상하지 못한 코드 오류는 기존 공통 `500 INTERNAL_SERVER_ERROR`로 처리한다.
+
 **Error Responses**
 
-- `401`: 인증 필요
-- `503`: 장르 목록 조회 불가
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `503` | `GENRE_LIST_UNAVAILABLE` | 장르 목록을 조회할 수 없습니다. | 장르 DB 조회·트랜잭션 실패 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | 인증 단계의 DB 장애 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다.
 
 ## 게임 목록 조회
 
@@ -233,9 +248,22 @@ GET /games?search=slay&limit=5
 
 **Error Responses**
 
-- `401`: 로그인 필요
-- `404`: 게임 없음
-- `409`: 이미 내 게임으로 등록됨
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | `gameId`가 long으로 변환되지 않음 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 유효한 Access Token 또는 활성 회원 인증 없음 |
+| `404` | `GAME_NOT_FOUND` | 게임을 찾을 수 없습니다. | `game.appid`에 해당 게임이 없음 |
+| `409` | `MY_GAME_ALREADY_REGISTERED` | 이미 내 게임으로 등록된 게임입니다. | 현재 회원에게 이미 등록된 게임 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | 예상하지 못한 DB·서버 오류 |
+
+**Processing Rules / Notes**
+
+- 등록 회원은 검증된 Access Token의 `MemberPrincipal.memberId`로 식별한다. 클라이언트가 전달한 회원 ID는 사용하지 않는다.
+- `gameId`는 `game.appid`에 대응한다. 게임 존재 여부를 확인한 뒤 `my_game`에 현재 회원 ID, 게임 ID와 등록 시각(`created_at`)을 저장한다.
+- `(member_id, appid)` 기본키를 기준으로 중복을 판정한다. 동일 회원·게임의 동시 등록은 한 요청만 `200`으로 성공하고 나머지는 `409`를 반환한다.
+- 중복 요청은 기존 등록과 `created_at`을 변경하지 않는다. 다른 회원은 같은 게임을 각각 등록할 수 있다.
+- 등록은 하나의 DB 트랜잭션으로 처리한다. 중복 기본키 충돌 이외의 DB 오류를 중복 등록 오류로 바꾸지 않는다.
+- 성공 응답에는 `data`를 포함하지 않으며, 응답 시각과 오류 응답은 공통 계약을 따른다.
 
 ## 내 게임 등록 해제
 
@@ -278,3 +306,19 @@ GET /games?search=slay&limit=5
 - `404`: 게임 없음
 - `404`: 내 게임에 등록되지 않은 게임
 - `500`: 서버 내부 오류
+
+**오류 코드**
+
+| HTTP 상태 | code | message |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. |
+| `404` | `GAME_NOT_FOUND` | 게임을 찾을 수 없습니다. |
+| `404` | `MY_GAME_NOT_REGISTERED` | 내 게임에 등록되지 않은 게임입니다. |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. |
+
+**Processing Rules / Notes**
+
+- 인증된 현재 회원 ID와 `gameId`(DB의 `appid`)로 `my_game` 등록 관계를 삭제한다. 다른 회원의 등록과 게임 원본은 변경하지 않는다.
+- 게임이 없으면 `GAME_NOT_FOUND`, 게임은 있지만 현재 회원의 등록 관계가 없으면 `MY_GAME_NOT_REGISTERED`를 반환한다. 이미 해제한 게임에 다시 요청해도 미등록 `404`다.
+- 회원과 게임을 조건으로 삭제한 행 수로 해제 여부를 판정한다. 같은 등록에 동시 해제를 요청하면 실제 삭제한 요청만 성공하고 나머지는 미등록 `404`다.
+- 성공 응답에는 `data`를 포함하지 않는다. 오류 응답과 인증 실패는 공통 계약을 따른다.

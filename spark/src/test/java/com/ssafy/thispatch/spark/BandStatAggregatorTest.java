@@ -75,41 +75,50 @@ class BandStatAggregatorTest {
                 review(1, 5, 50, false), review(1, 6, 60, false),
                 review(1, 7, 70, true), review(1, 8, 80, false)));
         assertEquals(4, result.size());
-        assertBand(result.get(0), 1, 0, 21, 2, 1);
-        assertBand(result.get(1), 2, 21, 41, 2, 2);
-        assertBand(result.get(2), 3, 41, 61, 2, 0);
-        assertBand(result.get(3), 4, 61, null, 2, 1);
+        assertBand(result.get(0), 1, 0, 20, 1, 1);
+        assertBand(result.get(1), 2, 20, 40, 2, 1);
+        assertBand(result.get(2), 3, 40, 60, 2, 1);
+        assertBand(result.get(3), 4, 60, null, 3, 1);
     }
 
     @Test
-    void tiedQuartilesAreMergedWithoutSplittingEqualPlaytimes() {
+    void tiedQuartilesKeepFourBandsWithoutSplittingEqualPlaytimes() {
         List<Row> result = bands(input(
                 review(1, 1, 10, true), review(1, 2, 10, false),
                 review(1, 3, 10, true), review(1, 4, 10, false),
                 review(1, 5, 10, true), review(1, 6, 10, false),
                 review(1, 7, 20, true), review(1, 8, 30, false)));
-        assertEquals(2, result.size());
-        assertBand(result.get(0), 1, 0, 11, 6, 3);
-        assertBand(result.get(1), 2, 11, null, 2, 1);
+        assertEquals(4, result.size());
+        assertBand(result.get(0), 1, 0, 10, 0, 0);
+        assertBand(result.get(1), 2, 10, 10, 0, 0);
+        assertBand(result.get(2), 3, 10, 10, 0, 0);
+        assertBand(result.get(3), 4, 10, null, 8, 4);
     }
 
     @Test
-    void allEqualTimesProduceOneBand() {
+    void allEqualTimesKeepEmptyBandsAndPlaceReviewsInFourthBand() {
         List<Row> result = bands(input(review(1, 1, 100, true), review(1, 2, 100, false)));
-        assertEquals(1, result.size());
-        assertBand(result.get(0), 1, 0, null, 2, 1);
+        assertEquals(4, result.size());
+        assertBand(result.get(0), 1, 0, 100, 0, 0);
+        assertBand(result.get(1), 2, 100, 100, 0, 0);
+        assertBand(result.get(2), 3, 100, 100, 0, 0);
+        assertBand(result.get(3), 4, 100, null, 2, 1);
     }
 
     @Test
-    void smallGamesUseOnlyNonemptyBandsAndIndependentThresholds() {
+    void smallGamesKeepFourBandsAndIndependentThresholds() {
         List<Row> result = bands(input(review(1, 1, 10, true), review(1, 2, 20, false),
                 review(1, 3, 30, true), review(2, 4, 1000, true)));
-        assertEquals(4, result.size());
-        assertBand(result.get(0), 1, 0, 11, 1, 1);
-        assertBand(result.get(1), 2, 11, 21, 1, 0);
-        assertBand(result.get(2), 3, 21, null, 1, 1);
-        assertEquals(2L, (long) result.get(3).getAs("appid"));
-        assertBand(result.get(3), 1, 0, null, 1, 1);
+        assertEquals(8, result.size());
+        assertBand(result.get(0), 1, 0, 10, 0, 0);
+        assertBand(result.get(1), 2, 10, 20, 1, 1);
+        assertBand(result.get(2), 3, 20, 30, 1, 0);
+        assertBand(result.get(3), 4, 30, null, 1, 1);
+        assertEquals(2L, (long) result.get(4).getAs("appid"));
+        assertBand(result.get(4), 1, 0, 1000, 0, 0);
+        assertBand(result.get(5), 2, 1000, 1000, 0, 0);
+        assertBand(result.get(6), 3, 1000, 1000, 0, 0);
+        assertBand(result.get(7), 4, 1000, null, 1, 1);
     }
 
     @Test
@@ -117,8 +126,8 @@ class BandStatAggregatorTest {
         List<Row> result = bands(input(
                 RowFactory.create(1L, 1L, 1L, 3L, 4L, false, 20),
                 RowFactory.create(1L, 1L, 1L, 1L, 5L, true, 10)));
-        assertEquals(1, result.size());
-        assertBand(result.get(0), 1, 0, null, 1, 0);
+        assertEquals(4, result.size());
+        assertBand(result.get(3), 4, 20, null, 1, 0);
     }
 
     @Test
@@ -145,8 +154,11 @@ class BandStatAggregatorTest {
         assertEquals(1L, (long) quality.get(0).getAs("included_review_count"));
         assertEquals(0L, (long) quality.get(1).getAs("included_review_count"));
         List<Row> result = bands(source);
-        assertEquals(1, result.size());
-        assertBand(result.get(0), 1, 0, null, 1, 1);
+        assertEquals(4, result.size());
+        assertBand(result.get(0), 1, 0, 0, 0, 0);
+        assertBand(result.get(1), 2, 0, 0, 0, 0);
+        assertBand(result.get(2), 3, 0, 0, 0, 0);
+        assertBand(result.get(3), 4, 0, null, 1, 1);
     }
 
     @Test
@@ -163,7 +175,7 @@ class BandStatAggregatorTest {
         source.write().parquet(path);
         List<Row> result = bands(spark.read().parquet(path));
         assertEquals(bands(source), result);
-        assertBand(result.get(0), 1, 0, 11, 1, 1);
+        assertBand(result.get(2), 3, 10, 20, 1, 1);
     }
 
     @Test
@@ -171,8 +183,11 @@ class BandStatAggregatorTest {
         assertTrue(bands(input()).isEmpty());
         List<Row> result = bands(input(review(1, 1, Integer.MAX_VALUE - 1, true),
                 review(1, 2, Integer.MAX_VALUE, false)));
-        assertBand(result.get(0), 1, 0, Integer.MAX_VALUE, 1, 1);
-        assertBand(result.get(1), 2, Integer.MAX_VALUE, null, 1, 0);
+        assertEquals(4, result.size());
+        assertBand(result.get(0), 1, 0, Integer.MAX_VALUE - 1, 0, 0);
+        assertBand(result.get(1), 2, Integer.MAX_VALUE - 1, Integer.MAX_VALUE - 1, 0, 0);
+        assertBand(result.get(2), 3, Integer.MAX_VALUE - 1, Integer.MAX_VALUE, 1, 1);
+        assertBand(result.get(3), 4, Integer.MAX_VALUE, null, 1, 0);
     }
 
     @Test

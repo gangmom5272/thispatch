@@ -61,6 +61,36 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     static final String KEY_NEXT_REQUEST_AT = "review.nextRequestAt";
     private static final int EMPTY_PAGE_LIMIT = 4;
 
+    /** 긴 백오프 중에 '잡이 멈췄나' 를 얼마 만에 한 번 확인할 것인가. */
+    private static final long STOP_CHECK_INTERVAL_MILLIS = 5_000L;
+
+    /** 몇 페이지마다 시간 배분을 로그에 남길 것인가. */
+    private static final long STATS_EVERY_PAGES = 200L;
+
+    // ── 시간이 어디로 가는지 재는 곳 ──────────────────────────────
+    //
+    // 2026-09-15 실측으로 조각 하나가 페이지 하나에 8.3초를 썼는데, 밖에서 잰
+    // 것들(스팀 0.5초 · HDFS 0.2초 · 간격 1초 · DB 조회 0.4초)을 다 더해도
+    // 3.3초밖에 안 됐다. 남은 5초를 밖에서 찾을 방법이 없어서 안에서 잰다.
+    //
+    // 워커 한 대의 모든 조각이 함께 더한다. 200페이지마다 한 줄 남기고 0 으로
+    // 되돌린다 — 페이지마다 찍으면 로그가 그 자체로 부담이 된다.
+    private final AtomicLong statPages = new AtomicLong();
+    private final AtomicLong statSteamMillis = new AtomicLong();
+    private final AtomicLong statWriteMillis = new AtomicLong();
+    private final AtomicLong statWaitMillis = new AtomicLong();
+    private final AtomicLong statStopCheckMillis = new AtomicLong();
+    private final AtomicLong statFrameworkMillis = new AtomicLong();
+
+    /**
+     * 직전 청크가 끝난 시각. 조각마다 자기 스레드에서 도므로 스레드에 붙여 둔다.
+     *
+     * <p>이것과 다음 {@code execute} 시작 사이가 <b>우리 코드가 아닌 시간</b>이다 —
+     * Spring Batch 의 트랜잭션 커밋, 컨텍스트 직렬화, 메시지 처리 같은 것들.
+     * 설명 안 되던 5초가 여기 있는지 본다.
+     */
+    private final ThreadLocal<Long> chunkEndMillis = new ThreadLocal<>();
+
     private final SteamReviewClient client;
     private final ReviewLandingWriter writer;
     private final JobExplorer jobExplorer;
@@ -81,6 +111,18 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
      * 차례 수를 소비자 수와 맞추면 조각마다 자기 차례를 갖는 셈이다.
      */
     private final AtomicLong[] lanes;
+
+    /** 다음 스레드에게 줄 차례 번호. 돌아가며 나눠 준다. */
+    private final java.util.concurrent.atomic.AtomicInteger laneCursor =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * 이 스레드가 쓰는 차례. 스레드는 큐 소비자마다 하나씩이고 오래 산다.
+     *
+     * <p>스레드 수와 차례 수가 같으면 정확히 하나씩 돌아간다. 컨테이너가 소비자를
+     * 다시 만들면 번호가 이어지지만, 돌아가며 주므로 고르게 유지된다.
+     */
+    private final ThreadLocal<AtomicLong> myLane;
 
     /**
      * 워커가 꺼질 때 조각을 깨끗이 내려놓게 해 주는 것.
@@ -119,6 +161,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         for (int i = 0; i < lanes; i++) {
             this.lanes[i] = new AtomicLong();
         }
+        // ⚠ 필드 초기화 자리에서 만들면 안 된다. 그 시점에는 lanes 가 아직 null 이다.
+        AtomicLong[] built = this.lanes;
+        this.myLane = ThreadLocal.withInitial(
+                () -> built[Math.floorMod(laneCursor.getAndIncrement(), built.length)]);
     }
 
     @Override
@@ -140,6 +186,9 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
         gate.leave();
+        // ⚠ 스레드는 다음 조각이 다시 쓴다. 안 지우면 조각과 조각 사이의
+        //   긴 시간이 '우리 코드 밖' 으로 잘못 더해진다.
+        chunkEndMillis.remove();
         return null;   // null 이면 Spring Batch 가 원래 상태를 그대로 쓴다
     }
 
@@ -155,6 +204,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         //   그대로 집어간다.
         if (gate.isStopping()) {
             step.setTerminateOnly();
+        }
+        Long previousChunkEnd = chunkEndMillis.get();
+        if (previousChunkEnd != null) {
+            statFrameworkMillis.addAndGet(Math.max(0, clock.millis() - previousChunkEnd));
         }
         checkInterrupted(step);
         ExecutionContext ctx = step.getExecutionContext();
@@ -173,7 +226,18 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         long appid = appids.get(index);
         String cursor = ctx.getString(KEY_CURSOR, SteamReviewClient.FIRST_CURSOR);
         SteamReviewPage page;
-        lane(step).set(Math.addExact(clock.millis(), requestIntervalMillis));
+        // ⚠ 다음 요청이 허락되는 시각을 '지금' 기준으로 잡아 둔다.
+        //
+        //   전에는 이걸 잡아 두고도, 일이 다 끝난 뒤에 defer() 로 한 번 더 밀었다.
+        //   그래서 한 바퀴가 '일하는 시간 + 1초' 가 됐다. 의도는 초당 한 번인데
+        //   실제로는 「일 끝나고 1초 쉬기」였다.
+        //
+        //   2026-09-15 실측 — 일이 0.5초, 한 바퀴 1.6초. 노는 0.5초가 그대로 손해다.
+        //   요청 시작부터 세면 한 바퀴가 max(일하는 시간, 1초) 가 된다.
+        //   스팀에 가는 빈도는 똑같다.
+        long nextSlot = Math.addExact(clock.millis(), requestIntervalMillis);
+        lane(step).accumulateAndGet(nextSlot, Math::max);
+        long steamStart = clock.millis();
         try {
             page = client.fetchPage(appid, cursor);
         } catch (InterruptedException e) {
@@ -181,8 +245,10 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             step.setTerminateOnly();
             throw new JobInterruptedException("Interrupted while requesting Steam reviews");
         } catch (IOException e) {
+            statSteamMillis.addAndGet(clock.millis() - steamStart);
             return retryOrFail(step, ctx, appid, e);
         }
+        statSteamMillis.addAndGet(clock.millis() - steamStart);
         var collectedAt = clock.instant();
         checkInterrupted(step);
         int emptyPages = ctx.getInt(KEY_EMPTY_PAGES, 0);
@@ -193,16 +259,34 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
                 throw new IOException("Steam returned a non-advancing cursor for appid " + appid);
             }
             // 저장이 실패하면 아래 진행 위치를 바꾸지 않고 스텝을 실패시킨다.
+            long writeStart = clock.millis();
             writer.writePage(appid, page, collectedAt).orElseThrow(
                     () -> new IOException("No landing file for a non-empty review page"));
+            statWriteMillis.addAndGet(clock.millis() - writeStart);
             for (int i = 0; i < page.reviews().size(); i++) {
                 contribution.incrementReadCount();
             }
             contribution.incrementWriteCount(page.reviews().size());
             emptyPages = 0;
         }
+        // 증분 수집이면 기준 시각보다 오래된 수정에 닿는 순간 이 게임은 끝이다.
+        //
+        // filter=updated 가 수정일 내림차순이라, 페이지의 가장 오래된 것이 기준보다
+        // 이르면 그 뒤로는 전부 이미 갖고 있는 것이다. 더 넘길 이유가 없다.
+        //
+        // ⚠ 그 페이지를 버리지 않는다. 경계에 걸친 페이지에는 기준보다 새것과
+        //   옛것이 섞여 있고, 옛것을 몇 개 더 받아도 ReviewLake 가 정리한다.
+        //   반대로 버리면 새것까지 같이 날아간다.
+        long sinceTs = ctx.getLong(AppidPartitioner.KEY_SINCE_TS, 0);
+        boolean reachedSince = sinceTs > 0 && !page.reviews().isEmpty()
+                && oldestUpdatedTs(page) < sinceTs;
+
         if (emptyPages >= EMPTY_PAGE_LIMIT) {
             log.info("게임 {} 수집 완료 — 빈 페이지 {}회 연속", appid, emptyPages);
+            index++;
+            cursor = SteamReviewClient.FIRST_CURSOR;
+            emptyPages = 0;
+        } else if (reachedSince) {
             index++;
             cursor = SteamReviewClient.FIRST_CURSOR;
             emptyPages = 0;
@@ -213,8 +297,31 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         ctx.putString(KEY_CURSOR, cursor);
         ctx.putInt(KEY_EMPTY_PAGES, emptyPages);
         ctx.putInt(KEY_RETRIES, 0);
-        defer(step, ctx, requestIntervalMillis);
+        // 요청을 보낼 때 잡아 둔 시각을 그대로 쓴다. 여기서 다시 밀지 않는다.
+        ctx.putLong(KEY_NEXT_REQUEST_AT, nextSlot);
+        reportStats();
         return index == appids.size() ? RepeatStatus.FINISHED : RepeatStatus.CONTINUABLE;
+    }
+
+    /**
+     * 페이지 하나를 세고, {@link #STATS_EVERY_PAGES} 마다 시간 배분을 한 줄 남긴다.
+     *
+     * <p>워커 한 대의 조각 전부를 합친 값이라 「페이지 하나에 평균 몇 초」로 읽으면
+     * 된다. 남긴 뒤에는 0 으로 되돌려서 최근 구간만 보이게 한다.
+     */
+    private void reportStats() {
+        if (statPages.incrementAndGet() % STATS_EVERY_PAGES != 0) {
+            return;
+        }
+        long pages = STATS_EVERY_PAGES;
+        long steam = statSteamMillis.getAndSet(0);
+        long write = statWriteMillis.getAndSet(0);
+        long wait = statWaitMillis.getAndSet(0);
+        long stop = statStopCheckMillis.getAndSet(0);
+        long outside = statFrameworkMillis.getAndSet(0);
+        log.info("시간 배분 (페이지 {}개 평균) — 스팀 {}ms · HDFS {}ms · 대기 {}ms"
+                        + " · 멈춤확인 {}ms · 우리 코드 밖 {}ms",
+                pages, steam / pages, write / pages, wait / pages, stop / pages, outside / pages);
     }
 
     private RepeatStatus retryOrFail(StepExecution step, ExecutionContext ctx, long appid,
@@ -272,13 +379,23 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
     }
 
     /**
-     * 이 조각이 쓸 차례. 조각 이름으로 고정해서 고르므로 매번 같은 차례를 쓴다.
-     * 골고루 흩어지도록 해시를 쓴다.
+     * 이 조각이 쓸 차례.
+     *
+     * <p><b>스레드마다 하나씩</b> 나눠 준다. 큐 소비자 스레드 수와 차례 수가 같으므로
+     * (둘 다 {@code thispatch.collect.consumers}) 조각마다 자기 차례를 갖게 된다.
+     *
+     * <p>⚠ 전에는 조각 이름 해시로 골랐다. 제비뽑기라 10개가 10칸에 고르게 들어가지
+     * 않았다 — 2026-09-15 실측으로 조각 10개가 차례 <b>5~6개</b>만 썼다. 겹친 조각은
+     * 제한을 넘겨 나가고 빈 차례는 놀았다. 제한이 의도대로 걸리지도, 처리량이 나오지도
+     * 않는 상태였다.
+     *
+     * <pre>
+     *   .106   조각 10개 → 차례 5개 (한 칸에 4개가 몰림)
+     *   .76    조각  8개 → 차례 5개
+     * </pre>
      */
     private AtomicLong lane(StepExecution step) {
-        Long id = step.getId();
-        int h = step.getStepName().hashCode() + (id == null ? 0 : id.intValue());
-        return lanes[Math.floorMod(h, lanes.length)];
+        return myLane.get();
     }
 
     private long nextRequestAt(StepExecution step, ExecutionContext ctx) {
@@ -293,32 +410,77 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
         if (ctx.getInt(KEY_APP_INDEX, 0) >= appids(ctx).size()) {
             return;
         }
-        long nextStopCheck = clock.millis();
+        // ⚠ 첫 바퀴부터 확인하면 안 된다.
+        //
+        //   여기 있던 코드는 nextStopCheck 를 '지금' 으로 시작해서, 대기에 들어서자마자
+        //   무조건 한 번 jobExplorer 를 불렀다. 보통 대기는 1초 미만이라 사실상
+        //   페이지마다 한 번씩 나갔다.
+        //
+        //   getJobExecution 은 그 잡의 스텝을 전부 끌고 온다. 조각이 234개면 235행,
+        //   약 100KB 다. 마스터에서 재면 0.24ms 인데 워커에서 재면 404~455ms 다
+        //   (2026-09-15 실측) — 무선으로 그만큼을 받아오기 때문이다.
+        //
+        //   조각을 잘게 쪼갤수록 더 나빠진다. 1,167개면 500KB 가 된다.
+        //
+        //   이 확인은 '사람이 잡을 멈췄는지' 를 보려는 것이고, 긴 백오프(403 은
+        //   1시간) 중에 빠져나오라고 둔 것이다. 1초짜리 대기에는 필요가 없다.
+        long waitStart = clock.millis();
+        long nextStopCheck = clock.millis() + STOP_CHECK_INTERVAL_MILLIS;
         while (nextRequestAt(step, ctx) > clock.millis()) {
             if (step.isTerminateOnly() || Thread.currentThread().isInterrupted()) {
                 step.setTerminateOnly();
+                finishChunk(waitStart);
                 return;
             }
             if (clock.millis() >= nextStopCheck) {
+                long t0 = clock.millis();
                 var job = jobExplorer.getJobExecution(step.getJobExecutionId());
+                statStopCheckMillis.addAndGet(clock.millis() - t0);
                 if (job != null && job.isStopping()) {
                     step.setTerminateOnly();
+                    finishChunk(waitStart);
                     return;
                 }
-                nextStopCheck = clock.millis() + 5_000;
+                nextStopCheck = clock.millis() + STOP_CHECK_INTERVAL_MILLIS;
             }
             try {
                 sleeper.sleep(Math.min(1_000, Math.max(1, nextRequestAt(step, ctx) - clock.millis())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 step.setTerminateOnly();
+                finishChunk(waitStart);
                 return;
             }
         }
+        finishChunk(waitStart);
+    }
+
+    /** 대기에 쓴 시간을 더하고, 청크가 끝난 시각을 남긴다. */
+    private void finishChunk(long waitStart) {
+        statWaitMillis.addAndGet(Math.max(0, clock.millis() - waitStart));
+        chunkEndMillis.set(clock.millis());
     }
 
     private static List<Long> appids(ExecutionContext ctx) {
         return AppidPartitioner.parse(ctx.getString(AppidPartitioner.KEY_APPIDS, ""));
+    }
+
+    /**
+     * 페이지에서 가장 오래 고쳐진 리뷰의 시각.
+     *
+     * <p>정렬이 내림차순이라 보통은 마지막 줄이지만, 1,000건에 0~1건 어긋난다는
+     * 실측이 있어 전부 본다. 값이 없으면 {@link Long#MAX_VALUE} 로 쳐서
+     * 「아직 기준에 못 미쳤다」로 본다 — 없는 값 때문에 게임을 일찍 끊지 않는다.
+     */
+    private static long oldestUpdatedTs(SteamReviewPage page) {
+        long oldest = Long.MAX_VALUE;
+        for (var review : page.reviews()) {
+            var node = review.get("timestamp_updated");
+            if (node != null && node.isNumber()) {
+                oldest = Math.min(oldest, node.asLong());
+            }
+        }
+        return oldest;
     }
 
     private static void checkInterrupted(StepExecution step) throws JobInterruptedException {

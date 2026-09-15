@@ -31,7 +31,7 @@ import com.ssafy.thispatch.global.security.SecurityErrorHandler;
 		"app.cors.allowed-origins=http://localhost:5173,https://thispatch.example"
 	})
 @ActiveProfiles("test")
-class CorsConfigTest {
+class CorsConfigTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest {
 
 	@Autowired
 	private TestRestTemplate rest;

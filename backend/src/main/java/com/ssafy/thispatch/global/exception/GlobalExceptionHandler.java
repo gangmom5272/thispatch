@@ -30,7 +30,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		if (errorCode.getStatus().is5xxServerError()) {
 			logger.error("Business operation failed: " + errorCode.getCode(), exception);
 		}
-		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+		var response = ResponseEntity.status(errorCode.getStatus());
+		if (errorCode.getStatus() == HttpStatus.UNAUTHORIZED) {
+			response.header(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+		}
+		return response.body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler(Exception.class)

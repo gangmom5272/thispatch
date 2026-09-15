@@ -113,9 +113,10 @@ class BandTopicStatAggregatorTest {
                 review(2, 3, 10, false)),
                 topics(topic(1, 1, 1, 1), topic(1, 2, 1, 1), topic(2, 3, 1, 1)));
         assertEquals(3, rows.size());
-        assertEquals((short) 1, (short) rows.get(0).getAs("band_no"));
-        assertEquals((short) 2, (short) rows.get(1).getAs("band_no"));
+        assertEquals((short) 3, (short) rows.get(0).getAs("band_no"));
+        assertEquals((short) 4, (short) rows.get(1).getAs("band_no"));
         assertEquals(2L, (long) rows.get(2).getAs("appid"));
+        assertEquals((short) 4, (short) rows.get(2).getAs("band_no"));
         assertCounts(rows.get(0), 1, 0);
         assertCounts(rows.get(1), 0, 1);
         assertCounts(rows.get(2), 0, 1);

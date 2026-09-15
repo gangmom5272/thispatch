@@ -1,0 +1,176 @@
+# Jenkins Configuration as Code (JCasC)
+#
+# 설정 마법사를 끄고(-Djenkins.install.runSetupWizard=false) 이 파일로 기동한다.
+# 컨테이너에 /var/jenkins_casc/jenkins.yaml 로 읽기전용 마운트된다.
+#
+# 왜 마법사를 안 쓰는가
+#   지금까지 모든 인프라 작업을 스크립트로 남겼다(13~16). Jenkins 설정만
+#   브라우저 클릭으로 두면 거기만 재현이 안 된다. SSAFY 공지에 접속 불가 시
+#   초기화 요청만 가능하다고 돼 있어, 서버가 날아가면 손으로 다시 클릭해야 한다.
+#
+# ⚠ 비밀번호는 여기 없다
+#   ${JENKINS_ADMIN_PASSWORD} 는 서버의 infra/.env 에서 온다.
+#   .env 는 .gitignore 로 막혀 있고 저장소에 올라가지 않는다.
+#   값을 이 파일에 적지 말 것.
+
+jenkins:
+  systemMessage: |
+    디스패치 (Dispatch) — S15P21A202
+    설정은 infra/jenkins/jenkins.yaml 이 정본이다. UI 에서 고친 것은 재기동 시 덮인다.
+
+  # 서버1 은 서비스와 빌드를 같이 돌린다. 컨테이너 상한이 2.5 vCPU 라
+  # 실행기를 2 로 둔다. 더 올리면 서로 CPU 를 뺏는다.
+  numExecutors: 2
+  mode: NORMAL
+
+  securityRealm:
+    local:
+      allowsSignup: false          # 아무나 가입 못 한다
+      users:
+        - id: "${JENKINS_ADMIN_ID}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false    # 익명 조회도 막는다
+
+  # ⚠ 리버스 프록시 뒤라서 필요하다
+  #   nginx 를 거치면 Jenkins 가 보는 클라이언트 IP 가 nginx 의 것이 된다.
+  #   CSRF 토큰에 IP 를 섞으면 로그인·폼 제출이 403 으로 깨진다.
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+
+unclassified:
+  location:
+    # ⚠ 이 값이 틀리면 Jenkins 가 만드는 링크와 GitLab 웹훅 주소가 전부 깨진다.
+    #   nginx 가 /jenkins/ 접두어를 보존해 넘기므로 끝의 슬래시까지 맞춘다.
+    url: "https://j15a202.p.ssafy.io/jenkins/"
+    adminAddress: "${JENKINS_ADMIN_EMAIL}"
+
+  # GitLab 연결. 토큰은 S15P21A202-20 에서 Credentials 로 넣는다.
+  gitLabConnectionConfig:
+    connections:
+      - name: "ssafy-gitlab"
+        url: "https://lab.ssafy.com"
+        clientBuilderId: "autodetect"
+        ignoreCertificateErrors: false
+        connectionTimeout: 10
+        readTimeout: 20
+
+# security: 블록은 두지 않는다.
+#   globalJobDslSecurityConfiguration 을 넣었다가 부팅이 실패했다 —
+#   그건 job-dsl 플러그인의 설정인데 우리는 그 플러그인을 안 쓴다.
+#   JCasC 는 모르는 속성을 만나면 경고가 아니라 기동 실패로 처리한다.
+#     UnknownAttributesException: Invalid configuration elements for type ...
+#
+#   스크립트 보안은 Jenkins 기본값이 이미 켜져 있어 따로 적을 필요가 없다.
+#   여기에 뭔가 추가할 때는 아래로 유효한 속성을 먼저 확인할 것.
+#     docker exec jenkins ... 또는 /jenkins/manage/configuration-as-code/reference
+
+# ── 자격증명 ──────────────────────────────────────────────────
+#
+# ⚠ 값은 여기 없다. 서버의 infra/.env 에서 온다.
+#
+# 기본값을 둔 이유
+#   값이 없을 때 Jenkins 자체가 기동에 실패하면 곤란하다. JCasC 는 못 채운
+#   ${...} 를 만나면 부팅을 멈춘다. 그래서 자리만 잡아두고, 실제 값이
+#   없으면 '클론 단계에서' 실패하게 둔다. 그쪽이 원인을 찾기 쉽다.
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # GitLab 저장소를 clone 할 때 쓴다.
+          # GitLab 프로젝트의 Deploy token (read_repository) 을 넣는다.
+          - usernamePassword:
+              scope: GLOBAL
+              id: "gitlab-repo"
+              username: "${GITLAB_REPO_USER:-not-set}"
+              password: "${GITLAB_REPO_TOKEN:-not-set}"
+              description: "GitLab 저장소 읽기 (Deploy token)"
+
+          # GitLab 웹훅이 자기 신분을 증명할 때 쓰는 값.
+          # 이게 없으면 주소만 아는 사람이 아무나 배포를 돌릴 수 있다.
+          - string:
+              scope: GLOBAL
+              id: "gitlab-webhook-secret"
+              secret: "${GITLAB_WEBHOOK_SECRET:-not-set}"
+              description: "GitLab 웹훅 시크릿 토큰"
+
+# ── 잡 ────────────────────────────────────────────────────────
+#
+# 브라우저에서 「New Item」 을 누르는 대신 여기에 적는다.
+# job-dsl 플러그인이 기동할 때 이 스크립트를 돌려 잡을 만든다.
+#
+# ⚠ UI 에서 이 잡의 설정을 고쳐도 재기동하면 여기 내용으로 돌아간다.
+#   정본은 이 파일이다.
+jobs:
+  # ⚠ '|' 를 쓴다. '>' 로 쓰면 YAML 이 줄바꿈을 공백으로 접어버려서
+  #   Groovy 주석(//) 이 뒤에 오는 코드를 전부 먹어버린다.
+  - script: |
+      pipelineJob('thispatch-deploy') {
+        description('develop 에 push 되면 테스트 → 이미지 → 서버1 배포까지 돌린다. 정의는 저장소의 Jenkinsfile 이다. (S15P21A202-20)')
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://lab.ssafy.com/s15-bigdata-dist-sub1/S15P21A202.git')
+                  credentials('gitlab-repo')
+                }
+                branch('*/develop')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            // lightweight 를 끄면 전체 clone 을 한다.
+            // Jenkinsfile 만 읽는 게 아니라 워크스페이스에 소스가 있어야
+            // 테스트와 빌드를 돌릴 수 있기 때문이다.
+            lightweight(false)
+          }
+        }
+
+        triggers {
+          gitlabPush {
+            buildOnPushEvents(true)
+            // MR 은 돌리지 않는다. 서버가 한 대라 배포는 develop 하나만 본다.
+            buildOnMergeRequestEvents(false)
+            // 커밋 메시지에 [ci-skip] 이 있으면 건너뛴다.
+            enableCiSkip(true)
+            includeBranches('develop')
+          }
+        }
+
+      }
+
+  # 프론트. 백엔드와 다른 잡이다 — 프론트만 바뀌었는데 백엔드까지
+  # 재배포할 이유가 없다. 웹훅도 GitLab 에 따로 하나 더 걸어야 한다.
+  - script: |
+      pipelineJob('thispatch-frontend') {
+        description('develop 에 push 되면 프론트를 빌드해 /var/www/thispatch 에 배포한다. 정의는 frontend/Jenkinsfile 이다. (S15P21A202-20)')
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://lab.ssafy.com/s15-bigdata-dist-sub1/S15P21A202.git')
+                  credentials('gitlab-repo')
+                }
+                branch('*/develop')
+              }
+            }
+            scriptPath('frontend/Jenkinsfile')
+            lightweight(false)
+          }
+        }
+
+        triggers {
+          gitlabPush {
+            buildOnPushEvents(true)
+            buildOnMergeRequestEvents(false)
+            enableCiSkip(true)
+            includeBranches('develop')
+          }
+        }
+      }

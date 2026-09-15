@@ -1,0 +1,13 @@
+dist
+pnpm-lock.yaml
+playwright-report
+test-results
+node_modules
+public/mockServiceWorker.js
+
+# AI 에이전트 규칙·스킬 문서.
+# 우리가 쓴 것이 아니라 받아온 것이라 형식을 우리 규칙에 맞출 이유가 없다.
+# 이걸 빼지 않으면 format:check 가 122개 파일에서 실패해 CI 가 항상 빨간불이다.
+# (2026-09-13 · 프론트 파이프라인 붙이면서 실측)
+.claude/
+.agents/

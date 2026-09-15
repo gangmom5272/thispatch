@@ -64,12 +64,19 @@ $rules = @(
     # spark-defaults.conf 의 driver.port 17177 / driver.blockManager 17210 /
     # blockManager 17240 + port.maxRetries 30
     @{ n = 'spark-driver';       p = '17177-17270' }
+
+    # 마스터 전용 — 11-master-batch-infra.sh 로 깔린 것들.
+    # 워커에도 규칙이 생기지만 그쪽엔 서비스가 없어서 아무 일도 일어나지 않는다.
+    # Spring Batch 원격 파티셔닝에서 워커가 마스터의 이 둘에 붙는다.
+    @{ n = 'batch-postgres';     p = '5432' }   # 배치 메타데이터 DB
+    @{ n = 'batch-rabbitmq';     p = '5672' }   # 작업 분배 (AMQP)
+    @{ n = 'batch-rabbitmq-ui';  p = '15672' }  # 큐 상태를 눈으로 보는 관리 화면
 )
 
 if ($Remove) {
     Write-Host "── 규칙 삭제 ──────────────────────────────────"
     foreach ($r in $rules) {
-        $name = "dispatch-$($r.n)"
+        $name = "thispatch-$($r.n)"
         try {
             Remove-NetFirewallHyperVRule -Name $name -ErrorAction Stop
             Write-Host "  삭제 $name"
@@ -87,7 +94,7 @@ Write-Host ""
 
 $made = 0; $failed = 0
 foreach ($r in $rules) {
-    $name = "dispatch-$($r.n)"
+    $name = "thispatch-$($r.n)"
     # 멱등하게: 있으면 지우고 다시 만든다
     try { Remove-NetFirewallHyperVRule -Name $name -ErrorAction SilentlyContinue } catch {}
     try {
@@ -111,9 +118,23 @@ foreach ($r in $rules) {
 Write-Host ""
 Write-Host "── 확인 ──────────────────────────────────────"
 Get-NetFirewallHyperVRule |
-    Where-Object { $_.Name -like 'dispatch-*' } |
+    Where-Object { $_.Name -like 'thispatch-*' -or $_.Name -like 'dispatch-*' } |
     Select-Object Name, Protocol, LocalPorts, RemoteAddresses, Action |
     Format-Table -AutoSize | Out-String -Width 160 | Write-Host
+
+# ── VM 기본 정책 ──────────────────────────────────
+#
+# ⚠ 규칙만 만들면 안 된다. VM 자체의 기본 정책이 NotConfigured 면
+#   위에서 만든 허용 규칙이 적용되지 않는다. 규칙은 18개 다 생겼는데
+#   포트는 여전히 전부 막혀 있는 상태가 된다. (2026-09-14 실측, 노트북4)
+#
+#   Block 으로 두는 것이 맞다. '전부 막는다' 가 아니라
+#   '기본은 막고, 위에서 연 포트만 통과' 라는 뜻이다.
+$vm = Get-NetFirewallHyperVVMSetting -Name $WSL_VM
+if ($vm.DefaultInboundAction -ne 'Block') {
+    Write-Host ("  기본 정책이 {0} 입니다. Block 으로 바꿉니다." -f $vm.DefaultInboundAction) -ForegroundColor Yellow
+    Set-NetFirewallHyperVVMSetting -Name $WSL_VM -DefaultInboundAction Block -DefaultOutboundAction Allow
+}
 
 Write-Host "── VM 기본 정책 (Block 이어야 정상. 위 규칙만 예외) ──"
 Get-NetFirewallHyperVVMSetting -Name $WSL_VM |
@@ -125,4 +146,14 @@ if ($failed -gt 0) {
     Write-Host "실패한 규칙이 있습니다. 위 오류를 확인하세요." -ForegroundColor Red
     exit 1
 }
-Write-Host "완료. WSL 재시작 없이 즉시 적용됩니다." -ForegroundColor Green
+Write-Host "규칙은 만들어졌습니다." -ForegroundColor Green
+Write-Host ""
+Write-Host "⚠ WSL 을 한 번 껐다 켜야 실제로 적용됩니다." -ForegroundColor Yellow
+Write-Host "  Hyper-V 방화벽 규칙은 가상머신이 '시작할 때' 붙습니다."
+Write-Host "  이미 떠 있는 WSL 에 규칙만 새로 만들면, 목록에는 Enabled=True 로"
+Write-Host "  멀쩡히 보이는데 포트는 여전히 막혀 있습니다. (2026-09-14 실측)"
+Write-Host ""
+Write-Host "  wsl --shutdown; Start-Sleep -Seconds 10; Start-Process wsl -ArgumentList '-e','sleep','infinity' -WindowStyle Hidden"
+Write-Host ""
+Write-Host "  마지막의 숨은 세션은 WSL 을 붙잡아 두는 용도입니다."
+Write-Host "  없으면 마지막 창을 닫고 60 초 뒤에 WSL 이 스스로 꺼집니다."

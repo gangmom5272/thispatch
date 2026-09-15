@@ -8,6 +8,7 @@
 #   ./07-cluster.sh verify     쓰기/읽기 + Spark 잡 실전 검증
 #   ./07-cluster.sh addworker 70.12.xxx.xxx    워커 등록
 #   ./07-cluster.sh setmaster 70.12.xxx.xxx    마스터 IP 변경 (전 노드에서 실행)
+#   ./07-cluster.sh synchosts                  전 노드의 /etc/hosts 를 똑같이 맞춘다
 set -uo pipefail
 
 export HADOOP_HOME=${HADOOP_HOME:-/opt/hadoop}
@@ -33,6 +34,9 @@ format)
     echo "정말 다시 하려면:  rm -rf /data/hdfs/name/* /data/hdfs/data/*  후 재실행"
     exit 1
   fi
+  # ⚠ clusterId 는 thispatch 로 바꾸지 않았다.
+  #   이 값은 NameNode 메타데이터 안에 박혀 있고, 바꾸려면 재포맷해야 한다.
+  #   재포맷은 HDFS 를 통째로 지우는 일이다. 이름 하나 때문에 할 일이 아니다.
   hdfs namenode -format -force -nonInteractive -clusterId dispatch
   echo "완료."
   ;;
@@ -44,7 +48,7 @@ start)
   start-yarn.sh
   banner "HDFS 기본 디렉터리"
   # Spark 이벤트 로그와 사용자 홈은 미리 만들어 둔다
-  hdfs dfs -mkdir -p /spark-logs /user/"$USER" /dispatch/raw /dispatch/curated 2>/dev/null
+  hdfs dfs -mkdir -p /spark-logs /user/"$USER" /thispatch/raw /thispatch/curated 2>/dev/null
   hdfs dfs -chmod -R 777 /spark-logs 2>/dev/null
   hdfs dfs -ls / 2>/dev/null
   echo
@@ -72,18 +76,18 @@ status)
 setmaster)
   # 마스터 IP 는 고정이 아니다. 무선↔유선을 바꾸면 서브넷까지 달라진다
   # (실측: 70.12.246.60/21 → 70.12.108.81/24).
-  # 설정 XML 은 dispatch-master 라는 이름만 쓰므로 /etc/hosts 한 줄만 고치면 된다.
+  # 설정 XML 은 thispatch-master 라는 이름만 쓰므로 /etc/hosts 한 줄만 고치면 된다.
   IP=${2:-}
   if [ -z "$IP" ]; then
     echo "사용법: $0 setmaster 70.12.xxx.xxx" >&2
-    echo "현재: $(getent hosts dispatch-master || echo 등록 없음)" >&2
+    echo "현재: $(getent hosts thispatch-master || echo 등록 없음)" >&2
     exit 1
   fi
   banner "마스터 주소 변경"
-  echo "  이전: $(getent hosts dispatch-master | tr -s " " | cut -d" " -f1 || echo 없음)"
-  sudo sed -i "/dispatch-master/d" /etc/hosts
-  echo "$IP dispatch-master" | sudo tee -a /etc/hosts >/dev/null
-  echo "  이후: $(getent hosts dispatch-master | tr -s " " | cut -d" " -f1)"
+  echo "  이전: $(getent hosts thispatch-master | tr -s " " | cut -d" " -f1 || echo 없음)"
+  sudo sed -i "/thispatch-master/d" /etc/hosts
+  echo "$IP thispatch-master" | sudo tee -a /etc/hosts >/dev/null
+  echo "  이후: $(getent hosts thispatch-master | tr -s " " | cut -d" " -f1)"
 
   # WSL 이 부팅마다 /etc/hosts 를 새로 만들면 이 항목이 사라진다
   if ! grep -q "generateHosts" /etc/wsl.conf 2>/dev/null; then
@@ -136,7 +140,7 @@ generateResolvConf = true
     done
   fi
   echo
-  echo "  데몬 재시작:  sudo systemctl restart dispatch-cluster.target"
+  echo "  데몬 재시작:  sudo systemctl restart thispatch-cluster.target"
   ;;
 
 addworker)
@@ -152,8 +156,8 @@ addworker)
   echo
   # Docker Desktop 이 깔린 노트북은 자기 IP 가 host.docker.internal 로
   # 역방향 조회되어 NodeManager 가 그 이름으로 등록한다. 워커 쪽에서
-  # dispatch-w<마지막 옥텟> 으로 덮으므로 마스터도 그 이름을 알아야 한다.
-  NODE_NAME="dispatch-w${IP##*.}"
+  # thispatch-w<마지막 옥텟> 으로 덮으므로 마스터도 그 이름을 알아야 한다.
+  NODE_NAME="thispatch-w${IP##*.}"
   if grep -qE "^${IP}[[:space:]]+${NODE_NAME}$" /etc/hosts 2>/dev/null; then
     echo "  /etc/hosts: $NODE_NAME 이미 있음"
   else
@@ -174,30 +178,88 @@ addworker)
     echo
     cat ~/.ssh/id_ed25519.pub
   fi
+  echo
+  echo "⚠ 이 노드에만 이름을 넣었습니다. 다른 워커들은 아직 이 이름을 모릅니다."
+  echo "  ./07-cluster.sh synchosts 를 이어서 돌리세요."
+  ;;
+
+synchosts)
+  # 전 노드의 /etc/hosts 를 workers 파일 기준으로 똑같이 맞춘다.
+  #
+  # 왜 필요한가
+  #   YARN 은 NodeManager 가 '자기 IP 를 역으로 조회한 이름' 으로 등록한다.
+  #   노드마다 /etc/hosts 가 달라서 어떤 노드는 이름으로, 어떤 노드는 IP 로
+  #   등록된다. 이름으로 등록한 노드의 이름을 모르는 노드에 AM 이 뜨면
+  #   컨테이너 실행이 UnknownHostException 으로 실패하고, 잡이 50% 에서
+  #   영원히 멈춘다. (2026-09-14 실측 — dispatch-w103 을 못 찾았다)
+  #
+  #   호스트명(DESKTOP-MR7IIH9)은 5대 중 4대가 겹쳐서 쓸 수 없다.
+  #   그래서 IP 에서 만든 고유한 이름을 5대에 똑같이 깐다.
+  W=$HADOOP_CONF_DIR/workers
+  MASTER_IP=$(getent hosts thispatch-master | awk '{print $1}')
+  [ -n "$MASTER_IP" ] || { echo "thispatch-master 를 못 찾습니다." >&2; exit 1; }
+
+  TBL=$(mktemp)
+  {
+    echo "# === thispatch 클러스터 (전 노드 동일) — 07-cluster.sh synchosts 가 관리 ==="
+    echo "$MASTER_IP   thispatch-master"
+    grep -oE '^[0-9]+(\.[0-9]+){3}' "$W" | sort -u | while read -r ip; do
+      [ "$ip" = "$MASTER_IP" ] && continue
+      echo "$ip   thispatch-w${ip##*.}"
+    done
+  } > "$TBL"
+  echo "── 깔 표 ─────────────────────────────────────────"
+  sed 's/^/  /' "$TBL"
+
+  PUSH=$(mktemp)
+  {
+    echo 'set -e'
+    echo 'sudo cp /etc/hosts /etc/hosts.bak-synchosts'
+    # 우리가 관리하는 줄만 지운다. 다른 항목은 건드리지 않는다.
+    echo "sudo sed -i '/thispatch-/d; /=== thispatch 클러스터/d' /etc/hosts"
+    echo "sudo tee -a /etc/hosts >/dev/null <<'HOSTSEOF'"
+    cat "$TBL"
+    echo "HOSTSEOF"
+    echo 'echo "  $(hostname -I | awk "{print \$1}") 적용"'
+  } > "$PUSH"
+
+  echo
+  echo "── 배포 ─────────────────────────────────────────"
+  bash "$PUSH"
+  grep -oE '^[0-9]+(\.[0-9]+){3}' "$W" | sort -u | while read -r ip; do
+    [ "$ip" = "$MASTER_IP" ] && continue
+    if ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$ip" "bash -s" < "$PUSH" 2>/dev/null; then :
+    else echo "  $ip 실패 — 이 노드는 손으로 맞춰야 합니다"; fi
+  done
+  rm -f "$TBL" "$PUSH"
+
+  echo
+  echo "⚠ NodeManager 를 다시 띄워야 새 이름으로 등록합니다."
+  echo "  sudo systemctl restart yarn-nodemanager   (전 노드)"
   ;;
 
 verify)
   banner "1. HDFS 쓰기/읽기"
-  T=/tmp/dispatch-verify-$$.txt
+  T=/tmp/thispatch-verify-$$.txt
   # 블록 경계를 넘기려면 파일이 커야 의미가 있다. 64MB 를 만든다.
   head -c 64M /dev/urandom | base64 > "$T"
   SRC_SUM=$(sha256sum "$T" | cut -d" " -f1)
   SRC_SZ=$(stat -c %s "$T")
   echo "  원본 $((SRC_SZ/1048576))MB  sha256 ${SRC_SUM:0:16}..."
 
-  hdfs dfs -rm -f -skipTrash /dispatch/verify.txt >/dev/null 2>&1
-  if ! hdfs dfs -put "$T" /dispatch/verify.txt; then
+  hdfs dfs -rm -f -skipTrash /thispatch/verify.txt >/dev/null 2>&1
+  if ! hdfs dfs -put "$T" /thispatch/verify.txt; then
     echo "  쓰기 실패"; rm -f "$T"; exit 1
   fi
   echo "  쓰기 성공"
   # -stat 포맷 문자열에 한글을 넣으면 깨진다. 영문으로 받아서 붙인다.
-  echo "  $(hdfs dfs -stat "size=%b repl=%r block=%o" /dispatch/verify.txt)"
+  echo "  $(hdfs dfs -stat "size=%b repl=%r block=%o" /thispatch/verify.txt)"
 
-  DST_SUM=$(hdfs dfs -cat /dispatch/verify.txt | sha256sum | cut -d" " -f1)
+  DST_SUM=$(hdfs dfs -cat /thispatch/verify.txt | sha256sum | cut -d" " -f1)
   echo "  읽기 sha256 ${DST_SUM:0:16}..."
   if [ "$SRC_SUM" = "$DST_SUM" ]; then echo "  ✔ 무손실 왕복"; else echo "  ✘ 내용 불일치"; fi
   echo "  블록 배치:"
-  hdfs fsck /dispatch/verify.txt -files -blocks -locations 2>/dev/null | grep -E "^0\.|len=" | head -5 | sed "s/^/    /"
+  hdfs fsck /thispatch/verify.txt -files -blocks -locations 2>/dev/null | grep -E "^0\.|len=" | head -5 | sed "s/^/    /"
   rm -f "$T"
 
   banner "2. YARN MapReduce (pi)"
@@ -219,11 +281,11 @@ verify)
   # 그래서 HDFS 파티션은 날짜(stat_date)로만 잡고 voted_up 은 일반 컬럼으로 둔다.
   cat > /tmp/pq-$$.py <<"PYEOF"
 from pyspark.sql import SparkSession, functions as F
-s = SparkSession.builder.appName("dispatch-verify-parquet").getOrCreate()
+s = SparkSession.builder.appName("thispatch-verify-parquet").getOrCreate()
 df = s.range(0, 2_000_000).withColumn("appid", (F.col("id") % 74000).cast("bigint")) \
       .withColumn("voted_up", (F.col("id") % 3 != 0)) \
       .withColumn("stat_date", F.date_add(F.lit("2026-09-01").cast("date"), (F.col("id") % 14).cast("int")))
-p = "hdfs://dispatch-master:9000/dispatch/verify_parquet"
+p = "hdfs://thispatch-master:9000/thispatch/verify_parquet"
 df.write.mode("overwrite").partitionBy("stat_date").parquet(p)
 back = s.read.parquet(p)
 print("PARQUET_SCHEMA", back.schema.simpleString())
@@ -239,7 +301,7 @@ PYEOF
   rm -f /tmp/pq-$$.py
 
   banner "5. 정리"
-  hdfs dfs -rm -f -r -skipTrash /dispatch/verify.txt /dispatch/verify_parquet >/dev/null 2>&1
+  hdfs dfs -rm -f -r -skipTrash /thispatch/verify.txt /thispatch/verify_parquet >/dev/null 2>&1
   echo "  임시 데이터 삭제"
   ;;
 

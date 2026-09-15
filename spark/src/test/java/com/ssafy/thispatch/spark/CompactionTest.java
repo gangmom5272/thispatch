@@ -109,6 +109,41 @@ class CompactionTest {
     }
 
     @Test
+    @DisplayName("지난 세대만 지우고 방금 밀어낸 base 는 남긴다")
+    void keepsTheNewestRetiredBase() throws IOException {
+        // 행 수는 맞는데 내용이 잘못된 경우는 세는 것으로 못 잡는다.
+        // 그때 손으로 되돌릴 한 벌이 있어야 한다.
+        touch("base.old-100/part.parquet");   // 지난주 것
+        touch("base.old-200/part.parquet");   // 지지난주 것
+        touch("base.old-300/part.parquet");   // 방금 만든 것
+        Path keep = new Path(root, "base.old-300");
+
+        int swept = Compaction.sweepOldBases(fs, keep);
+
+        assertEquals(2, swept);
+        assertTrue(fs.exists(keep), "방금 밀어낸 base 까지 지웠다");
+        assertFalse(fs.exists(new Path(root, "base.old-100")));
+        assertFalse(fs.exists(new Path(root, "base.old-200")));
+    }
+
+    @Test
+    @DisplayName("base.old 정리가 base 나 다른 폴더를 건드리지 않는다")
+    void sweepDoesNotTouchAnythingElse() throws IOException {
+        touch("base/part.parquet");
+        touch("delta/dt=2026-09-16/part.parquet");
+        touch("base.staging-1/part.parquet");
+        touch("base.old-100/part.parquet");
+        Path keep = new Path(root, "base.old-999");
+
+        Compaction.sweepOldBases(fs, keep);
+
+        assertTrue(fs.exists(new Path(root, "base/part.parquet")), "base 를 건드렸다");
+        assertTrue(fs.exists(new Path(root, "delta/dt=2026-09-16")), "delta 를 건드렸다");
+        assertTrue(fs.exists(new Path(root, "base.staging-1")), "staging 을 건드렸다");
+        assertFalse(fs.exists(new Path(root, "base.old-100")));
+    }
+
+    @Test
     @DisplayName("새 base 올리기에 실패하면 옛 base 를 되돌릴 수 있다")
     void canRollBackWhenPromotionFails() throws IOException {
         touch("base/part-old.parquet");

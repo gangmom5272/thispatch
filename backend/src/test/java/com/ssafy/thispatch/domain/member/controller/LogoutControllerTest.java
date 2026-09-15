@@ -144,7 +144,7 @@ class LogoutControllerTest {
 			tokens.issueAccessToken(MEMBER_ID), past.issueRefreshToken(MEMBER_ID),
 			forged.issueRefreshToken(MEMBER_ID))) {
 			var result = assertError(request(mapper.writeValueAsString(Map.of("refreshToken", refresh))),
-				401, "REFRESH_TOKEN_INVALID", "유효하지 않은 Refresh Token입니다.", false)
+				401, "LOGOUT_TOKEN_INVALID", "유효하지 않은 Refresh Token입니다.", false)
 				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer")).andReturn();
 			assertThat(result.getResponse().getContentAsString()).doesNotContain(refresh);
 		}

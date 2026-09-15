@@ -33,10 +33,25 @@
 }
 ```
 
+**Processing Rules / Notes**
+
+- Path Variable, Query Parameter, Request Body는 없다.
+- `tag` 테이블 전체를 반환한다. `game_tag` 연결 여부로 필터링하지 않는다.
+- `tag.tag_id`를 `items[].id`(int), `tag.name_ko`를 `items[].name`(string)으로 매핑한다. 두 필드는 null이 아니다.
+- `tag_id` 오름차순으로 반환하며 pagination은 적용하지 않는다.
+- 조회 결과가 없으면 `200`과 `data.items: []`를 반환한다.
+- 장르 DB 조회 및 해당 읽기 트랜잭션의 시작·종료 실패는 `503 GENRE_LIST_UNAVAILABLE`로 반환한다.
+- 인증 단계의 회원 상태 조회 장애와 예상하지 못한 코드 오류는 기존 공통 `500 INTERNAL_SERVER_ERROR`로 처리한다.
+
 **Error Responses**
 
-- `401`: 인증 필요
-- `503`: 장르 목록 조회 불가
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `503` | `GENRE_LIST_UNAVAILABLE` | 장르 목록을 조회할 수 없습니다. | 장르 DB 조회·트랜잭션 실패 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | 인증 단계의 DB 장애 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다.
 
 ## 게임 목록 조회
 

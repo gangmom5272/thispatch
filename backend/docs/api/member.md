@@ -438,9 +438,24 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 
 **Error Responses**
 
-- `400`: Refresh Token 누락
-- `401`: Refresh Token 무효 또는 만료
-- `500`: 서버 내부 오류
+- `400`: 필드 누락·null·빈 문자열·공백만 있는 값 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`). 필드 오류의 `field`는 `refreshToken`, `message`는 `Refresh Token을 입력해주세요.`다.
+- `400`: 잘못된 JSON·요청 본문 누락·문자열이 아닌 필드 값 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
+- `401`: Refresh Token 무효·만료·미저장·교체·폐기·소유자 또는 저장 만료 시각 불일치 (`REFRESH_TOKEN_INVALID`, `토큰 재발급을 위해 다시 로그인해주세요.`)
+- `401`: 회원 부재 또는 `status != ACTIVE` (`MEMBER_INACTIVE`, `토큰을 재발급할 수 없는 회원입니다.`)
+- `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
+
+**Processing Rules / Notes**
+
+1. `refreshToken`은 필수 `string`이며 Request Body에서만 읽는다. Authorization 헤더는 검사하지 않으며 회원 ID를 요청으로 받지 않는다.
+2. JWT 서명·Refresh 용도·필수 claim·만료를 검증한다. 실패하면 회원 조회 없이 `401 REFRESH_TOKEN_INVALID`를 반환한다.
+3. 검증된 JWT의 회원 ID로 회원을 조회한다. 회원이 없으면 `401 MEMBER_INACTIVE`를 반환한다.
+4. 해당 회원의 현재 저장 해시·만료 시각을 대조한다. 미저장·교체·폐기·불일치는 회원 상태보다 먼저 `401 REFRESH_TOKEN_INVALID`로 처리한다. 다른 회원 행에 저장된 토큰은 사용할 수 없다.
+5. 저장값이 일치하더라도 `status != ACTIVE`이면 `401 MEMBER_INACTIVE`를 반환한다. 로그인 유형과 닉네임 설정 여부는 제한하지 않는다.
+6. 검증을 통과한 회원 ID로 새 Access Token을 발급해 `data.accessToken`만 반환한다. Refresh Token은 교체·폐기하지 않으며 저장 만료 시각도 연장하지 않는다.
+
+- 두 `401` 오류는 공통 오류 응답 및 `WWW-Authenticate: Bearer` 헤더를 사용한다. 토큰·회원 상태값·내부 예외 상세는 응답에 포함하지 않는다.
+- DB 조회·트랜잭션·발급 장애를 토큰 오류로 바꾸지 않고 공통 `500`으로 처리한다.
+- 새 schema/migration은 필요하지 않다. 기존 Refresh Token 저장 정책과 JWT 발급 설정을 재사용한다.
 
 ## 로그아웃
 

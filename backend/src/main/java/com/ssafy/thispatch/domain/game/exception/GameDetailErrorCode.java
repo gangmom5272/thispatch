@@ -1,0 +1,23 @@
+package com.ssafy.thispatch.domain.game.exception;
+
+import org.springframework.http.HttpStatus;
+
+import com.ssafy.thispatch.global.exception.ErrorCode;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
+public enum GameDetailErrorCode implements ErrorCode {
+
+	GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없습니다.");
+
+	private final HttpStatus status;
+	private final String message;
+
+	@Override
+	public String getCode() {
+		return name();
+	}
+}

@@ -1,0 +1,10 @@
+# AI 노드 (Windows py313 또는 WSL). torch는 CUDA 빌드로 환경에 맞춰 별도 설치
+sentence-transformers>=3.0
+transformers>=4.45
+scikit-learn>=1.5
+pyarrow>=17
+pandas>=2.2
+httpx>=0.27
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.8

@@ -39,6 +39,15 @@ public class GameCatalogReader {
     private static final String SQL =
             "SELECT appid FROM game WHERE store_review_count > 0 ORDER BY appid";
 
+    /**
+     * 공지 수집용 — 리뷰 수 조건을 걸지 않는다.
+     *
+     * <p>⚠ 리뷰와 기준이 다르다. 리뷰는 리뷰가 0개면 받을 것이 없지만, 공지는
+     * <b>리뷰가 없어도 있을 수 있다.</b> 출시 직후라 아직 리뷰는 없는데 패치 공지만
+     * 올라온 게임이 그렇다. 여기서 걸러 버리면 그 게임의 패치 이력을 통째로 놓친다.
+     */
+    private static final String SQL_ALL = "SELECT appid FROM game ORDER BY appid";
+
     private final String url;
     private final String user;
     private final String password;
@@ -49,7 +58,17 @@ public class GameCatalogReader {
         this.password = password;
     }
 
+    /** 리뷰 수집 대상 — 리뷰가 하나라도 있는 게임. */
     public List<Long> targetAppids() {
+        return query(SQL, "수집 대상");
+    }
+
+    /** 공지 수집 대상 — 게임 전체. */
+    public List<Long> allAppids() {
+        return query(SQL_ALL, "게임");
+    }
+
+    private List<Long> query(String sql, String what) {
         Properties props = new Properties();
         props.setProperty("user", user);
         props.setProperty("password", password);
@@ -60,7 +79,7 @@ public class GameCatalogReader {
 
         List<Long> out = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(url, props);
-             PreparedStatement ps = conn.prepareStatement(SQL);
+             PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 out.add(rs.getLong(1));
@@ -72,7 +91,7 @@ public class GameCatalogReader {
         }
         if (out.isEmpty()) {
             throw new IllegalStateException(
-                    "game 테이블에 수집 대상이 없습니다. 카탈로그를 먼저 채우세요:"
+                    "game 테이블에 " + what + "이 없습니다. 카탈로그를 먼저 채우세요:"
                             + " infra/scripts/21-catalog.sh now");
         }
         return out;

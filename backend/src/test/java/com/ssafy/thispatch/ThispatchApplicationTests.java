@@ -45,11 +45,12 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V5, each applied exactly once").hasSize(5);
-		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4", "5");
+		assertThat(history).as("V1 through V6, each applied exactly once").hasSize(6);
+		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4", "5", "6");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
-				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql");
+				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
+				"V6__add_member_email_unique.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -76,6 +77,10 @@ class ThispatchApplicationTests {
 	}
 
 	private void assertConstraints(JdbcTemplate jdbc) {
+		assertThat(jdbc.queryForObject("""
+			SELECT pg_get_constraintdef(oid) FROM pg_constraint
+			WHERE conrelid = 'public.member'::regclass AND conname = 'uk_member_email' AND convalidated
+			""", String.class)).isEqualTo("UNIQUE (email)");
 		var constraints = jdbc.queryForList("""
 			SELECT t.relname AS table_name, c.conname, c.contype::text AS kind,
 			       pg_get_constraintdef(c.oid) AS definition, c.convalidated

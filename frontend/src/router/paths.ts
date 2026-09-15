@@ -5,6 +5,7 @@ export const paths = {
   gameDetailPattern: "/games/:gameId",
   gamePlanPattern: "/games/:gameId/plan",
   gameCasesPattern: "/games/:gameId/cases",
+  gameCaseDetailPattern: "/games/:gameId/cases/:patchId",
   methodology: "/methodology",
   login: "/login",
   signup: "/signup",
@@ -48,6 +49,10 @@ export function gameDetailTabPath(gameId: string | number, tab: GameDetailTab): 
 
 export function gameCasesPath(gameId: string | number): string {
   return `/games/${gameId}/cases`
+}
+
+export function gameCaseDetailPath(gameId: string | number, patchId: string): string {
+  return `/games/${gameId}/cases/${patchId}`
 }
 
 /** Nested route segment under `/` (leading slash removed). */

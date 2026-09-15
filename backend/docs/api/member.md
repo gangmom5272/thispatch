@@ -478,7 +478,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 - `400`: 필드 검증 실패 (`VALIDATION_FAILED`), 잘못된 JSON·요청 본문 누락 (`INVALID_REQUEST`). 코드·메시지는 공통 오류 계약을 따른다.
 - `401`: Access Token 인증 필요·무효·만료. Security에서 인증된 사용자가 없는 경우 `UNAUTHORIZED`, `인증이 필요합니다.`를 반환한다.
 - `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
-- Refresh Token 소유자 불일치·검증 불가 시 오류 상태 코드·메시지는 미정이다. 다른 사용자의 토큰을 무효화해서는 안 된다.
+- `401`: Refresh Token 소유자 불일치·무효·만료 (`REFRESH_TOKEN_INVALID`, `유효하지 않은 Refresh Token입니다.`). 원인을 구분하지 않으며 `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다. 다른 사용자의 토큰을 무효화해서는 안 된다.
 
 **Processing Rules / Notes — 구현 메모**
 
@@ -490,7 +490,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 - 유효한 Access Token과 소유자 확인을 전제로, 이미 해당 Refresh Token이 무효화된 경우에도 성공하도록 멱등하게 처리한다.
 - 폐기 이력을 보관하지 않으므로 반복 요청의 소유자는 서명·용도·만료 검증을 통과한 JWT의 회원 ID와 현재 인증된 회원 ID를 비교해 확인한다.
 - 위 검증을 통과하고 소유자가 같으면 저장값이 이미 없거나 다른 토큰으로 교체되었어도 성공한다. 과거 토큰으로 새 로그인 토큰을 폐기하지 않는다. 미저장 토큰과 폐기된 토큰의 이력은 구분하지 않는다.
-- 만료된 Refresh Token은 기존 JWT 검증에서 `EXPIRED`로 구분된다. 이를 포함한 로그아웃 검증 실패의 HTTP 상태·코드·메시지는 위 미정 오류 정책을 따른다.
+- 만료된 Refresh Token은 기존 JWT 검증에서 `EXPIRED`로 구분되지만, 로그아웃 응답에서는 소유자 불일치·무효와 동일한 `401 REFRESH_TOKEN_INVALID`로 처리한다. 검증에 실패하면 저장된 토큰은 변경하지 않는다.
 
 ## 회원탈퇴
 
@@ -564,7 +564,3 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 - 소비 후 회원 확인·토큰 발급·저장에 실패하더라도 코드를 복구하지 않는다. DB 트랜잭션 롤백도 Redis 소비를 되돌리지 않으며 사용자는 Steam 로그인을 다시 시작한다. 소비 응답 유실로 결과가 불명확한 경우도 코드를 복구하지 않는다.
 - PostgreSQL schema/migration 변경은 없다. Redis 재시작·데이터 유실로 코드가 사라지면 Steam 로그인을 다시 시작한다.
 - 이 정책의 코드 관리 기반은 S15P21A202-135에서 제공하며, 콜백·토큰 교환 API 연결은 후속 이슈에서 구현한다.
-
-## 미정 정책
-
-- 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

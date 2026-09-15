@@ -429,11 +429,11 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 
 - PostgreSQL의 `member.refresh_token_hash`, `member.refresh_token_expires_at`에 회원당 현재 Refresh Token 하나만 저장한다. 토큰 원문 대신 SHA-256 해시를 보관한다.
 - 자체 로그인·회원가입 및 Steam 로그인 토큰 교환에서 발급된 토큰을 저장할 때 기존 값을 대체한다. 이전 Refresh Token은 더 이상 재발급에 사용할 수 없다. Steam 최초 닉네임 설정에서는 토큰을 발급하거나 교체하지 않는다.
-- 동시 로그인 제한은 Refresh Token 기준이다. 기존 Access Token은 만료까지 유효하며 즉시 차단하지 않는다.
+- 동시 로그인 제한은 Refresh Token 기준이다. ACTIVE 회원의 기존 Access Token은 만료까지 유효하다. 탈퇴 완료 후에는 보호 API의 회원 상태 검사로 즉시 인증을 거부한다.
 - Rotation은 사용하지 않는다. `POST /auth/refresh`는 현재 Refresh Token을 유지하고 기존 계약대로 새 Access Token만 반환한다.
 - 재발급 검증은 기존 JWT 검증(서명·용도·필수 claim·만료) 후 JWT 회원 ID로 조회한 회원의 저장 해시와 만료 시각을 대조한다. 미저장·교체·폐기된 토큰은 사용할 수 없다.
 - 폐기는 해당 회원의 현재 저장 해시가 전달된 토큰과 일치할 때 두 컬럼을 `NULL`로 바꾼다. 폐기 이력·기기 정보·token family는 보관하지 않으며 재사용 탐지에 따른 연관 토큰 폐기도 하지 않는다.
-- 회원 상태는 조회할 수 있지만 상태별 인증 허용 여부는 후속 API 정책에서 결정한다.
+- Refresh Token 저장은 `status = ACTIVE`인 회원만 허용하는 조건부 UPDATE를 사용한다. 탈퇴와 경합해도 탈퇴 완료 후 토큰이 다시 저장되지 않는다. 로그인·Steam 토큰 교환 중 탈퇴로 저장이 거부되면 각각 기존 `401 LOGIN_FAILED`, `401 STEAM_LOGIN_CODE_INVALID`를 반환한다.
 
 ### `POST /auth/refresh`
 
@@ -528,7 +528,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 2. 전달된 Refresh Token이 해당 사용자에게 발급된 토큰인지 확인한다.
 3. 회원 ID와 토큰 해시가 모두 일치하는 현재 저장값만 제거한다.
 
-- Access Token blacklist는 사용하지 않는다. 기존 Access Token은 만료 시점까지 유효하며 자연 만료된다.
+- Access Token blacklist는 사용하지 않는다. 로그아웃만 한 ACTIVE 회원의 기존 Access Token은 만료 시점까지 유효하며 자연 만료된다. 탈퇴 회원은 회원 상태 검사로 보호 API 인증을 거부한다.
 - 유효한 Access Token과 소유자 확인을 전제로, 이미 해당 Refresh Token이 무효화된 경우에도 성공하도록 멱등하게 처리한다.
 - 폐기 이력을 보관하지 않으므로 반복 요청의 소유자는 서명·용도·만료 검증을 통과한 JWT의 회원 ID와 현재 인증된 회원 ID를 비교해 확인한다.
 - 위 검증을 통과하고 소유자가 같으면 저장값이 이미 없거나 다른 토큰으로 교체되었어도 성공한다. 과거 토큰으로 새 로그인 토큰을 폐기하지 않는다. 미저장 토큰과 폐기된 토큰의 이력은 구분하지 않는다.
@@ -557,12 +557,20 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 
 **Error Responses**
 
-- `401`: 인증 필요
-- `500`: 서버 내부 오류
+- `401`: Access Token 누락·무효·만료, 회원 부재 또는 `status != ACTIVE` (이미 탈퇴한 회원의 반복 요청 포함). `UNAUTHORIZED`, `인증이 필요합니다.`와 `WWW-Authenticate: Bearer` 헤더를 반환한다.
+- `500`: DB 접근·갱신·트랜잭션 실패 등 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
 
 **Processing Rules / Notes — 구현 메모**
 
-현재 DB 구조에서는 물리 삭제보다 `member.status`를 탈퇴 상태로 변경하는 soft withdrawal을 기본 방향으로 본다.
+1. Authorization Bearer Access Token의 회원 ID로 현재 회원만 처리한다. Path Variable·Query Parameter·Request Body로 회원 ID나 Refresh Token을 받지 않는다.
+2. `status = ACTIVE`인 회원만 탈퇴할 수 있다. 로그인 유형과 닉네임 설정 여부는 제한하지 않는다.
+3. 하나의 조건부 UPDATE와 DB 트랜잭션으로 `status = WITHDRAWN`, `updated_at = 탈퇴 처리 시각`, `refresh_token_hash = NULL`, `refresh_token_expires_at = NULL`을 함께 반영한다. 토큰이 없거나 만료·교체된 상태여도 탈퇴할 수 있다.
+4. 회원 행과 이메일·비밀번호 해시·Steam ID·닉네임·생성 시각 및 내 게임 등 연관 데이터는 보존한다. 물리 삭제·익명화·새 schema/migration은 수행하지 않는다.
+5. 트랜잭션 커밋까지 성공한 경우에만 위 `200` 응답을 반환한다. 성공 응답에 `data` 필드를 추가하지 않는다. 실패 시 상태와 토큰 변경을 모두 롤백하고 공통 `500`을 반환한다.
+6. 탈퇴가 커밋된 뒤의 보호 API 인증은 기존 Access Token의 만료 여부와 관계없이 `401 UNAUTHORIZED`로 거부한다. 모든 기기에 동일하게 적용하며 blacklist는 사용하지 않는다. 이미 상태 검사를 통과한 진행 중 요청을 취소하지는 않는다.
+7. 반복·동시 탈퇴는 한 요청만 상태를 변경해 `200`을 반환하고 나머지는 `401`이다. 회원 부재·기타 비활성 상태도 `401`이며 저장값과 탈퇴 시각을 변경하지 않는다.
+8. 탈퇴 후 `/session`은 기존 계약대로 `200`, `authenticated=false`, `user=null`이다. 자체 로그인은 `401 LOGIN_FAILED`, 제거된 Refresh Token의 갱신은 `401 REFRESH_TOKEN_INVALID`, 남은 Steam 로그인 코드의 토큰 교환은 `401 STEAM_LOGIN_CODE_INVALID`로 거부한다. Redis 로그인 코드는 별도 탐색·삭제하지 않고 기존 소비·TTL 정책을 유지한다.
+9. 기존 재가입 금지 정책을 유지한다. 같은 이메일의 자체 회원가입은 `409 EMAIL_ALREADY_REGISTERED`이고, 같은 Steam ID의 콜백은 기존 실패 Redirect를 사용한다. 계정을 자동 복구·병합하거나 새로 만들지 않는다.
 
 ## Redirect URL 설정
 

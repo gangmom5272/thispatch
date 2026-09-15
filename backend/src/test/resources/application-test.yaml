@@ -31,3 +31,6 @@ app:
     secret: dGVzdC1vbmx5LWp3dC1zZWNyZXQtbmV2ZXItdXNlLWluLXByb2Q=
     access-token-ttl: 15m
     refresh-token-ttl: 7d
+  steam:
+    login-code:
+      ttl: 5m

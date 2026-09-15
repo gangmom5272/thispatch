@@ -537,11 +537,23 @@ BACKEND_PUBLIC_URL=https://thispatch.com/api
 - 프론트 복귀 주소는 `FRONTEND_BASE_URL`에 각 API의 경로를 조합한다.
 - Access Token과 Refresh Token은 Redirect URL에 포함하지 않으며, Steam 로그인 토큰 교환 성공 시 Response Body로 반환한다.
 
+## Steam 로그인 코드 관리 정책
+
+- 기본 TTL은 5분이며 `STEAM_LOGIN_CODE_TTL` 환경변수로 조정한다. 설정 경로는 `app.steam.login-code.ttl`이고 양의 정수 초 단위 Duration을 사용한다.
+- `SecureRandom`으로 생성한 32바이트 난수를 패딩 없는 Base64 URL 형식(43자)으로 인코딩한다. JWT나 `signupToken`은 사용하지 않는다.
+- Redis 키는 `thispatch:auth:steam:login-code:{SHA-256(loginCode)}`, 값은 회원 ID다. 코드 원문은 저장하거나 로그에 남기지 않는다.
+- 발급 시 코드 해시·회원 ID·TTL을 `SET NX`로 함께 저장한다. 충돌하면 기존 코드와 TTL을 유지하고 새 난수로 재시도한다.
+- 코드 관리 기반은 이미 저장된 회원 ID를 받는다. 회원 존재·상태 확인은 호출 API가 담당하며, 신규 회원 생성이 커밋된 후 코드를 발급해야 한다.
+- 소비 없는 검증은 TTL을 연장하지 않는다. 검증 성공은 이후 소비를 예약하거나 보장하지 않는다.
+- 토큰 교환 시 반드시 `GETDEL`로 원자적으로 소비해 얻은 회원 ID를 사용한다. 동시에 요청해도 한 건만 코드를 소비할 수 있다.
+- 무효·만료·이미 사용된 코드는 `401 STEAM_LOGIN_CODE_INVALID`로 동일하게 처리한다. Redis 장애는 코드 무효로 바꾸지 않고 공통 `500 INTERNAL_SERVER_ERROR`로 처리한다.
+- 소비 후 회원 확인·토큰 발급·저장에 실패하더라도 코드를 복구하지 않는다. DB 트랜잭션 롤백도 Redis 소비를 되돌리지 않으며 사용자는 Steam 로그인을 다시 시작한다. 소비 응답 유실로 결과가 불명확한 경우도 코드를 복구하지 않는다.
+- PostgreSQL schema/migration 변경은 없다. Redis 재시작·데이터 유실로 코드가 사라지면 Steam 로그인을 다시 시작한다.
+- 이 정책의 코드 관리 기반은 S15P21A202-135에서 제공하며, 콜백·토큰 교환 API 연결은 후속 이슈에서 구현한다.
+
 ## 미정 정책
 
 - 닉네임 상세 검증 규칙: 미정.
-- `loginCode`의 정확한 TTL: 미정. 짧은 수명의 1회용 코드로 사용한다.
-- `loginCode`의 저장소·생성·저장 방식 및 소비 후 토큰 교환 실패 시 처리 정책: 미정.
 - 최초 닉네임 설정 시 회원 부재·탈퇴 상태·STEAM 이외 회원 요청의 처리 정책과 도메인 오류 응답: 미정.
 - 탈퇴한 Steam 계정의 재가입 정책: 미정.
 - 로그아웃의 Refresh Token 소유자 불일치·검증 불가 오류의 상태 코드·메시지: 미정.

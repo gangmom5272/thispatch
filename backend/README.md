@@ -153,7 +153,38 @@ try {
 
 macOS/Linux에서는 `REDIS_INTEGRATION_TEST=true ../gradlew :backend:test --tests '*RedisConnectionIntegrationTest' --rerun-tasks`로 실행합니다.
 
-`loginCode`의 저장·TTL·일회성 소비는 Steam 인증 API 구현 시 연결합니다.
+### Steam 로그인 코드 관리 기반
+
+`domain.member.service.SteamLoginCodeService`는 Redis에 로그인 코드 해시와 회원 ID를 저장합니다. 기본 TTL은 5분이며 `STEAM_LOGIN_CODE_TTL`로 조정합니다. 0·음수·초 미만의 TTL은 시작 시 거부합니다. PostgreSQL migration은 추가하지 않습니다.
+
+| 메서드 | 후속 API 사용 방법 |
+| --- | --- |
+| `issue(memberId)` | Steam 인증과 회원 저장 커밋 후 호출해 32바이트 난수 기반 코드 원문을 받습니다. 반환 코드를 프론트 콜백에 전달하고 로깅하지 않습니다. |
+| `validate(loginCode)` | 소비 없이 유효한 코드의 회원 ID를 조회합니다. TTL을 늘리지 않으며 이후 소비 성공을 보장하지 않습니다. |
+| `consume(loginCode)` | `GETDEL`로 조회·삭제를 원자적으로 수행하고 회원 ID를 받습니다. 토큰 교환에는 이 메서드의 반환값을 사용합니다. |
+
+- 코드는 JWT와 별개이며 일반 API 인증에 사용할 수 없습니다. 회원 존재·상태 확인, 회원 생성, JWT 발급·저장, Controller는 후속 이슈의 범위입니다.
+- Redis 6.2 이상의 `GETDEL`이 필요합니다. 로컬 Compose의 Redis 8.2에서 사용할 수 있습니다.
+- 무효·만료·이미 소비된 코드는 `BusinessException(STEAM_LOGIN_CODE_INVALID)`로 공통 오류 처리에 연결합니다. Redis 연결·저장 실패는 무효 코드로 처리하지 않고 공통 서버 오류로 전달합니다.
+- 소비 후 실패해도 코드는 복구하지 않습니다. Redis 소비는 DB 트랜잭션 롤백과 독립적입니다. 사용자는 Steam 로그인을 다시 시작해야 합니다.
+- 확정 정책은 [회원 API 문서](docs/api/member.md#steam-로그인-코드-관리-정책)를 따릅니다.
+- 실제 Redis 발급·만료·동시 소비 테스트도 `REDIS_INTEGRATION_TEST=true`일 때 실행합니다. 테스트 프로필의 DB 15를 확인한 뒤 테스트가 발급한 키만 정리하며 `FLUSHDB`는 사용하지 않습니다.
+
+PowerShell에서 실제 Redis 테스트를 포함한 전체 검증:
+
+```powershell
+..\gradlew.bat :backend:compileJava
+$previousRedisIntegrationTest = $env:REDIS_INTEGRATION_TEST
+try {
+    $env:REDIS_INTEGRATION_TEST = 'true'
+    ..\gradlew.bat :backend:test
+    if ($LASTEXITCODE -ne 0) { throw '백엔드 테스트 실패' }
+} finally {
+    $env:REDIS_INTEGRATION_TEST = $previousRedisIntegrationTest
+}
+```
+
+테스트에는 아래 절차의 PostgreSQL 테스트 DB와 접속 환경변수도 필요합니다.
 
 ## PostgreSQL + Flyway 통합 테스트
 

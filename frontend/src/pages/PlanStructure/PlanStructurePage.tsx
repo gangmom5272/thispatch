@@ -6,7 +6,6 @@ import { GameHeader } from "@/components/GameHeader"
 import Textarea from "@/components/Textarea"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
-import { GameDetailTabs } from "@/pages/GameDetail/components/GameDetailTabs"
 import NotFound from "@/pages/NotFound"
 import { gameCasesPath, paths } from "@/router/paths"
 import type { PlanSlot } from "@/types"
@@ -58,7 +57,6 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
   return (
     <>
       <GameHeader gameId={gameId} back="gameDetail" />
-      <GameDetailTabs />
       <main className="mx-auto flex max-w-sb-page flex-col gap-sb-4 px-sb-4 py-sb-6 md:px-sb-12">
         <ol
           aria-label="진행 단계"

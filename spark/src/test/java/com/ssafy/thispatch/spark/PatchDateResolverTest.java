@@ -92,10 +92,128 @@ class PatchDateResolverTest {
 
     @Test
     void publicationDateAndNowLiveAreNotDeploymentDateEvidence() {
-        for (String body : List.of("Fixed a crash.", "This patch is now live!", "The update is now available.",
+        for (String body : List.of("Fixed a crash.",
                 "Patch Notes - September 14, 2026\nFixed a crash.", "Released: 2026-09-14")) {
             assertReview(resolve(body), "NO_EXPLICIT_DEPLOYMENT_DATE");
         }
+    }
+
+    @Test
+    void completedPatchWithoutDateIsExplicitlyEstimatedFromPublication() {
+        for (String body : List.of("This patch is now live!", "The update is now available.",
+                "Fixed a crash.\nImproved loading speed.")) {
+            var result = resolve(body, null);
+            assertEquals(PatchDateResolver.Status.ESTIMATED, result.status());
+            assertEquals(LocalDate.of(2026, 9, 15), result.patchDate());
+            assertEquals(PatchDateResolver.Source.PUBLICATION_DATE_PROXY, result.source());
+            assertNull(result.appliedAt());
+        }
+    }
+
+    @Test
+    void naturalTimestampAndVersionSubjectResolveWithoutPublisherZone() {
+        for (String body : List.of("The update was released on January 23, 2025 at 13:00 (KST).",
+                "The Steam version has been updated on 2025.01.23 13:00 (KST).")) {
+            var result = resolve(body, null);
+            assertEquals(PatchDateResolver.Status.RESOLVED, result.status(), body);
+            assertEquals(Instant.parse("2025-01-23T04:00:00Z"), result.appliedAt());
+        }
+    }
+
+    @Test
+    void maintenanceDateAndCompletedChangesShareAnExplicitJstDay() {
+        String body = "The maintenance details for 01/07/2026 JST are as follows.\n"
+                + "The season has begun.\nFixed a crash.\nAdded a new character.\n"
+                + "Balance adjustments are scheduled for next week.";
+        var result = PatchDateResolver.resolve(confirmed(PatchClassifier.Scope.DEFAULT),
+                "Maintenance Notice (2026/01/07)", body, PUBLISHED_AT, null);
+        assertEquals(PatchDateResolver.Status.RESOLVED, result.status());
+        assertEquals(LocalDate.of(2026, 1, 7), result.patchDate());
+        assertNull(result.appliedAt());
+    }
+
+    @Test
+    void plannedChangesAndUnrelatedEventDatesNeverBecomePublicationEstimates() {
+        for (String body : List.of("We will release this patch tomorrow.\nFixed a crash.\nAdded a map.",
+                "Scheduled maintenance ends at 12:00 UTC.\nFixed a crash.\nAdded a map.",
+                "This patch has not been released.\nFixed a crash.\nAdded a map.")) {
+            var result = resolve(body, null);
+            assertNotEquals(PatchDateResolver.Status.ESTIMATED, result.status());
+            assertNull(result.patchDate());
+        }
+        var result = resolve("This patch is now live!\nThe event starts on 2026-09-14 at 10:00 KST.", null);
+        assertNotEquals(PatchDateResolver.Status.RESOLVED, result.status());
+        assertNull(result.appliedAt());
+    }
+
+    @Test
+    void invalidClockAndConflictingTimezonesCannotFallBackToDateOnly() {
+        for (String text : List.of("2026-09-14 25:00 KST", "2026-09-14 12:00 KST UTC",
+                "2026-09-14 12:60 KST")) {
+            assertReview(resolve("This patch was released on " + text + ".", null), "DATE_OR_TIMEZONE_UNRESOLVED");
+        }
+    }
+
+    @Test
+    void completedServerFixWithAbbreviatedMonthUsesActualClassifier() {
+        String title = "Notice: Jan. 23rd 2025 (KST) Scheduled Update Server Error Fixed";
+        String body = "We have identified a server error and have deployed the fix.\n"
+                + "[h2]Solution[/h2]The error has been fixed on Jan. 23rd, 2025 13:00 (KST).";
+        var classification = PatchClassifier.classify(title, body, List.of());
+        var result = PatchDateResolver.resolve(classification, title, body, PUBLISHED_AT, null);
+        assertEquals(PatchDateResolver.Status.RESOLVED, result.status());
+        assertEquals(Instant.parse("2025-01-23T04:00:00Z"), result.appliedAt());
+    }
+
+    @Test
+    void mobileAnnouncementCanContainAnExplicitCompletedSteamDeployment() {
+        String title = "Notice: Version 1.36.2 Deployment on Mobile Platforms";
+        String body = "The fix will be deployed on each app store on Feb. 2nd, 2024 at 12:00 (KST).\n"
+                + "- iOS, Android: 2024.02.02 12:00 (KST)\n"
+                + "- Steam version of the game was updated on 2024.02.02 (Fri) 01:30 (KST)";
+        var classification = PatchClassifier.classify(title, body, List.of());
+        var result = PatchDateResolver.resolve(classification, title, body, PUBLISHED_AT, null);
+        assertEquals(PatchDateResolver.Status.RESOLVED, result.status());
+        assertEquals(Instant.parse("2024-02-01T16:30:00Z"), result.appliedAt());
+        assertFalse(result.evidence().contains("12:00"));
+    }
+
+    @Test
+    void mobileAnnouncementCannotUseAnAmbiguousOrPendingSteamLine() {
+        for (String line : List.of("Steam version will be updated on 2024.02.02 01:30 KST",
+                "Steam version has been updated on 2024.02.02", "The mobile update was deployed at 2024-02-02T01:30:00Z")) {
+            var classification = PatchClassifier.classify("Mobile deployment", line, List.of());
+            var result = PatchDateResolver.resolve(classification, "Mobile deployment", line, PUBLISHED_AT, null);
+            assertEquals(PatchDateResolver.Status.REVIEW_REQUIRED, result.status());
+            assertNull(result.patchDate());
+        }
+    }
+
+    @Test
+    void yearShapedVersionsAndHistoricalDatesAreNotCurrentDeploymentDates() {
+        assertReview(resolve("VRChat 2021.2.4 update is now live!"), "DATE_OR_TIMEZONE_UNRESOLVED");
+        assertReview(resolve("The previous update was released on January 1, 2025 at 10:00 KST."),
+                "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION");
+    }
+
+    @Test
+    void maintenanceDateWithOnlyAChangeListIsNotProofOfCompletion() {
+        String body = "The maintenance details for 2026/09/15 JST are as follows.\nFixed a crash.\nAdded a map.";
+        var result = PatchDateResolver.resolve(confirmed(PatchClassifier.Scope.DEFAULT),
+                "Maintenance Notice (2026/09/15)", body, PUBLISHED_AT, null);
+        assertEquals(PatchDateResolver.Status.REVIEW_REQUIRED, result.status());
+        assertNull(result.patchDate());
+    }
+
+    @Test
+    void alphaAndMaintenanceSchedulesCannotUsePublicationProxy() {
+        var confirmed = confirmed(PatchClassifier.Scope.DEFAULT);
+        var alpha = PatchDateResolver.resolve(confirmed, "Closed Alpha 4 Patch",
+                "Added stability improvements.\nFixed an opacity issue.", PUBLISHED_AT, null);
+        var schedule = PatchDateResolver.resolve(confirmed, "Patch Notes",
+                "Maintenance Period: September 15, 2026 23:00 PDT\nAdded a map.\nFixed a crash.", PUBLISHED_AT, null);
+        assertEquals(PatchDateResolver.Status.REVIEW_REQUIRED, alpha.status());
+        assertEquals(PatchDateResolver.Status.REVIEW_REQUIRED, schedule.status());
     }
 
     @Test

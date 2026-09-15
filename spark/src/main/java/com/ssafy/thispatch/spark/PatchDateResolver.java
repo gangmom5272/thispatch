@@ -19,10 +19,10 @@ import java.util.regex.Pattern;
 
 /** Resolves the current patch's deployment date without substituting its publication time. */
 public final class PatchDateResolver {
-    public static final String RULE_VERSION = "patch-date-rules-1";
+    public static final String RULE_VERSION = "patch-date-rules-2";
 
-    public enum Status { RESOLVED, REVIEW_REQUIRED, NOT_APPLICABLE }
-    public enum Source { EXPLICIT_TIMESTAMP, EXPLICIT_DATE, RELATIVE_DATE, NONE }
+    public enum Status { RESOLVED, ESTIMATED, REVIEW_REQUIRED, NOT_APPLICABLE }
+    public enum Source { EXPLICIT_TIMESTAMP, EXPLICIT_DATE, RELATIVE_DATE, PUBLICATION_DATE_PROXY, NONE }
 
     /** patchDate is always KST. appliedAt is null when only the calendar day is known. */
     public record Result(Status status, LocalDate patchDate, Instant appliedAt,
@@ -42,6 +42,21 @@ public final class PatchDateResolver {
             "\\b(?:this|the) (?:patch|update|hotfix) (?:will|won['’]t|is not|has not|is scheduled|is delayed|is postponed)\\b"
             + "|\\bthese patch notes will not go live\\b"
             + "|(?:이번 |해당 )?(?:패치|업데이트)(?:는|가)?.{0,60}(?:예정|연기|취소|미적용)");
+    private static final Pattern COMPLETED_DEPLOYMENT = pattern(
+            "\\b(?:patch|hotfix|update|version|game|error|issue|bug)\\b[^!?\\n]{0,90}\\b(?:was released|was deployed|was updated|has been released|has been deployed|has been updated|has been fixed|went live|is now live|is now available)\\b"
+            + "|\\bwe(?:['’]ve| have) (?:just )?(?:released|deployed|rolled out) (?:the |a |an )?(?:patch|hotfix|update)\\b"
+            + "|(?:패치|업데이트|오류).{0,80}(?:적용되었습니다|배포되었습니다|수정되었습니다|적용 완료|배포 완료)");
+    private static final Pattern PROSPECTIVE = pattern(
+            "\\b(?:will|shall|would|should|scheduled|estimated|expect(?:ed)?|tomorrow|upcoming|not yet|has not|have not|is not)\\b"
+            + "|\\b(?:rolling out|going live)\\b|예정|연기|취소|미적용");
+    private static final Pattern UNSAFE_TITLE = pattern(
+            "\\b(?:preview|roadmap|recap|retrospective|roundup|digest|demo|nightly|alpha|maintenance|livestream|stream|event|sale|soundtrack|mobile|console|beta|test)\\b|예고|테스트|점검|방송|이벤트");
+    private static final Pattern MAINTENANCE_SCHEDULE = pattern("\\bmaintenance (?:period|schedule)\\b|점검 일정|점검 시간");
+    private static final Pattern CHANGE_LINE = pattern("(?im)^\\s*(?:[-*•]\\s*)?(?:fixed|added|removed|adjusted|improved|resolved)\\b");
+    private static final Pattern PATCH_TITLE = pattern("\\b(?:patch|hotfix|update|changelog|release notes)\\b|패치|핫픽스|업데이트");
+    private static final Pattern MAINTENANCE_DATE = pattern("^the maintenance details for .{1,80} are as follows[.!]?$");
+    private static final Pattern COMPLETED_CHANGES = pattern(
+            "\\b(?:have been applied|have been fixed|has been updated|has begun)\\b|적용되었습니다|수정되었습니다");
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
             DateTimeFormatter.ISO_LOCAL_DATE,
             dateFormat("MMMM d, uuuu"), dateFormat("MMM d, uuuu"),
@@ -61,9 +76,11 @@ public final class PatchDateResolver {
         if (classification.decision() == PatchClassifier.Decision.NOT_PATCH) {
             return unresolved(Status.NOT_APPLICABLE, "NOT_PATCH", classification.evidence());
         }
-        if (classification.decision() != PatchClassifier.Decision.PATCH) {
-            return review("PATCH_NOT_CONFIRMED", classification.evidence());
+        if (classification.scope() == PatchClassifier.Scope.NON_STEAM || classification.scope() == PatchClassifier.Scope.MIXED) {
+            Result steamResult = resolveExplicitSteamLine(contents, publishedAt, announcementZone);
+            if (steamResult != null) return steamResult;
         }
+        if (classification.decision() != PatchClassifier.Decision.PATCH) return review("PATCH_NOT_CONFIRMED", classification.evidence());
         if (classification.scope() != PatchClassifier.Scope.DEFAULT) {
             return review("DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION", classification.evidence());
         }
@@ -73,26 +90,45 @@ public final class PatchDateResolver {
 
         String cleanTitle = PatchClassifier.plainText(title).strip();
         String cleanBody = PatchClassifier.plainText(contents);
-        Matcher pending = CURRENT_PATCH_PENDING.matcher(cleanTitle + "\n" + cleanBody);
+        // Restart instructions describe client installation, not a future server deployment.
+        String deploymentText = (cleanTitle + "\n" + cleanBody).replaceAll(
+                "(?i)(?:this|the) (?:patch|update|hotfix) will be applied (?:automatically )?(?:when|on) (?:you |the )?(?:restart|restarting)[^.!?\\n]*", "");
+        Matcher pending = CURRENT_PATCH_PENDING.matcher(deploymentText);
         if (pending.find()) {
             return review("DEPLOYMENT_PENDING_OR_CONFLICTING", pending.group());
         }
 
         List<Candidate> candidates = new ArrayList<>();
+        boolean completedWithoutDate = false;
         List<PatchChangeSectioner.Section> sections = new ArrayList<>();
         sections.add(new PatchChangeSectioner.Section("", cleanTitle));
         sections.addAll(PatchChangeSectioner.split(contents));
         for (PatchChangeSectioner.Section section : sections) {
             String precedingSentence = "";
             // Sentence boundaries preserve ISO timestamps and decimal version numbers.
-            for (String sentence : section.text().split("[\\r\\n]+|(?<=[.!?])\\s+")) {
+            for (String sentence : section.text().split("(?i)[\\r\\n]+|(?<=[!?])\\s+|(?<!Jan\\.|Feb\\.|Mar\\.|Apr\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Oct\\.|Nov\\.|Dec\\.)(?<=\\.)\\s+")) {
                 String evidence = sentence.strip();
                 if (evidence.isEmpty()) continue;
                 String dateText = deploymentDateText(evidence);
                 String context = cleanTitle + "\n" + section.headingPath() + "\n" + precedingSentence;
                 precedingSentence = evidence;
-                if (dateText == null) continue;
-                if (CONTEXT_REQUIRING_REVIEW.matcher(context).find()) {
+                if (dateText == null) {
+                    boolean completed = COMPLETED_DEPLOYMENT.matcher(evidence).find()
+                            && !PROSPECTIVE.matcher(evidence).find();
+                    // A dated maintenance introduction binds the notice's changes to that day.
+                    boolean datedChanges = MAINTENANCE_DATE.matcher(evidence).matches()
+                            && CHANGE_LINE.matcher(cleanBody).find()
+                            && COMPLETED_CHANGES.matcher(cleanBody.substring(0, Math.min(cleanBody.length(), 1600))).find();
+                    if (!completed && !datedChanges) continue;
+                    dateText = datedChanges ? PatchDeploymentDateParser.bindMaintenanceTitleDate(cleanTitle, evidence) : evidence;
+                    if (!PatchDeploymentDateParser.hasDate(dateText)) {
+                        if (completed && !CONTEXT_REQUIRING_REVIEW.matcher(context).find()) completedWithoutDate = true;
+                        continue;
+                    }
+                    if (datedChanges) evidence = cleanTitle + "\n" + evidence;
+                }
+                if (CONTEXT_REQUIRING_REVIEW.matcher(context).find()
+                        || pattern("\\b(?:previous|earlier|before|last year|last month)\\b|이전|지난").matcher(evidence).find()) {
                     return review("DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION", evidence);
                 }
 
@@ -113,6 +149,17 @@ public final class PatchDateResolver {
             }
         }
         if (candidates.isEmpty()) {
+            String intro = deploymentText.substring(0, Math.min(deploymentText.length(), 1600));
+            long changeCount = CHANGE_LINE.matcher(cleanBody).results().limit(2).count();
+            boolean currentChanges = PATCH_TITLE.matcher(cleanTitle).find() && changeCount >= 2;
+            if (publishedAt != null && (completedWithoutDate || currentChanges)
+                    && !UNSAFE_TITLE.matcher(cleanTitle).find()
+                    && !MAINTENANCE_SCHEDULE.matcher(intro).find()
+                    && !CONTEXT_REQUIRING_REVIEW.matcher(intro).find()
+                    && !PROSPECTIVE.matcher(intro).find()) {
+                return new Result(Status.ESTIMATED, TimeRule.statDate(publishedAt.getEpochSecond()), null,
+                        Source.PUBLICATION_DATE_PROXY, "PUBLICATION_DATE_ESTIMATE", cleanTitle);
+            }
             return review("NO_EXPLICIT_DEPLOYMENT_DATE", "");
         }
 
@@ -137,9 +184,29 @@ public final class PatchDateResolver {
         return korean.matches() ? korean.group(1) : null;
     }
 
+    private static Result resolveExplicitSteamLine(String contents, Instant publishedAt, ZoneId zone) {
+        if (contents == null) return null;
+        List<String> steamLines = PatchClassifier.plainText(contents).lines().map(String::strip)
+                .filter(line -> pattern("^(?:[-*•]\\s*)?Steam version\\b").matcher(line).find()).toList();
+        if (steamLines.isEmpty()) return null;
+        String evidence = String.join("\n", steamLines);
+        if (!COMPLETED_DEPLOYMENT.matcher(evidence).find() || PROSPECTIVE.matcher(evidence).find()) return null;
+        var confirmed = new PatchClassifier.Result(PatchClassifier.Decision.PATCH, PatchClassifier.Scope.DEFAULT,
+                0, "EXPLICIT_STEAM_DEPLOYMENT", evidence);
+        Result result = resolve(confirmed, "Steam deployment", evidence, publishedAt, zone);
+        return result.status() == Status.RESOLVED ? result : null;
+    }
+
     private static Candidate parseCandidate(String text, String evidence, Instant publishedAt,
                                             ZoneId announcementZone) {
         text = text.strip();
+        // Never extract a plausible date from an explicitly different platform or an uncertain statement.
+        if (pattern("\\b(?:consoles?|mobile|beta|test)\\b|콘솔|모바일|테스트").matcher(text).find()) return null;
+        var parsed = PatchDeploymentDateParser.parse(text, announcementZone);
+        if (parsed != null) {
+            return new Candidate(parsed.date(), parsed.instant(),
+                    parsed.instant() == null ? Source.EXPLICIT_DATE : Source.EXPLICIT_TIMESTAMP, evidence);
+        }
         try {
             Instant instant = OffsetDateTime.parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
             return new Candidate(TimeRule.statDate(instant.getEpochSecond()), instant,

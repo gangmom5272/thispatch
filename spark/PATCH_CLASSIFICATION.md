@@ -1,6 +1,12 @@
 # Steam 공지 패치 판정
 
-## 2026-09-14 추가 표본 보완: patch-rules-3 (현재)
+## 2026-09-15 서버 오류 수정 공지 보완: patch-rules-4 (현재)
+
+제목에 수정 완료(`fixed`)가 있고 본문에 서버 오류 수정 완료 또는 fix 배포 완료가 명시된 경우를
+변경 근거에 포함한다. 날짜 추출과 모바일/Steam 배포 줄 구분은 [PatchDateResolver](PATCH_DATE.md)가 담당한다.
+기존 범위 판정과 예정·홍보·회고 제외 기준은 유지한다.
+
+## 2026-09-14 추가 표본 보완: patch-rules-3
 
 - 다른 게임 패치를 현재 게임의 리뷰와 연결하지 않도록 수집 게임명을 입력받는다.
   `classify(sourceGameName, title, contents, tags)`를 사용한다. 게임명은 수집 appid의 메타데이터에서 제공해야 한다.

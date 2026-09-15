@@ -22,6 +22,7 @@ v2 최종 검증: WSL Java 17에서 `:spark:test :spark:jar --offline` 성공. *
 Flyway V1/V2를 기준으로 만들었으며 마이그레이션이나 DB 데이터는 수정하지 않았다.
 LLM·임베딩 실행, 토큰 제한 기반 최종 청크 생성, DB 적재는 이 코드에 포함하지 않는다.
 적용일 규칙 결정은 별도 `PatchDateResolver`에 추가했다. 입력·보류 기준은 [PATCH_DATE.md](PATCH_DATE.md)를 따른다.
+`ESTIMATED`는 게시일 기반 추정이며 확정 적용일 통계에 자동으로 포함하지 않는다. 날짜와 함께 상태·근거를 전달해야 한다.
 입력 어댑터와 드라이버 적재 통로는 팀 계약이 연결된 후 작업해야 한다.
 
 ## patch_change

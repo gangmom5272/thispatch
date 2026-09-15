@@ -1,110 +1,101 @@
 # 패치 적용일 결정
 
-`PatchDateResolver`는 패치 판정 결과와 공지에서 **현재 패치의 적용일**을 결정하는 순수 Java 함수다.
-규칙 버전은 `patch-date-rules-1`이다. 시스템 현재 시각을 사용하지 않아 같은 입력은 같은 결과를 반환한다.
+`PatchDateResolver`는 실제 적용일 근거와 게시일 기반 추정을 구분한다.
+현재 버전은 **`patch-date-rules-2`**, 함께 사용하는 분류기는 **`patch-rules-4`**다.
+시스템 현재 시각에 의존하지 않는다. 같은 입력은 같은 결과를 반환한다.
 
-**2026-09-15 실데이터 검증:** 98개 Steam 앱 공지 40,577건에서 적용일 확정 **0건**.
-현재 규칙의 문장 지원 범위가 실제 공지와 맞지 않아 개선이 필요하다.
-확정 결과가 없으므로 정밀도는 계산할 수 없다. [상세 검증 보고서](PATCH_DATE_VALIDATION.md)를 참고한다.
+## 결과 구분
 
-## 입력
+| status | 의미 | patchDate | appliedAt |
+| --- | --- | --- | --- |
+| `RESOLVED` | 현재 패치와 연결된 날짜·시간대 근거를 해석함 | KST 날짜 | 정확한 시각이 명시됐을 때만 값 있음 |
+| `ESTIMATED` | 현재 패치로 보이나 적용일 근거가 없어 게시일을 대신 제시 | 게시 시각의 KST 날짜 | 항상 `null` |
+| `REVIEW_REQUIRED` | 예정·범위·시간대·문맥·충돌 등 검토 필요 | `null` | `null` |
+| `NOT_APPLICABLE` | 비패치 공지 | `null` | `null` |
+
+**`ESTIMATED`는 실제 적용일 확정이 아니다.** 화면과 저장 계층에서 상태를 함께 전달해야 한다.
+`RESOLVED`도 규칙이 해석했다는 뜻이며 독립된 사람이나 서버 로그로 검증했다는 보장은 아니다.
+
+## 호출
 
 ```java
 var classification = PatchClassifier.classify(gameName, title, contents, tags);
-var result = PatchDateResolver.resolve(
-        classification, title, contents, publishedAt, announcementZone);
+var result = PatchDateResolver.resolve(classification, title, contents, publishedAt, announcementZone);
 ```
 
-- `classification`: **동일한 제목과 본문**으로 얻은 판정 결과.
-- `title`, `contents`: 공지 제목과 원문. HTML/BBCode 서식은 기존 정리 함수를 사용한다.
-- `publishedAt`: 공지 게시 시각 `Instant`. 없으면 `null`이다. 상대 날짜의 기준과 게시 이후 날짜 충돌 검사에만 쓴다.
-- `announcementZone`: 작성자의 날짜 표현이 기준으로 삼는 검증된 `ZoneId`. 모르면 `null`이다.
-  영문·한국어 여부, 서버 시간대 또는 Steam의 Unix 시각만으로 작성자의 시간대를 정하면 안 된다.
+- 판정과 날짜 함수에 동일한 제목·본문을 전달한다.
+- `publishedAt`은 Steam 공지 게시 시각이다. 상대 날짜 계산, 미래 날짜 충돌 검사, 명시적 게시일 추정에 사용한다.
+- `announcementZone`은 검증된 작성자 시간대다. 모르면 `null`을 전달한다.
+  언어나 Steam Unix 시각으로 시간대를 추정하지 않는다.
+- 본문에 KST·JST·UTC 오프셋 등이 있으면 해당 근거 문장의 시간대를 사용한다.
 
 ## 결정 순서
 
-1. `NOT_PATCH`는 `NOT_APPLICABLE`, 미확정 판정은 `REVIEW_REQUIRED`로 반환한다.
-2. `TEST`, `MIXED`, `CLIENT`, `NON_STEAM`, `OTHER_GAME`은 대상 확인이 필요해 날짜를 확정하지 않는다.
-3. 현재 패치가 예정·연기 상태라는 지원 표현을 본문 전체에서 찾으면 보류한다.
-4. 현재 패치의 배포 완료 문장 안에서 날짜를 읽는다. 단순 날짜나 제목의 버전 숫자는 사용하지 않는다.
-5. 제목·구역 제목·직전 문장에 과거·계획·테스트·다른 플랫폼 문맥이 있으면 보류한다.
-6. 후보 날짜가 서로 다르거나, 같은 KST 날짜라도 정확한 시각 두 개가 다르면 보류한다.
-7. 일치하는 날짜와 시각이 함께 있으면 시각 정보를 우선한다.
+1. 비패치 공지를 제외한다. 분류가 미확정이면 기본적으로 보류한다.
+2. 모바일/혼합 공지에 `Steam version ... was updated on ...`처럼 명시적인 완료 줄이 있으면
+   그 줄의 날짜를 별도로 검사한다. 다른 플랫폼의 일정이나 일반적인 PC 언급으로 이 예외를 적용하지 않는다.
+3. 현재 패치의 예정·연기·미적용 표현을 검사한다.
+   “재시작하면 설치된다”는 안내는 서버 배포 예정과 구분한다.
+4. 완료 사건의 문장, 제목·본문에서 서로 일치하는 날짜 근거를 읽는다.
+5. 과거·다른 플랫폼·예정 문맥, 서로 다른 적용일·시각, 게시 이후 시각은 보류한다.
+6. 명시적 후보가 없을 때만 게시일 추정 조건을 검사한다. 해석에 실패한 명시적 날짜나 충돌을 추정으로 덮지 않는다.
 
-## 지원하는 표현
+## 확정 근거
 
-현재 패치를 지칭하는 `This/The patch/update/hotfix`와 완료 표현
-`was released`, `was deployed`, `went live`, `has been released`를 연결한 문장을 처리한다.
-`This patch is now live today`, `The update was deployed yesterday` 형태의 상대 날짜도 처리한다.
-문장은 제목, 평문 줄 또는 서식이 있는 본문 구역에 있을 수 있다.
+- ISO 오프셋 시각: `2026-09-14T16:30:00Z`.
+- 자연어 시각: `Jan. 23rd, 2025 13:00 (KST)`, `2024.02.02 (Fri) 01:30 (KST)`.
+- 날짜: `yyyy-MM-dd`, 연도 우선 슬래시 날짜, 영어 월 이름과 연도, 한국어 연월일.
+- 기존 `today/yesterday/오늘/어제`는 검증된 시간대와 게시 시각이 있어야 한다.
+- `was released`, `was deployed`, `was updated`, `has been updated`, `has been fixed`,
+  `went live`, `is now live`, 한국어 적용·배포·수정 완료 등의 현재 사건 표현을 사용한다.
+- 점검 날짜 소개 문장과 실제 변경 목록, 완료 표현을 연결할 수 있다.
+  제목의 연도 우선 날짜와 본문의 월/일/연도가 같으면 슬래시 날짜를 해석한다.
+  점검 일정과 변경 목록만 있는 경우는 완료 증거로 삼지 않는다.
 
-| 예시 | 결과 |
-| --- | --- |
-| `This patch was deployed at 2026-09-14T16:30:00Z.` | KST 9월 15일, 정확한 시각 보존 |
-| `The update went live on 2026-09-14T08:30:00-07:00.` | KST 9월 15일, 정확한 시각 보존 |
-| `This patch was released on September 14, 2026.` | 작성자의 날짜 기준이 KST로 검증되면 9월 14일 |
-| `This patch was deployed yesterday.` | 게시일의 KST 전날, 작성자 시간대와 게시 시각 필요 |
-| `이번 패치는 2026년 9월 14일에 적용되었습니다.` | 작성자의 날짜 기준이 KST로 검증되면 9월 14일 |
-| `해당 패치가 어제 적용되었습니다.` | 검증된 KST 게시일의 전날 |
-| `This patch is now live!` | 적용 날짜가 없으므로 보류 |
-| `Patch Notes - September 14, 2026` | 제목의 날짜만으로는 배포 완료를 확인할 수 없어 보류 |
+날짜만 확인되면 해당 시간대의 하루가 KST 하루와 일치할 때만 확정한다.
+다른 시간대의 하루는 두 KST 날짜에 걸칠 수 있으므로 임의의 자정·정오를 만들지 않는다.
+시간대 약칭 KST/JST/PDT/PST/EDT/EST/CET/CEST는 명시된 고정 오프셋으로 해석한다.
+문장 안의 시간대가 서로 다르면 보류한다. AM/PM, 연도 생략, 여러 시각의 자연어 범위는 자동 확정하지 않는다.
 
-날짜 형식은 `yyyy-MM-dd`, `September 14, 2026`, `Sep 14, 2026`,
-`14 September 2026`, `14 Sep 2026`, `2026년 9월 14일`을 지원한다.
-`today/yesterday/오늘/어제`는 게시 시각이 있어야 한다.
-연도 생략, `09/10/2026` 같은 숫자 슬래시 날짜, 시간대 없는 시각, PST 같은 약칭은 추정하지 않는다.
-윤년·월별 일수는 엄격하게 검증한다.
+`VRChat 2021.2.4`처럼 연도 모양의 버전명을 날짜로 사용하지 않는다.
+점으로 구분된 숫자는 날짜를 연결하는 `on/at` 등의 문맥이 있어야 한다.
 
-### 시간대와 정밀도
+## 게시일 추정 조건
 
-- UTC 또는 오프셋이 명시된 ISO 시각은 `TimeRule`로 KST 적용일을 구한다.
-- 날짜만 있는 경우에는 작성자 시간대의 해당 하루 시작·끝이 KST와 일치할 때만 확정한다.
-  검증된 `Asia/Seoul`이나 현재 날짜의 `+09:00`이 여기에 해당한다.
-  다른 시간대의 하루는 두 KST 날짜에 걸칠 수 있으므로 자정이나 정오를 만들어 변환하지 않는다.
-- 정확한 시각을 모르면 `appliedAt`은 `null`이다. 게시 시각이나 임의의 자정으로 채우지 않는다.
-- 완료 문장의 날짜·시각이 게시 시각보다 미래이면 충돌로 보류한다.
-  날짜만 있을 때는 KST 날짜 단위로 비교한다. 게시 시각이 없으면 이 검사는 할 수 없다.
+다음 조건을 모두 충족해야 `ESTIMATED`를 반환한다.
 
-## 반환값
+- PATCH/DEFAULT이며 게시 시각이 존재한다.
+- 현재 배포 완료 표현이 있거나 패치 제목과 두 개 이상의 변경 줄이 있다.
+- 날짜를 확정하거나 명시적 날짜 오류로 보류한 상태가 아니다.
+- 제목과 도입부에서 테스트·알파·데모·예고·회고·행사·다른 플랫폼·점검 일정 등의 위험 문맥이 발견되지 않는다.
 
-| 필드 | 의미 |
-| --- | --- |
-| `status` | `RESOLVED`, `REVIEW_REQUIRED`, `NOT_APPLICABLE` |
-| `patchDate` | 결정된 KST 적용일. 미확정이면 `null` |
-| `appliedAt` | 원문에 명시된 정확한 적용 시각. 날짜만 확인되거나 미확정이면 `null` |
-| `source` | `EXPLICIT_TIMESTAMP`, `EXPLICIT_DATE`, `RELATIVE_DATE`, `NONE` |
-| `reason` | 판정·범위·문맥·날짜·시간대·충돌에 대한 사유 코드 |
-| `evidence` | 서식 정리 후 실제 근거 문장. 날짜 충돌 시 모든 후보 문장 |
-
-`RESOLVED`는 지원 규칙으로 날짜를 결정했다는 의미다. 사람이 검증한 정답이나 Steam 정식 서버 적용 보증이 아니다.
-`DEFAULT`도 플랫폼 확인 완료를 뜻하지 않으므로, 날짜가 결정되어도 `eligible_for_review_stats`를 자동으로 켜면 안 된다.
+반환값은 `source=PUBLICATION_DATE_PROXY`, `reason=PUBLICATION_DATE_ESTIMATE`다.
+게시가 지연됐거나 정리 공지라면 실제 적용일과 다를 수 있다.
+실제 날짜를 맞췄다는 정확도나 정밀도 계산에 추정 건수를 넣지 않는다.
 
 ## 통계 연결
 
-호출자가 적용 대상까지 검증한 후에만 `PatchStatAggregator`의 입력을 구성한다.
-정확한 시각은 `result.appliedAt().getEpochSecond()`를 쓰고,
-날짜만 검증된 경우는 기존 집계 계약에 따라 `TimeRule.startOfDay(result.patchDate())`를 쓴다.
-이때 자정은 **날짜 단위 집계용 값**이고 실제 배포 시각이 아니다.
+기존 `Result` 필드는 유지했지만 `Status.ESTIMATED`와 `Source.PUBLICATION_DATE_PROXY`가 추가됐다.
+호출자는 날짜가 있다는 이유만으로 확정 처리하지 말고 **status를 검사**해야 한다.
 
-이번 구현은 HDFS 입력 어댑터, Spark 일괄 처리기, DB 적재·마이그레이션을 추가하지 않는다.
-미확정 저장 정책은 기존 패치 판정과 동일하게 별도 입력·적재 계약이 필요하다.
+- `RESOLVED`: 적용 대상 검증 후 기존 통계 입력 계약을 따른다.
+- `ESTIMATED`: 별도 추정 표시/집계 정책을 적용한다. `eligible_for_review_stats`를 자동으로 켜지 않는다.
+- 날짜만 알려진 경우의 자정 값은 날짜 집계용이지 실제 배포 시각이 아니다.
+- 모바일/혼합 공지에서 Steam 적용일이 확인되어도 전체 공지의 분류 결과를 DEFAULT로 변경하지 않는다.
 
-## 범위와 검증
+HDFS 어댑터·DB 적재·마이그레이션은 이번 변경에 포함하지 않는다.
 
-영어와 일부 한국어의 제한된 완료 문장 규칙이다. 버전명이 주어인 문장, 복수 패치 요약,
-여러 플랫폼별 배포 일정, 인용·회고의 복잡한 문맥, 자연어 시간대 해석은 자동 해결하지 않는다.
-지원 패턴을 벗어난 문맥은 놓칠 수 있으므로 실데이터 정확도 검증과 별개로 취급해야 한다.
-날짜를 결정할 수 없다는 것은 패치가 없었다는 뜻이 아니다.
+## 검증
 
 ```bash
-bash gradlew :spark:test --tests com.ssafy.thispatch.spark.PatchDateResolverTest --offline
+bash gradlew :spark:test :spark:jar --offline
 ```
 
-단위 테스트는 KST·연도 경계, UTC 오프셋, 날짜 정밀도, 잘못된 날짜, 게시일 대체 방지,
-상대 날짜 입력 누락, 시간대 미확인, 날짜·시각 충돌, 예정·과거·플랫폼 문맥, 서식 제거를 검증한다.
+잘못된 날짜·시간, 시간대 충돌, 날짜 경계, 미확인 시간대, 예정·과거 문맥, Steam/모바일 분리,
+버전 숫자, 제목과 본문의 날짜 연결, 게시일 추정의 표시 및 제외 조건을 검증한다.
 
-2026-09-15 WSL Java 17 검증: 기존 138개와 신규 22개를 포함한 전체 160개 테스트와 JAR 빌드 통과.
-이후 고정 `+09:00` 시간대 지원을 보완하고 적용일 테스트 23개 및 JAR 빌드를 다시 통과했다.
-이후 실제 Steam 공지 40,577건 실행과 60건 원문 대조를 수행했다. 독립 정답 데이터 기반 정확도 측정과 HDFS·DB 통합 검증은 수행하지 않았다.
-후속으로 [390개 앱·95,913건까지 확대 검증](PATCH_DATE_VALIDATION_EXPANDED.md)했고, 원문 대조 기록은 총 102건이다.
-현행 규칙의 적용일 자동 확정은 0건이며 실사용을 위해서는 문장 인식과 날짜 근거 연결 개선이 필요하다.
+- [v1: 390개 앱·95,913건 검증](PATCH_DATE_VALIDATION_EXPANDED.md)
+- [v2: 같은 자료의 재검증](PATCH_DATE_VALIDATION_V2.md)
+
+실제 원문에서 적용일이 명확했던 3건을 회귀 사례로 사용했다. 이 사례들은 독립 테스트셋이 아니다.
+현재 규칙은 영어 중심이며 공지 수정 이력과 복잡한 복수 배포 사건은 여전히 보류한다.

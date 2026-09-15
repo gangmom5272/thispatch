@@ -30,6 +30,28 @@ python3 spark/tools/patch-date-validation/inspect_date_validation.py out/date-va
 
 이 도구는 로컬 데이터만 만들고 운영 DB·HDFS에 쓰지 않는다.
 
+## 규칙 수정 후 같은 입력으로 비교
+
+다음 명령은 최초 수집 폴더를 `out/date-validation`, 추가 폴더를 `out/expanded`로 가정한다.
+현재 코드로 빌드한 JAR를 실행 폴더에 복사하고 어댑터도 다시 컴파일한다.
+
+```bash
+bash gradlew :spark:test :spark:jar --offline
+mkdir -p out/v2
+cp spark/build/libs/thispatch-spark.jar out/v2/thispatch-spark.jar
+javac --release 17 -cp out/v2/thispatch-spark.jar -d out/v2/classes \
+  spark/tools/patch-date-validation/PatchDateValidation.java
+java -Xmx2g -cp out/v2/classes:out/v2/thispatch-spark.jar \
+  com.ssafy.thispatch.spark.PatchDateValidation out/date-validation/input.tsv out/v2/prior-output.tsv
+java -Xmx2g -cp out/v2/classes:out/v2/thispatch-spark.jar \
+  com.ssafy.thispatch.spark.PatchDateValidation out/expanded/input.tsv out/v2/expanded-output.tsv
+python3 spark/tools/patch-date-validation/compare_date_revision.py out/date-validation out/expanded out/v2
+```
+
+- 비교 대상 수집 폴더에 해당 실행의 `source-review.json`이 있어야 기존 검토 결과도 비교할 수 있다.
+- `results-v2-20260915/`에 최종 수치와 원문 검토 기록을 보존했다.
+- `ESTIMATED`는 `RESOLVED`에 합산하지 않는다. 추정의 정확한 적용시각은 항상 비어 있어야 한다.
+
 ## 새 앱과 과거 이력 추가 검증
 
 ```bash

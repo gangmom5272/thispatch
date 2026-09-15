@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 /** English-first Steam notice classifier. No date inference, model calls, or database writes. */
 public final class PatchClassifier {
-    public static final String RULE_VERSION = "patch-rules-3";
+    public static final String RULE_VERSION = "patch-rules-4";
 
     public enum Decision { PATCH, NOT_PATCH, REVIEW_REQUIRED }
     public enum Scope { DEFAULT, TEST, MIXED, CLIENT, NON_STEAM, OTHER_GAME }
@@ -26,6 +26,8 @@ public final class PatchClassifier {
             "\\b(?:these patch notes|this patch|this update|the patch notes) (?:will not|won['’]t) (?:go live|be released|be deployed) until [^.!?\\n]{1,80}");
     private static final Pattern COMPLETED_SECURITY_FIX = pattern(
             "\\bwe(?:['’]ve| have) already (?:patched|fixed|resolved) (?:the |this )?(?:issue|vulnerability|exploit) on (?:the )?clients\\b");
+    private static final Pattern COMPLETED_SERVER_FIX = pattern(
+            "\\b(?:have|has) deployed the fix\\b|\\b(?:the|this) (?:server )?(?:error|issue) has been fixed\\b");
     private static final Pattern TEST_ONLY_INTRO = pattern("(?:this|the) (?:update|patch).{0,70}(?:public test|test branch|beta branch).{0,30}only");
     private static final Pattern ANNOUNCEMENT = pattern("\\b(?:patch preview|update preview|preview of.{0,30}(?:patch|update)|upcoming (?:patch|update)|release date|pre[ -]?order|pre[ -]?purchase)\\b|패치 예고|업데이트 예고|사전 예약");
     private static final Pattern FUTURE_TITLE = pattern("\\b(?:coming|arrives?|launches?|releases?|enters|scheduled).{0,90}\\b(?:tomorrow|next|this (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|on \\d|on (?:january|february|march|april|may|june|july|august|september|october|november|december))\\b");
@@ -113,6 +115,9 @@ public final class PatchClassifier {
             }
         }
         String deployed = firstMatch(DEPLOYED, cleanTitle + "\n" + intro);
+        if (deployed.isEmpty() && cleanTitle.toLowerCase(java.util.Locale.ROOT).contains("fixed")) {
+            deployed = firstMatch(COMPLETED_SERVER_FIX, body);
+        }
         String securityFix = firstMatch(COMPLETED_SECURITY_FIX, intro);
         if (deployed.isEmpty() && !securityFix.isEmpty()) {
             deployed = securityFix;

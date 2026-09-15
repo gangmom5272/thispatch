@@ -24,6 +24,7 @@ dependencies {
 
     // JPA 는 ddl-auto: validate 로 쓴다. 스키마는 Flyway 가 만든다.
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     runtimeOnly 'org.postgresql:postgresql'
 
     implementation 'org.flywaydb:flyway-core'

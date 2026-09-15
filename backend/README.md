@@ -1,11 +1,11 @@
-# 로컬 PostgreSQL 개발 환경
+# 로컬 PostgreSQL · Redis 개발 환경
 
 Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다.
 아래 명령은 모두 `backend` 디렉터리에서 실행합니다.
 
 ## 구성
 
-- `compose.yaml`: `pgvector/pgvector:pg17` 기반 PostgreSQL 단일 서비스, 로컬 5432 포트, 상태 검사 및 데이터 볼륨.
+- `compose.yaml`: PostgreSQL(`pgvector/pgvector:pg17`, 로컬 5432 포트, 상태 검사 및 데이터 볼륨)과 Redis(`redis:8.2-alpine`, 로컬 6379 포트, 상태 검사) 서비스.
 - `src/main/resources/db/migration/V1__init.sql`: Flyway 초기 migration. 최상단에서 `vector` 확장을 활성화하고 테이블과 PK/FK를 생성합니다. Docker의 `/docker-entrypoint-initdb.d`는 사용하지 않습니다.
 - `src/main/resources/db/migration/V2__add_patch_analysis.sql`: 패치 분석 테이블 5개, PK/FK와 기본 코드 데이터를 생성합니다.
 - `src/main/resources/db/migration/V3__add_member_refresh_token.sql`: 기존 `member`에 nullable Refresh Token 해시·만료 시각 컬럼을 추가합니다. 별도 토큰 테이블이나 폐기 이력은 만들지 않습니다.
@@ -14,7 +14,7 @@ Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다
 - `src/main/resources/application.yaml`: 공통 JPA·Flyway 설정. Hibernate는 `ddl-auto: validate`로 스키마를 검증만 하고 생성·수정하지 않습니다. `open-in-view`는 비활성화하고 Flyway는 활성화하며 migration 위치는 `classpath:db/migration`입니다.
 - `src/main/resources/application-dev.yaml`: `dev` 프로필에서 `.env`를 읽어 Spring Boot 접속 설정에 사용합니다. Spring Batch 스키마 자동 생성은 비활성화합니다.
 
-기존 애플리케이션 이름, Gradle 의존성 및 저장소의 서버용 `infra` 설정은 유지합니다.
+서버용 실행 구성은 저장소의 `infra`에서 관리합니다.
 V1은 `src/ThisPatch_init_with_keys.sql`의 컬럼 정의와 PK/FK를 유지하며,
 `patch_change`, `code` 및 해당 테이블의 제약조건만 제외한 17개 테이블을 생성합니다.
 확장 활성화와 스키마 생성은 애플리케이션 시작 시 Flyway가 수행합니다.
@@ -31,7 +31,7 @@ migration으로 먼저 준비되어야 하며, 불일치하면 Hibernate 검증 
 
 ## 실행
 
-Docker Desktop을 실행한 뒤 `.env`를 준비하고 DB를 시작합니다. 최초 실행 시 이미지를 내려받습니다.
+Docker Desktop을 실행한 뒤 `.env`를 준비하고 PostgreSQL과 Redis를 시작합니다. 최초 실행 시 이미지를 내려받습니다.
 
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
@@ -40,7 +40,7 @@ docker compose up -d --wait
 
 이미 `.env`가 있으면 복사하지 않습니다. `.env`의 값을 변경한 뒤 새 데이터 볼륨을 초기화하는 경우에만 PostgreSQL이 새 비밀번호로 초기화됩니다.
 
-이미 5432 포트를 사용하는 로컬 PostgreSQL이나 컨테이너가 있다면 해당 서비스를 중지한 뒤 실행합니다.
+이미 5432 또는 6379 포트를 사용하는 로컬 서비스나 컨테이너가 있다면 포트 충돌을 해소한 뒤 실행합니다.
 
 Spring Boot는 `dev` 프로필로 실행합니다.
 
@@ -85,6 +85,75 @@ Test-NetConnection localhost -Port 5432
 ```powershell
 docker compose logs --tail=100 postgres
 ```
+
+## 로컬 Redis
+
+[Redis 공식 이미지](https://hub.docker.com/_/redis)의 `8.2-alpine` 태그를 사용합니다.
+호스트에서는 `127.0.0.1:6379`, 같은 Compose 네트워크의 컨테이너에서는 `redis:6379`로 접속합니다.
+비밀번호 없이 사용하는 로컬 개발용 설정이며, 호스트 포트는 루프백 주소에만 바인딩합니다.
+RDB 스냅샷과 AOF 저장을 비활성화하므로 Redis를 재시작하면 메모리의 데이터는 사라집니다.
+이 설정은 로컬 실행용이며 운영 데이터 보존 정책은 별도로 정합니다.
+
+Redis만 시작하고 상태를 확인하려면 다음 명령을 사용합니다.
+
+```powershell
+docker compose up -d --wait redis
+docker compose ps redis
+docker compose exec -T redis redis-cli ping
+Test-NetConnection 127.0.0.1 -Port 6379
+```
+
+상태가 `healthy`, PING 응답이 `PONG`, Windows 포트 검사 결과가 `TcpTestSucceeded: True`이면 정상입니다.
+macOS/Linux에서는 `Test-NetConnection`을 제외한 Docker 명령을 동일하게 사용합니다.
+
+```powershell
+docker compose logs --tail=100 redis
+docker compose stop redis
+```
+
+### 백엔드 연결 설정
+
+Spring Data Redis starter와 기본 Lettuce 클라이언트를 사용합니다. Spring Boot가
+`RedisConnectionFactory`와 `StringRedisTemplate`을 자동 등록하므로 필요한 서비스에서 주입받아 사용합니다.
+Redis Repository 자동 탐색은 비활성화하며, 기존 JPA Repository를 계속 사용합니다.
+설정 경로는 [Spring Boot Redis 설정](https://docs.spring.io/spring-boot/3.5/appendix/application-properties/#application-properties.data.spring.data.redis.host)의 `spring.data.redis.*`를 따릅니다.
+
+| 환경변수 | 설정 경로 (`spring.data.redis.` 뒤) | dev 기본값 | prod 기본값 |
+| --- | --- | --- | --- |
+| `REDIS_HOST` | `host` | `localhost` | 없음. 필수 주입 |
+| `REDIS_PORT` | `port` | `6379` | `6379` |
+| `REDIS_PASSWORD` | `password` | 빈 값 (인증 없음) | 빈 값 (인증 없음) |
+| `REDIS_DATABASE` | `database` | `0` | `0` |
+| `REDIS_CONNECT_TIMEOUT` | `connect-timeout` | `2s` | `2s` |
+| `REDIS_TIMEOUT` | `timeout` | `2s` | `2s` |
+
+- 개발 환경은 `.env.example`의 Redis 항목을 참고합니다. 기본 로컬 Compose를 사용하면 기존 `.env`에 값을 추가하지 않아도 연결됩니다.
+- `REDIS_PORT`는 백엔드의 접속 포트입니다. 값을 바꿔도 Compose의 공개 포트가 바뀌지는 않습니다.
+- 운영 배포 전에 백엔드 컨테이너에서 접근 가능한 Redis를 준비하고 서버 환경에 `REDIS_HOST`를 설정해야 합니다. 인증을 사용하는 서버라면 `REDIS_PASSWORD`도 주입합니다. 서버 Compose의 기존 `env_file`로 전달할 수 있습니다.
+- 연결 팩토리 생성이나 애플리케이션 기동 성공만으로 실제 Redis 연결이 검증되지는 않습니다. 아래 연결 테스트에서 PING 응답을 확인합니다.
+- `test` 프로필은 로컬 `localhost:6379`, DB `15`, 비밀번호 없음으로 고정합니다. `.env`의 `REDIS_*` 값을 사용하지 않지만, `SPRING_DATA_REDIS_*` 환경변수·시스템 속성은 테스트 설정을 덮어쓸 수 있으므로 실행 전에 확인합니다. `SPRING_DATA_REDIS_URL`은 호스트·포트·인증 설정에 우선할 수 있습니다.
+
+### 백엔드 Redis 연결 검증
+
+실제 연결 테스트는 `REDIS_INTEGRATION_TEST=true`일 때 실행합니다. 일반 테스트 실행에서는 건너뛰므로 Redis가 없는 환경에서도 기존 테스트를 실행할 수 있습니다.
+이 테스트는 `test` 프로필 설정과 자동 등록된 연결 팩토리로 PING만 전송하며 데이터를 변경하지 않습니다.
+
+```powershell
+docker compose up -d --wait redis
+if ($LASTEXITCODE -ne 0) { throw 'Redis 시작 실패' }
+$previousRedisIntegrationTest = $env:REDIS_INTEGRATION_TEST
+try {
+    $env:REDIS_INTEGRATION_TEST = 'true'
+    ..\gradlew.bat :backend:test --tests '*RedisConnectionIntegrationTest' --rerun-tasks
+    if ($LASTEXITCODE -ne 0) { throw 'Redis 연결 테스트 실패' }
+} finally {
+    $env:REDIS_INTEGRATION_TEST = $previousRedisIntegrationTest
+}
+```
+
+macOS/Linux에서는 `REDIS_INTEGRATION_TEST=true ../gradlew :backend:test --tests '*RedisConnectionIntegrationTest' --rerun-tasks`로 실행합니다.
+
+`loginCode`의 저장·TTL·일회성 소비는 Steam 인증 API 구현 시 연결합니다.
 
 ## PostgreSQL + Flyway 통합 테스트
 

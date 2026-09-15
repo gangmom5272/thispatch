@@ -1,6 +1,7 @@
-import { Link, useParams } from "react-router"
+import { Link, Outlet, useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
+import { GameDetailTabs } from "@/pages/GameDetail/components/GameDetailTabs"
 import { GameHeader } from "@/pages/GameDetail/components/GameHeader"
 import { GameHeaderSkeleton } from "@/pages/GameDetail/components/GameHeaderSkeleton"
 import { paths } from "@/router/paths"
@@ -52,7 +53,12 @@ export default function GameDetailPage() {
   }
 
   if (query.isPending) {
-    return <GameHeaderSkeleton />
+    return (
+      <>
+        <GameHeaderSkeleton />
+        <Outlet />
+      </>
+    )
   }
 
   if (query.isError) {
@@ -88,5 +94,11 @@ export default function GameDetailPage() {
     )
   }
 
-  return <GameHeader game={query.data} />
+  return (
+    <>
+      <GameHeader game={query.data} />
+      <GameDetailTabs />
+      <Outlet />
+    </>
+  )
 }

@@ -269,8 +269,24 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
             contribution.incrementWriteCount(page.reviews().size());
             emptyPages = 0;
         }
+        // 증분 수집이면 기준 시각보다 오래된 수정에 닿는 순간 이 게임은 끝이다.
+        //
+        // filter=updated 가 수정일 내림차순이라, 페이지의 가장 오래된 것이 기준보다
+        // 이르면 그 뒤로는 전부 이미 갖고 있는 것이다. 더 넘길 이유가 없다.
+        //
+        // ⚠ 그 페이지를 버리지 않는다. 경계에 걸친 페이지에는 기준보다 새것과
+        //   옛것이 섞여 있고, 옛것을 몇 개 더 받아도 ReviewLake 가 정리한다.
+        //   반대로 버리면 새것까지 같이 날아간다.
+        long sinceTs = ctx.getLong(AppidPartitioner.KEY_SINCE_TS, 0);
+        boolean reachedSince = sinceTs > 0 && !page.reviews().isEmpty()
+                && oldestUpdatedTs(page) < sinceTs;
+
         if (emptyPages >= EMPTY_PAGE_LIMIT) {
             log.info("게임 {} 수집 완료 — 빈 페이지 {}회 연속", appid, emptyPages);
+            index++;
+            cursor = SteamReviewClient.FIRST_CURSOR;
+            emptyPages = 0;
+        } else if (reachedSince) {
             index++;
             cursor = SteamReviewClient.FIRST_CURSOR;
             emptyPages = 0;
@@ -447,6 +463,24 @@ public class CollectTasklet implements Tasklet, ChunkListener, StepExecutionList
 
     private static List<Long> appids(ExecutionContext ctx) {
         return AppidPartitioner.parse(ctx.getString(AppidPartitioner.KEY_APPIDS, ""));
+    }
+
+    /**
+     * 페이지에서 가장 오래 고쳐진 리뷰의 시각.
+     *
+     * <p>정렬이 내림차순이라 보통은 마지막 줄이지만, 1,000건에 0~1건 어긋난다는
+     * 실측이 있어 전부 본다. 값이 없으면 {@link Long#MAX_VALUE} 로 쳐서
+     * 「아직 기준에 못 미쳤다」로 본다 — 없는 값 때문에 게임을 일찍 끊지 않는다.
+     */
+    private static long oldestUpdatedTs(SteamReviewPage page) {
+        long oldest = Long.MAX_VALUE;
+        for (var review : page.reviews()) {
+            var node = review.get("timestamp_updated");
+            if (node != null && node.isNumber()) {
+                oldest = Math.min(oldest, node.asLong());
+            }
+        }
+        return oldest;
     }
 
     private static void checkInterrupted(StepExecution step) throws JobInterruptedException {

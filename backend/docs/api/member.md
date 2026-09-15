@@ -300,8 +300,8 @@ Location: {FRONTEND_BASE_URL}/login?error=STEAM_AUTH_FAILED
 **Processing Rules / Notes — 구현 메모**
 
 1. `loginCode`의 존재 여부, 로그인 토큰 교환 용도, 만료 여부, 이미 사용된 코드인지 확인한다.
-2. 코드와 연결된 회원을 확인한다.
-3. 정상인 경우 `loginCode`를 사용 완료 처리하고 Access Token과 Refresh Token을 발급한다. 발급한 Refresh Token은 아래 공통 저장 정책에 따라 저장한다.
+2. 코드를 원자적으로 소비해 얻은 회원 ID로 회원을 조회한다. `login_type = STEAM`이고 `status = ACTIVE`인 회원만 토큰 교환을 허용한다. 회원이 없거나 다른 가입 유형·상태이면 `401 STEAM_LOGIN_CODE_INVALID`와 `Steam 로그인을 다시 진행해주세요.`를 반환한다.
+3. 회원 확인을 통과하면 Access Token과 Refresh Token을 발급한다. 발급한 Refresh Token은 아래 공통 저장 정책에 따라 저장한다.
 4. 토큰과 함께 현재 회원의 닉네임을 `data.nickname`으로 반환한다.
 
 - 정상 사용한 `loginCode`는 다시 사용할 수 없다. 동시에 교환 요청이 발생해도 한 번만 사용되도록 보장한다.

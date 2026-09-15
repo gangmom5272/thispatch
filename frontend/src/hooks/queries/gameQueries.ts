@@ -8,7 +8,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { createMyGame, deleteMyGame, getGames } from "../../api/games"
+import { createMyGame, deleteMyGame, getGame, getGames } from "../../api/games"
 import type { GameFilters } from "../../types"
 
 const SUGGESTION_LIMIT = 5
@@ -19,6 +19,7 @@ export const gameKeys = {
   lists: () => [...gameKeys.all, "list"] as const,
   list: (filters: GameFilters) => [...gameKeys.lists(), filters] as const,
   suggestions: (search: string) => [...gameKeys.all, "suggestions", search] as const,
+  detail: (gameId: number) => [...gameKeys.all, "detail", gameId] as const,
 }
 
 export const gameListOptions = (filters: GameFilters) =>
@@ -46,6 +47,16 @@ export const gameSuggestionOptions = (search: string) =>
 
 export function useGameSuggestions(search: string, enabled: boolean) {
   return useQuery({ ...gameSuggestionOptions(search), enabled })
+}
+
+export const gameDetailOptions = (gameId: number) =>
+  queryOptions({
+    queryKey: gameKeys.detail(gameId),
+    queryFn: ({ signal }) => getGame(gameId, signal),
+  })
+
+export function useGameDetail(gameId: number) {
+  return useQuery(gameDetailOptions(gameId))
 }
 
 interface ToggleMyGameVariables {

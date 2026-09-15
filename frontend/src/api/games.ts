@@ -1,4 +1,4 @@
-import type { GameFilters, GameList } from "../types"
+import type { GameDetail, GameFilters, GameList } from "../types"
 import { api } from "./client"
 
 export function getGames(
@@ -21,4 +21,8 @@ export function createMyGame(gameId: number): Promise<void> {
 
 export function deleteMyGame(gameId: number): Promise<void> {
   return api.delete<void>({ path: `/games/${gameId}/my-game` })
+}
+
+export function getGame(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
+  return api.get<GameDetail>({ path: `/games/${gameId}`, config: { signal } })
 }

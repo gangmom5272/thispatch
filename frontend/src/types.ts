@@ -50,3 +50,16 @@ export interface GameList {
     totalCount: number
   }
 }
+
+export interface GameDetail {
+  id: number
+  capsuleImageUrl: string | null
+  title: string
+  tags: GameTag[]
+  positiveRate: number | null
+  isMine: boolean
+  description: string | null
+  releasedOn: string | null
+  reviewCount: number | null
+  lastCollectedAt: string | null
+}

@@ -124,6 +124,28 @@ export const gameHandlers = [
       },
     })
   }),
+  http.get(`${baseURL}/games/:gameId`, async ({ request, params }) => {
+    await delay(250)
+    if (!isAuthorized(request)) {
+      return respond(401, "인증이 필요합니다.")
+    }
+    const game = mockGames.find((item) => item.id === Number(params.gameId))
+    if (!game) {
+      return respond(404, "게임을 찾을 수 없습니다.")
+    }
+    return respond(200, "성공했습니다.", {
+      id: game.id,
+      capsuleImageUrl: game.capsuleImageUrl,
+      title: game.title,
+      tags: game.tags,
+      positiveRate: game.positiveRate,
+      isMine: registeredGames.has(game.id),
+      description: game.gameSummary.description,
+      releasedOn: game.releasedAt,
+      reviewCount: game.reviewCount,
+      lastCollectedAt: new Date().toISOString(),
+    })
+  }),
   http.delete(`${baseURL}/games/:gameId/my-game`, async ({ request, params }) => {
     await delay(250)
     if (!isAuthorized(request)) {

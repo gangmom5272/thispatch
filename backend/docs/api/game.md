@@ -233,9 +233,22 @@ GET /games?search=slay&limit=5
 
 **Error Responses**
 
-- `401`: 로그인 필요
-- `404`: 게임 없음
-- `409`: 이미 내 게임으로 등록됨
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | `gameId`가 long으로 변환되지 않음 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 유효한 Access Token 또는 활성 회원 인증 없음 |
+| `404` | `GAME_NOT_FOUND` | 게임을 찾을 수 없습니다. | `game.appid`에 해당 게임이 없음 |
+| `409` | `MY_GAME_ALREADY_REGISTERED` | 이미 내 게임으로 등록된 게임입니다. | 현재 회원에게 이미 등록된 게임 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | 예상하지 못한 DB·서버 오류 |
+
+**Processing Rules / Notes**
+
+- 등록 회원은 검증된 Access Token의 `MemberPrincipal.memberId`로 식별한다. 클라이언트가 전달한 회원 ID는 사용하지 않는다.
+- `gameId`는 `game.appid`에 대응한다. 게임 존재 여부를 확인한 뒤 `my_game`에 현재 회원 ID, 게임 ID와 등록 시각(`created_at`)을 저장한다.
+- `(member_id, appid)` 기본키를 기준으로 중복을 판정한다. 동일 회원·게임의 동시 등록은 한 요청만 `200`으로 성공하고 나머지는 `409`를 반환한다.
+- 중복 요청은 기존 등록과 `created_at`을 변경하지 않는다. 다른 회원은 같은 게임을 각각 등록할 수 있다.
+- 등록은 하나의 DB 트랜잭션으로 처리한다. 중복 기본키 충돌 이외의 DB 오류를 중복 등록 오류로 바꾸지 않는다.
+- 성공 응답에는 `data`를 포함하지 않으며, 응답 시각과 오류 응답은 공통 계약을 따른다.
 
 ## 내 게임 등록 해제
 

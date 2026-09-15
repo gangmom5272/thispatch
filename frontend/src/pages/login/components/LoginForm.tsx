@@ -1,6 +1,7 @@
 import { useActionState } from "react"
 import { useNavigate } from "react-router"
 import { isApiError } from "@/api/error"
+import Input from "@/components/Input"
 import { useLogin } from "@/hooks/queries/authQueries"
 import { paths } from "@/router/paths"
 
@@ -28,25 +29,23 @@ export function LoginForm() {
     <form action={formAction} className="flex flex-col gap-sb-4 text-left">
       <label className="flex flex-col gap-sb-2 text-left text-sb-body text-sb-ink">
         이메일
-        <input
+        <Input
           name="email"
           type="email"
           autoComplete="email"
           required
           disabled={isPending}
-          className="h-sb-control rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-3 text-sb-ink placeholder:text-sb-ink-mute-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
           placeholder="user@example.com"
         />
       </label>
       <label className="flex flex-col gap-sb-2 text-left text-sb-body text-sb-ink">
         비밀번호
-        <input
+        <Input
           name="password"
           type="password"
           autoComplete="current-password"
           required
           disabled={isPending}
-          className="h-sb-control rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-3 text-sb-ink placeholder:text-sb-ink-mute-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
           placeholder="비밀번호"
         />
       </label>

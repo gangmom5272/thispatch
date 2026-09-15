@@ -1,9 +1,8 @@
 import { Link, Outlet, useParams } from "react-router"
 import { isApiError } from "@/api/error"
+import { GameHeader } from "@/components/GameHeader"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { GameDetailTabs } from "@/pages/GameDetail/components/GameDetailTabs"
-import { GameHeader } from "@/pages/GameDetail/components/GameHeader"
-import { GameHeaderSkeleton } from "@/pages/GameDetail/components/GameHeaderSkeleton"
 import { paths } from "@/router/paths"
 
 function parseGameId(raw: string | undefined): number | null {
@@ -52,15 +51,6 @@ export default function GameDetailPage() {
     )
   }
 
-  if (query.isPending) {
-    return (
-      <>
-        <GameHeaderSkeleton />
-        <Outlet />
-      </>
-    )
-  }
-
   if (query.isError) {
     const status = isApiError(query.error) ? query.error.status : 0
     if (status === 401) {
@@ -96,8 +86,8 @@ export default function GameDetailPage() {
 
   return (
     <>
-      <GameHeader game={query.data} />
-      <GameDetailTabs />
+      <GameHeader gameId={gameId} />
+      {query.isSuccess ? <GameDetailTabs /> : null}
       <Outlet />
     </>
   )

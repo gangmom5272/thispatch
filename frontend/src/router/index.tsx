@@ -6,14 +6,15 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
-  GAME_DETAIL_TAB_ORDER,
   paths,
   routeSegment,
 } from "@/router/paths"
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
+import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 
 export const router = createBrowserRouter([
   {
@@ -36,11 +37,19 @@ export const router = createBrowserRouter([
             index: true,
             element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
           },
-          ...GAME_DETAIL_TAB_ORDER.map((tab) => ({
+          ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
             path: tab,
             element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
           })),
         ],
+      },
+      {
+        path: routeSegment(paths.gamePlanPattern),
+        element: <PlanStructurePage />,
+      },
+      {
+        path: routeSegment(paths.gameCasesPattern),
+        element: <PlaceholderPage title="유사 사례 검색" />,
       },
       {
         path: routeSegment(paths.methodology),

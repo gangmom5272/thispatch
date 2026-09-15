@@ -17,6 +17,12 @@ dependencies {
     testImplementation "org.apache.spark:spark-sql_${rootProject.ext.scalaBinary}:${rootProject.ext.sparkVersion}"
 }
 
+// Gradle tests do not inherit spark-submit's Java module access options.
+// Spark needs this access when converting SQL dates into Java dates.
+tasks.named('test', Test) {
+    jvmArgs '--add-opens=java.base/sun.util.calendar=ALL-UNNAMED'
+}
+
 // spark-submit 에 넘길 jar 를 만든다.
 //
 // common 이 별도 jar 라 --jars 로 같이 넘겨야 하는데, 작은 파일 두 개를

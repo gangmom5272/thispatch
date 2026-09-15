@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -57,7 +58,7 @@ class NewsCollectTaskletTest {
         step.getExecutionContext().putString(AppidPartitioner.KEY_APPIDS, "730,570");
         chunk = new ChunkContext(new StepContext(step));
         tasklet = new NewsCollectTasklet(client, writer, Duration.ofSeconds(1), 2, 1,
-                clock, clock::advance);
+                SteamNewsClient.DEFAULT_COUNT, 100, clock, clock::advance);
         when(writer.write(anyLong(), any(), any())).thenReturn(Optional.of(new Path("/n.jsonl.gz")));
     }
 
@@ -79,7 +80,7 @@ class NewsCollectTaskletTest {
     @Test
     @DisplayName("게임 하나를 받으면 진행 위치가 하나 움직인다")
     void advancesOneGamePerCall() throws Exception {
-        when(client.fetch(anyLong())).thenReturn(List.of(item("패치 1")));
+        when(client.fetch(anyLong(), anyInt())).thenReturn(List.of(item("패치 1")));
 
         assertEquals(RepeatStatus.CONTINUABLE, run());
         assertEquals(1, index());
@@ -91,7 +92,7 @@ class NewsCollectTaskletTest {
     @Test
     @DisplayName("받은 공지를 그 게임 것으로 저장한다")
     void writesWithTheRightAppid() throws Exception {
-        when(client.fetch(730L)).thenReturn(List.of(item("패치 1"), item("패치 2")));
+        when(client.fetch(eq(730L), anyInt())).thenReturn(List.of(item("패치 1"), item("패치 2")));
 
         run();
 
@@ -102,7 +103,7 @@ class NewsCollectTaskletTest {
     @DisplayName("공지가 없는 게임은 파일을 만들지 않고 그냥 넘어간다")
     void skipsGamesWithoutNews() throws Exception {
         // 출시 전이거나 공지를 한 번도 안 올린 게임이 많다. 오류가 아니다.
-        when(client.fetch(anyLong())).thenReturn(List.of());
+        when(client.fetch(anyLong(), anyInt())).thenReturn(List.of());
 
         assertEquals(RepeatStatus.CONTINUABLE, run());
 
@@ -114,7 +115,7 @@ class NewsCollectTaskletTest {
     @DisplayName("저장이 실패하면 진행 위치를 옮기지 않는다")
     void keepsIndexWhenWriteFails() throws Exception {
         // ⚠ 여기가 어긋나면 안 받은 게임을 받은 것으로 치고 넘어간다. 조용히 사라진다.
-        when(client.fetch(anyLong())).thenReturn(List.of(item("패치 1")));
+        when(client.fetch(anyLong(), anyInt())).thenReturn(List.of(item("패치 1")));
         when(writer.write(anyLong(), any(), any())).thenThrow(new IOException("HDFS 실패"));
 
         assertThrows(IOException.class, this::run);
@@ -124,7 +125,7 @@ class NewsCollectTaskletTest {
     @Test
     @DisplayName("스팀이 실패하면 진행 위치를 두고 다시 시도한다")
     void retriesOnSteamFailure() throws Exception {
-        when(client.fetch(anyLong())).thenThrow(new IOException("네트워크 끊김"));
+        when(client.fetch(anyLong(), anyInt())).thenThrow(new IOException("네트워크 끊김"));
 
         assertEquals(RepeatStatus.CONTINUABLE, run());
 
@@ -135,7 +136,7 @@ class NewsCollectTaskletTest {
     @Test
     @DisplayName("재시도를 다 쓰면 스텝을 실패시킨다")
     void failsAfterMaxRetries() throws Exception {
-        when(client.fetch(anyLong())).thenThrow(new IOException("계속 실패"));
+        when(client.fetch(anyLong(), anyInt())).thenThrow(new IOException("계속 실패"));
 
         run();   // 1
         run();   // 2
@@ -154,19 +155,19 @@ class NewsCollectTaskletTest {
                 () -> tasklet.execute(step.createStepContribution(), chunk));
 
         assertTrue(step.isTerminateOnly(), "STOPPED 가 아니면 조각이 통째로 누락된다");
-        verify(client, never()).fetch(anyLong());
+        verify(client, never()).fetch(anyLong(), anyInt());
     }
 
     @Test
     @DisplayName("이어 돌릴 때 저장된 자리부터 간다")
     void resumesFromSavedIndex() throws Exception {
         step.getExecutionContext().putInt(NewsCollectTasklet.KEY_APP_INDEX, 1);
-        when(client.fetch(anyLong())).thenReturn(List.of(item("패치")));
+        when(client.fetch(anyLong(), anyInt())).thenReturn(List.of(item("패치")));
 
         assertEquals(RepeatStatus.FINISHED, run());
 
-        verify(client).fetch(570L);
-        verify(client, never()).fetch(730L);
+        verify(client).fetch(eq(570L), anyInt());
+        verify(client, never()).fetch(eq(730L), anyInt());
     }
 
     private static ObjectNode item(String title) {

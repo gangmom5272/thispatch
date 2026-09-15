@@ -113,9 +113,27 @@
 
 **Error Responses**
 
-- `400`: 이메일 또는 비밀번호 형식 오류
-- `401`: 이메일 또는 비밀번호 불일치
-- `500`: 서버 내부 오류
+- `400`: 이메일·비밀번호 필드 검증 실패 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`)
+- `400`: 잘못된 JSON·요청 본문 누락·문자열이 아닌 필드 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
+- `401`: 회원 없음·비밀번호 불일치·비활성 회원·Steam 계정 (`LOGIN_FAILED`, `이메일 또는 비밀번호가 일치하지 않습니다.`)
+- `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
+
+**Processing Rules / Notes**
+
+1. `email`, `password`는 필수 `string`이다. 누락·null·빈 문자열·공백만인 값은 필드 검증 오류로 처리한다.
+2. 이메일은 아래 공통 정규화 정책을 적용한 뒤 이메일 형식과 최대 255자를 검증하고, 정규화한 값으로 회원을 조회한다.
+3. 비밀번호는 입력 원문 그대로 BCrypt로 검증한다. 앞뒤 공백 제거·대소문자 변환을 하지 않으며 UTF-8 기준 72바이트 이하여야 한다. 로그인에는 가입용 최소 길이·복잡도 규칙을 추가하지 않는다.
+4. `login_type = LOCAL`이고 `status = ACTIVE`인 회원만 허용한다. 회원 없음·비밀번호 불일치·다른 가입 유형·비활성 상태는 구분 없이 동일한 `401 LOGIN_FAILED`를 반환한다.
+5. 검증 성공 시 Access Token과 Refresh Token을 발급하고, 아래 Refresh Token 공통 저장 정책에 따라 기존 저장값을 대체한다. 저장까지 성공한 경우에만 Response Body의 `data.accessToken`, `data.refreshToken`으로 반환한다.
+6. 토큰 저장은 로그인 서비스의 DB 트랜잭션에 참여한다. 조회·발급·저장 실패는 공통 `500`으로 처리하며, DB 트랜잭션 실패 시 기존 저장 토큰을 유지한다. 실패 응답에는 토큰·비밀번호·내부 예외 정보를 포함하지 않는다.
+
+### 자체 회원 이메일 공통 정규화 정책
+
+- 회원가입 저장·중복 검사·로그인 조회에 동일한 규칙을 적용한다.
+- 입력 문자열의 앞뒤 공백을 제거(`String.strip()`)하고 `Locale.ROOT` 기준으로 전체를 소문자로 변환한다. 내부 공백은 제거하지 않는다.
+- 회원가입은 정규화한 이메일을 저장하고 같은 값으로 중복 검사한다. 로그인도 정규화한 이메일로 조회한다.
+- Gmail의 점 제거·`+` 별칭 제거 등 메일 제공자별 변환은 적용하지 않는다.
+- 이번 로그인 구현에서는 기존 저장 이메일을 일괄 변환하거나 계정을 병합하지 않는다. 회원가입 구현도 이 공통 정책을 따라야 한다.
 
 ## 회원가입
 
@@ -438,9 +456,24 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 
 **Error Responses**
 
-- `400`: Refresh Token 누락
-- `401`: Refresh Token 무효 또는 만료
-- `500`: 서버 내부 오류
+- `400`: 필드 누락·null·빈 문자열·공백만 있는 값 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`). 필드 오류의 `field`는 `refreshToken`, `message`는 `Refresh Token을 입력해주세요.`다.
+- `400`: 잘못된 JSON·요청 본문 누락·문자열이 아닌 필드 값 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
+- `401`: Refresh Token 무효·만료·미저장·교체·폐기·소유자 또는 저장 만료 시각 불일치 (`REFRESH_TOKEN_INVALID`, `토큰 재발급을 위해 다시 로그인해주세요.`)
+- `401`: 회원 부재 또는 `status != ACTIVE` (`MEMBER_INACTIVE`, `토큰을 재발급할 수 없는 회원입니다.`)
+- `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
+
+**Processing Rules / Notes**
+
+1. `refreshToken`은 필수 `string`이며 Request Body에서만 읽는다. Authorization 헤더는 검사하지 않으며 회원 ID를 요청으로 받지 않는다.
+2. JWT 서명·Refresh 용도·필수 claim·만료를 검증한다. 실패하면 회원 조회 없이 `401 REFRESH_TOKEN_INVALID`를 반환한다.
+3. 검증된 JWT의 회원 ID로 회원을 조회한다. 회원이 없으면 `401 MEMBER_INACTIVE`를 반환한다.
+4. 해당 회원의 현재 저장 해시·만료 시각을 대조한다. 미저장·교체·폐기·불일치는 회원 상태보다 먼저 `401 REFRESH_TOKEN_INVALID`로 처리한다. 다른 회원 행에 저장된 토큰은 사용할 수 없다.
+5. 저장값이 일치하더라도 `status != ACTIVE`이면 `401 MEMBER_INACTIVE`를 반환한다. 로그인 유형과 닉네임 설정 여부는 제한하지 않는다.
+6. 검증을 통과한 회원 ID로 새 Access Token을 발급해 `data.accessToken`만 반환한다. Refresh Token은 교체·폐기하지 않으며 저장 만료 시각도 연장하지 않는다.
+
+- 두 `401` 오류는 공통 오류 응답 및 `WWW-Authenticate: Bearer` 헤더를 사용한다. 토큰·회원 상태값·내부 예외 상세는 응답에 포함하지 않는다.
+- DB 조회·트랜잭션·발급 장애를 토큰 오류로 바꾸지 않고 공통 `500`으로 처리한다.
+- 새 schema/migration은 필요하지 않다. 기존 Refresh Token 저장 정책과 JWT 발급 설정을 재사용한다.
 
 ## 로그아웃
 

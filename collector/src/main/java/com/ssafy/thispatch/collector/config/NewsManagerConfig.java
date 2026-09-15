@@ -1,6 +1,14 @@
 package com.ssafy.thispatch.collector.config;
 
 import com.ssafy.thispatch.collector.partition.AppidPartitioner;
+import com.ssafy.thispatch.common.TimeRule;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobInstance;
+import org.springframework.batch.core.explore.JobExplorer;
 import java.util.Arrays;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -74,6 +82,15 @@ public class NewsManagerConfig {
     @Value("${thispatch.collect.service-db.password:}")
     private String serviceDbPassword;
 
+    /** 잡 이름. 지난 성공 실행을 찾을 때 쓴다. {@link #newsJob} 과 같아야 한다. */
+    static final String JOB_NAME = "newsJob";
+
+    @Value("${thispatch.collect.incremental:true}")
+    private boolean incremental;
+
+    @Value("${thispatch.collect.slack:1h}")
+    private Duration slack;
+
     @Bean
     public IntegrationFlow newsOutboundRequests(AmqpTemplate amqpTemplate, DirectChannel requests) {
         return IntegrationFlow.from(requests)
@@ -84,8 +101,10 @@ public class NewsManagerConfig {
 
     @Bean
     public Step newsManagerStep(RemotePartitioningManagerStepBuilderFactory factory,
-                                DirectChannel requests) {
+                                DirectChannel requests,
+                                JobExplorer jobExplorer) {
         List<Long> appids = resolveAppids();
+        long sinceTs = resolveSince(jobExplorer);
 
         int partitions;
         if (partitionsOverride > 0) {
@@ -99,12 +118,58 @@ public class NewsManagerConfig {
         }
 
         return factory.get("news.manager")
-                .partitioner(WorkerConfig.NEWS_STEP_NAME, new AppidPartitioner(appids))
+                .partitioner(WorkerConfig.NEWS_STEP_NAME, new AppidPartitioner(appids, sinceTs))
                 .gridSize(partitions)
                 .outputChannel(requests)
                 .pollInterval(2000)
                 .timeout(managerTimeoutMillis)
                 .build();
+    }
+
+    /**
+     * 어디까지 거슬러 받을지. 0 이면 전량.
+     *
+     * <p>리뷰({@code ManagerConfig.resolveSince})와 같은 방식이다 — 게임별 워터마크를
+     * 두지 않고, 지난 COMPLETED 실행의 시작 시각 하나를 쓴다. 그 시각은 Spring Batch
+     * 가 이미 배치 DB 에 들고 있다.
+     *
+     * <p><b>⚠ 리뷰와 결정적으로 다른 점이 있다.</b> 리뷰는 {@code filter=updated} 덕에
+     * 15년 전에 쓴 리뷰를 오늘 고쳐도 앞으로 올라온다. <b>공지는 게시일 순이라 그게
+     * 안 된다.</b> 오래된 공지를 나중에 고치면 우리는 모른다.
+     *
+     * <p>2026-09-15 에 「옛날 공지를 수정할 게임은 없어 보인다」고 보고 주기적 전량
+     * 재수집을 넣지 않기로 했다. 나중에 필요해지면 {@code incremental=false} 로 한 번
+     * 돌리면 된다.
+     */
+    long resolveSince(JobExplorer jobExplorer) {
+        if (!incremental) {
+            log.info("공지 전량 수집 — 있는 것을 다 받는다 (thispatch.collect.incremental=false)");
+            return 0L;
+        }
+        Instant best = null;
+        for (JobInstance instance : jobExplorer.getJobInstances(JOB_NAME, 0, 50)) {
+            for (JobExecution execution : jobExplorer.getJobExecutions(instance)) {
+                if (execution.getStatus() != BatchStatus.COMPLETED) {
+                    continue;
+                }
+                LocalDateTime start = execution.getStartTime();
+                if (start == null) {
+                    continue;
+                }
+                Instant at = start.atZone(TimeRule.ZONE).toInstant();
+                if (best == null || at.isAfter(best)) {
+                    best = at;
+                }
+            }
+        }
+        if (best == null) {
+            log.info("공지 전량 수집 — 성공으로 끝난 지난 수집이 없다");
+            return 0L;
+        }
+        long since = best.minus(slack).getEpochSecond();
+        log.info("공지 증분 수집 — {} 이후 올라온 것만 (지난 성공 수집 {} 에서 {} 뺀 값)",
+                Instant.ofEpochSecond(since), best, slack);
+        return since;
     }
 
     /**

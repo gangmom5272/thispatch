@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common import WORK, write_parquet_dir  # noqa: E402
 
 NEWS_SCHEMA = pa.schema([("gid", pa.string()), ("appid", pa.int64()), ("title", pa.string()), ("contents", pa.string()),
-                         ("url", pa.string()), ("published_at", pa.int64()), ("feed_tags", pa.string()),
+                         ("url", pa.string()), ("published_ts", pa.int64()), ("feed_tags", pa.string()),
                          ("is_patch", pa.bool_()), ("patch_reason", pa.string())])
 REVIEW_SCHEMA = pa.schema([("recommendationid", pa.int64()), ("appid", pa.int64()), ("steam_id", pa.string()),
                            ("review_text", pa.string()), ("language_code", pa.string()), ("created_ts", pa.int64()),
@@ -78,7 +78,7 @@ def fetch_news(client, appid, since_ts, max_pages=6):
             tags = ",".join(it.get("tags") or [])
             ok, why = judge(it["title"], it.get("contents", ""), tags)
             rows.append({"gid": str(it["gid"]), "appid": appid, "title": it["title"], "contents": it.get("contents", ""),
-                         "url": it.get("url", ""), "published_at": int(it["date"]), "feed_tags": tags, "is_patch": ok, "patch_reason": why})
+                         "url": it.get("url", ""), "published_ts": int(it["date"]), "feed_tags": tags, "is_patch": ok, "patch_reason": why})
         if len(items) < 500 or new == 0 or min(it["date"] for it in items) < since_ts:
             break
         enddate = min(it["date"] for it in items) - 1

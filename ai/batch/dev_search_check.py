@@ -30,7 +30,7 @@ def main():
 
     ck = read_parquet_dir(out_dir("embeddings/patch_chunk", a.dt))
     ch = read_parquet_dir(out_dir("embeddings/patch_change", a.dt))
-    news = read_parquet_dir(in_dir("news_raw", a.dt), columns=["gid", "appid", "title", "published_at"])
+    news = read_parquet_dir(in_dir("news_raw", a.dt), columns=["gid", "appid", "title", "published_ts"])
     ck = ck[ck.embedding_status == "succeeded"].reset_index(drop=True)
     E = np.vstack(ck.embedding.to_numpy()).astype(np.float32)
     print(f"index: {len(ck)} chunks × {E.shape[1]} dim, games={news.appid.nunique()}")

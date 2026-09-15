@@ -38,12 +38,21 @@ import java.util.Objects;
 public final class SteamNewsClient {
 
     /**
-     * 게임 하나에서 가져올 공지 수.
+     * 몇 건을 달라고 할지의 기본값. 전량이다.
      *
-     * <p>스팀이 최신순으로 준다. 최초 수집이라 넉넉히 받는다 — 패치 이력을 보려면
-     * 과거 공지가 있어야 한다. 실제로는 이보다 적은 게임이 대부분이다.
+     * <p>⚠ {@code count} 에 상한이 없다. 크게 줘도 있는 만큼만 온다 —
+     * 2026-09-15 실측으로 CS2(총 1,756건)에 10000 을 줘도 1,756건이 왔다.
+     * 그래도 <b>호출은 게임당 한 번</b>이라 시간이 거의 안 늘어난다.
+     *
+     * <pre>
+     *   count=100    0.15 MB · 0.36초     (CS2)
+     *   count=2000   4.28 MB · 0.82초
+     * </pre>
+     *
+     * <p>게임 25개 표본으로 게임당 평균 9.8건 · 19.7KB 였다. 11.7만 개면
+     * 약 2.2GB(gzip 0.4GB)라, 리뷰 30GB 에 비하면 부담이 없다.
      */
-    public static final int DEFAULT_COUNT = 100;
+    public static final int DEFAULT_COUNT = 10_000;
 
     /**
      * 본문 길이 제한. 0 이면 자르지 않는다.
@@ -101,12 +110,25 @@ public final class SteamNewsClient {
      * 호출자가 백오프와 함께 다룬다. 인터럽트는 그대로 올려보내 배치가 멈출 수 있게 한다.
      */
     public List<ObjectNode> fetch(long appid) throws IOException, InterruptedException {
+        return fetch(appid, count);
+    }
+
+    /**
+     * 몇 건을 달라고 할지 이번 호출에만 정한다.
+     *
+     * <p>증분 수집은 작게 준다 — 지난 배치 이후에 올라온 것만 필요하고, 게임 하나가
+     * 하루에 공지를 수십 개 올릴 일은 없다. 받는 양이 줄어 저장할 것도 준다.
+     */
+    public List<ObjectNode> fetch(long appid, int howMany) throws IOException, InterruptedException {
         if (appid <= 0) {
             throw new IllegalArgumentException("appid must be positive");
         }
+        if (howMany < 1) {
+            throw new IllegalArgumentException("howMany must be >= 1");
+        }
 
         String query = "?appid=" + appid
-                + "&count=" + count
+                + "&count=" + howMany
                 + "&maxlength=" + NO_TRUNCATION
                 + "&format=json";
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUri + query))

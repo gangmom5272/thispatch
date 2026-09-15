@@ -59,36 +59,56 @@ function SummaryRow({ label, tone, text }: { label: string; tone: string; text: 
   )
 }
 
-function GameTitle({ item }: { item: SimilarCase }) {
+function GameInfoArea({ item, detailPath }: { item: SimilarCase; detailPath: string }) {
   const popoverId = useId()
   const [open, setOpen] = useState(false)
   const show = () => setOpen(true)
   const hide = () => setOpen(false)
 
   return (
-    <div className="relative z-10 min-w-0" onMouseEnter={show} onMouseLeave={hide}>
-      <h3 className="text-sb-title font-medium">
-        <button
-          type="button"
-          aria-describedby={open ? popoverId : undefined}
-          aria-expanded={open}
-          onFocus={show}
-          onBlur={hide}
-          onClick={() => setOpen((prev) => !prev)}
-          onKeyDown={(event) => event.key === "Escape" && hide()}
-          className="cursor-help rounded-sb-tag text-left underline decoration-sb-hairline-strong decoration-dotted underline-offset-4 hover:decoration-sb-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-        >
-          {item.gameTitle}
-        </button>
-      </h3>
-      {open && (
-        <CaseGamePopover
-          id={popoverId}
-          gameId={item.gameId}
-          title={item.gameTitle}
-          capsuleImageUrl={item.capsuleImageUrl}
-        />
-      )}
+    <div className="relative" onMouseLeave={hide}>
+      <Link
+        to={detailPath}
+        state={{ case: item }}
+        aria-label={`${item.gameTitle} 사례 상세 비교`}
+        aria-describedby={open ? popoverId : undefined}
+        onMouseEnter={show}
+        onFocus={show}
+        onBlur={hide}
+        onKeyDown={(event) => event.key === "Escape" && hide()}
+        className="relative z-10 block rounded-t-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+      >
+        {item.capsuleImageUrl ? (
+          <img
+            src={item.capsuleImageUrl}
+            alt=""
+            loading="lazy"
+            className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas"
+          />
+        )}
+      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-sb-2 px-sb-4 pt-sb-3">
+        <h3 className="min-w-0 text-sb-title font-medium">{item.gameTitle}</h3>
+        <span className="flex items-center gap-sb-1 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-px">
+          <span className="text-sb-ink-mute">유사도</span>
+          <span className="font-sb-mono font-medium text-sb-primary tabular-nums">
+            {item.similarity.toFixed(1)}
+          </span>
+        </span>
+        {open && (
+          <CaseGamePopover
+            id={popoverId}
+            gameId={item.gameId}
+            title={item.gameTitle}
+            capsuleImageUrl={item.capsuleImageUrl}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -98,32 +118,12 @@ export default function CaseCard({ item, gameId }: { item: SimilarCase; gameId: 
     .map((id) => GAME_GENRES.find((genre) => genre.id === id)?.name)
     .filter((name) => name !== undefined)
   const tone = deltaTone(item.deltaPp)
+  const detailPath = gameCaseDetailPath(gameId, item.patchId)
 
   return (
     <li className="relative flex flex-col rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-surface hover:border-sb-hairline-strong has-focus-visible:border-sb-primary">
-      {item.capsuleImageUrl ? (
-        <img
-          src={item.capsuleImageUrl}
-          alt=""
-          loading="lazy"
-          className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas object-cover"
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas"
-        />
-      )}
-      <div className="flex flex-col gap-sb-2 px-sb-4 py-sb-3">
-        <div className="flex flex-wrap items-center justify-between gap-sb-2">
-          <GameTitle item={item} />
-          <span className="flex items-center gap-sb-1 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-px">
-            <span className="text-sb-ink-mute">유사도</span>
-            <span className="font-sb-mono font-medium text-sb-primary tabular-nums">
-              {item.similarity.toFixed(1)}
-            </span>
-          </span>
-        </div>
+      <GameInfoArea item={item} detailPath={detailPath} />
+      <div className="flex flex-col gap-sb-2 px-sb-4 pt-sb-2 pb-sb-3">
         {genreNames.length > 0 && <p className="text-sb-ink-mute">{genreNames.join(" · ")}</p>}
         <p className="font-sb-mono text-sb-ink-mute tabular-nums">
           {item.patchTitle} · {item.patchedOn} · 리뷰 {item.reviewCount.toLocaleString("en-US")}건
@@ -172,7 +172,7 @@ export default function CaseCard({ item, gameId }: { item: SimilarCase; gameId: 
         </div>
 
         <Link
-          to={gameCaseDetailPath(gameId, item.patchId)}
+          to={detailPath}
           state={{ case: item }}
           className="mt-sb-1 self-end rounded-sb-tag text-sb-primary after:absolute after:inset-0 after:rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
         >

@@ -29,7 +29,7 @@ tasks.named('test', Test) {
 // 매번 챙기는 것보다 하나로 합치는 편이 운영이 쉽다.
 // Spark 는 compileOnly 라 여기 들어가지 않는다.
 tasks.named('jar', Jar) {
-    archiveFileName = 'dispatch-spark.jar'
+    archiveFileName = 'thispatch-spark.jar'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }

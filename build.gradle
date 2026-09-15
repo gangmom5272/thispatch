@@ -17,7 +17,7 @@ ext {
 }
 
 allprojects {
-    group = 'com.ssafy.dispatch'
+    group = 'com.ssafy.thispatch'
     version = '0.0.1-SNAPSHOT'
 
     repositories {
@@ -44,6 +44,29 @@ subprojects {
 
     tasks.named('test') {
         useJUnitPlatform()
+
+        // Spark 를 테스트 JVM 안에서 띄우려면 자바 17 의 모듈 봉인을 열어 줘야 한다.
+        //
+        // Spark 는 sun.nio.ch.DirectBuffer 같은 내부 클래스를 직접 만진다.
+        // 자바 17 은 그걸 막는데, 막혔을 때 나는 오류가 원인을 전혀 알려주지
+        // 않는다 — 스택트레이스 없이 JVM 이 조용히 죽거나 엉뚱한
+        // IllegalAccessError 가 난다 (노션 「데이터 정리」 측정 기록에도 같은
+        // 증상이 남아 있다).
+        //
+        // 클러스터에서는 /opt/spark/conf/spark-defaults.conf 가 같은 일을 한다.
+        // 여기는 테스트 JVM 용이다.
+        jvmArgs(
+                '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED',
+                '--add-opens=java.base/java.net=ALL-UNNAMED',
+                '--add-opens=java.base/java.nio=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.util.concurrent=ALL-UNNAMED',
+                '--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens=java.base/sun.security.action=ALL-UNNAMED')
     }
 
     tasks.withType(JavaCompile).configureEach {

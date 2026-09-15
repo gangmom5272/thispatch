@@ -136,7 +136,7 @@ Steam `ISteamNews/GetNewsForApp/v2/`로 수집해 보관한 8개 게임 공지 9
 HDFS·DB·Spark 클러스터 없이 실행 가능한 순수 Java 단위 테스트 46개가 통과했다.
 
 ```bash
-./gradlew :spark:test --tests com.ssafy.dispatch.spark.PatchClassifierTest :spark:jar
+./gradlew :spark:test --tests com.ssafy.thispatch.spark.PatchClassifierTest :spark:jar
 ```
 
 `PatchClassificationPreview`는 로컬 검토용 어댑터이다.
@@ -145,8 +145,8 @@ HDFS·DB·Spark 클러스터 없이 실행 가능한 순수 Java 단위 테스�
 기존 5개 필드 입력도 호환하지만, 명시된 변경 대상과 수집 게임을 대조할 수 없어 검토 결과가 늘 수 있다.
 
 ```bash
-java -cp spark/build/libs/dispatch-spark.jar \
-  com.ssafy.dispatch.spark.PatchClassificationPreview input.tsv output.tsv
+java -cp spark/build/libs/thispatch-spark.jar \
+  com.ssafy.thispatch.spark.PatchClassificationPreview input.tsv output.tsv
 ```
 
 출력 파일은 기존 파일을 덮어쓰지 않는다.

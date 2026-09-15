@@ -45,10 +45,10 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 then V2, each applied exactly once").hasSize(2);
-		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2");
+		assertThat(history).as("V1 through V3, each applied exactly once").hasSize(3);
+		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3");
 		assertThat(history).extracting(row -> row.get("script"))
-			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql");
+			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -71,7 +71,7 @@ class ThispatchApplicationTests {
 		assertThat(jdbc.queryForObject("""
 			SELECT format_type(atttypid, atttypmod) FROM pg_attribute
 			WHERE attrelid = 'public.patch_chunk'::regclass AND attname = 'embedding' AND NOT attisdropped
-			""", String.class)).isEqualTo("vector(768)");
+			""", String.class)).isEqualTo("vector(512)");
 	}
 
 	private void assertConstraints(JdbcTemplate jdbc) {

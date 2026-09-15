@@ -29,8 +29,8 @@ Java 17과 Spark 의존성이 필요합니다. Windows에 Java 17이 없다면 �
 ```bash
 bash gradlew :spark:test :spark:jar --console=plain
 /opt/spark/bin/spark-submit --master 'local[2]' \
-  --class com.ssafy.dispatch.spark.DailyStatJob \
-  spark/build/libs/dispatch-spark.jar 2026-09-11
+  --class com.ssafy.thispatch.spark.DailyStatJob \
+  spark/build/libs/thispatch-spark.jar 2026-09-11
 ```
 
 잡은 `HdfsPaths.reviewDeltaOf(date)`만 읽습니다. 인자의 날짜는 **수집 파티션 날짜**이지 집계 활동일 필터가 아닙니다.
@@ -100,8 +100,8 @@ KST 자정 경계, 같은 날 작성/수정, 과거 수정 버전 보존, 반복
 
 ```bash
 /opt/spark/bin/spark-submit --master 'local[2]' \
-  --class com.ssafy.dispatch.spark.BandStatJob \
-  spark/build/libs/dispatch-spark.jar 2026-09-11
+  --class com.ssafy.thispatch.spark.BandStatJob \
+  spark/build/libs/thispatch-spark.jar 2026-09-11
 ```
 
 이 잡도 `HdfsPaths.reviewDeltaOf(date)`만 읽는 **샘플 미리보기**입니다. 최신 리뷰별 제외 현황,
@@ -143,8 +143,8 @@ Spark의 분산 집계 결과 개수는 BIGINT이며, DB INTEGER 적재 시 범�
 
 ```bash
 /opt/spark/bin/spark-submit --master 'local[2]' \
-  --class com.ssafy.dispatch.spark.LanguageStatJob \
-  spark/build/libs/dispatch-spark.jar 2026-09-11
+  --class com.ssafy.thispatch.spark.LanguageStatJob \
+  spark/build/libs/thispatch-spark.jar 2026-09-11
 ```
 
 다른 잡과 마찬가지로 `HdfsPaths.reviewDeltaOf(date)`만 읽는 미리보기입니다. 입력 건수,

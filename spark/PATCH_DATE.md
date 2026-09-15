@@ -106,3 +106,5 @@ bash gradlew :spark:test --tests com.ssafy.thispatch.spark.PatchDateResolverTest
 2026-09-15 WSL Java 17 검증: 기존 138개와 신규 22개를 포함한 전체 160개 테스트와 JAR 빌드 통과.
 이후 고정 `+09:00` 시간대 지원을 보완하고 적용일 테스트 23개 및 JAR 빌드를 다시 통과했다.
 이후 실제 Steam 공지 40,577건 실행과 60건 원문 대조를 수행했다. 독립 정답 데이터 기반 정확도 측정과 HDFS·DB 통합 검증은 수행하지 않았다.
+후속으로 [390개 앱·95,913건까지 확대 검증](PATCH_DATE_VALIDATION_EXPANDED.md)했고, 원문 대조 기록은 총 102건이다.
+현행 규칙의 적용일 자동 확정은 0건이며 실사용을 위해서는 문장 인식과 날짜 근거 연결 개선이 필요하다.

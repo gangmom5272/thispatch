@@ -52,7 +52,7 @@ def fetch_json(url):
             time.sleep(delay)
 
 
-def collect_app(appid, output, cutoff, max_pages):
+def collect_app(appid, output, cutoff, max_pages, identity=None, initial_enddate=None):
     folder = output / "raw" / str(appid)
     folder.mkdir(parents=True, exist_ok=True)
     status = {"appid": appid, "game": None, "pages": [], "error": None}
@@ -60,13 +60,20 @@ def collect_app(appid, output, cutoff, max_pages):
         metadata_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=english&filters=basic"
         metadata, digest = fetch_json(metadata_url)
         info = metadata.get(str(appid), {})
-        if not info.get("success"):
+        if info.get("success"):
+            status["game"] = info["data"]["name"]
+            status["app_type"] = info["data"]["type"]
+            status["identity_source"] = metadata_url
+        elif identity and identity.get("name") and identity.get("identity_source", "").startswith("https://store.steampowered.com/"):
+            # A public Steam listing can verify a name when regional appdetails returns success=false.
+            status["game"] = identity["name"]
+            status["app_type"] = "unverified"
+            status["identity_source"] = identity["identity_source"]
+        else:
             raise ValueError("Cannot verify app identity")
-        status["game"] = info["data"]["name"]
-        status["app_type"] = info["data"]["type"]
         (folder / "metadata.json").write_text(json.dumps({"url": metadata_url, "sha256": digest,
             "observed_at": datetime.now(timezone.utc).isoformat(), "response": metadata}, ensure_ascii=False), encoding="utf-8")
-        enddate = cutoff
+        enddate = initial_enddate if initial_enddate is not None else cutoff
         seen = set()
         for page in range(1, max_pages + 1):
             params = {"appid": appid, "count": 1000, "maxlength": 0, "feeds": FEEDS, "enddate": enddate}
@@ -102,18 +109,26 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
     parser.add_argument("--max-pages", type=int, default=5)
+    parser.add_argument("--roster", type=Path, help="JSON list of appid/name/identity_source records from verified public Steam listings")
+    parser.add_argument("--cutoff", type=int, help="Fixed publication cutoff for comparison with an earlier corpus")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    cutoff = int(time.time())
-    appids = list(dict.fromkeys(APP_IDS))
+    cutoff = args.cutoff if args.cutoff is not None else int(time.time())
+    roster = json.loads(args.roster.read_text(encoding="utf-8")) if args.roster else [{"appid": appid} for appid in APP_IDS]
+    by_appid = {int(item["appid"]): item for item in roster}
+    appids = list(by_appid)
     manifest = {"started_at": datetime.now(timezone.utc).isoformat(), "cutoff": cutoff,
                 "appids": appids, "count_per_request": 1000, "max_pages": args.max_pages,
                 "maxlength": 0, "feeds": FEEDS, "workers": 2, "min_request_spacing_seconds": 0.55,
                 "sampling": "Purposive cross-game history sample; not a probability sample of all Steam",
                 "announcement_zone": None, "timezone_policy": "Do not infer publisher timezone"}
+    if args.roster:
+        manifest["roster"] = roster
+        manifest["roster_sha256"] = hashlib.sha256(args.roster.read_bytes()).hexdigest()
     (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        statuses = list(executor.map(lambda appid: collect_app(appid, args.output, cutoff, args.max_pages), appids))
+        statuses = list(executor.map(lambda appid: collect_app(appid, args.output, cutoff, args.max_pages,
+                        by_appid[appid], by_appid[appid].get("initial_enddate")), appids))
 
     by_key = {}
     duplicates = 0

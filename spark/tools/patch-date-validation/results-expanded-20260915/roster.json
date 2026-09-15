@@ -1,0 +1,1809 @@
+[
+  {
+    "appid": 1055540,
+    "name": "A Short Hike",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1867240,
+    "name": "WARDOGS",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2795000,
+    "name": "The WereCleaner",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2139460,
+    "name": "Once Human",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2291760,
+    "name": "Papa's Freezeria Deluxe",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1049590,
+    "name": "Eternal Return",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2608050,
+    "name": "Travellin Cats in Jingle Jam",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 960170,
+    "name": "DJMAX RESPECT V",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2507950,
+    "name": "Delta Force",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3454610,
+    "name": "Poco",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 872410,
+    "name": "ROMANCE OF THE THREE KINGDOMS XIV",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3932890,
+    "name": "Escape from Tarkov",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1307580,
+    "name": "TOEM: A Photo Adventure",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3097300,
+    "name": "Creature Kitchen",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 985810,
+    "name": "GrandChase",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2220360,
+    "name": "Paper Lily - Chapter 1",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3269960,
+    "name": "Shiina Taki's Decameron",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2638890,
+    "name": "Onimusha: Way of the Sword",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1818450,
+    "name": "STALZONE",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2721890,
+    "name": "Öoo",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 648800,
+    "name": "Raft",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2684630,
+    "name": "Endacopia",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2344520,
+    "name": "Diablo® IV",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 835570,
+    "name": "Conqueror's Blade",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2600140,
+    "name": "Please, Touch The Artwork 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1698960,
+    "name": "Project Kat - Paper Lily Prologue",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4128400,
+    "name": "eBaseball™: PRO SPIRIT",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2178420,
+    "name": "Tree of Savior (Korean Ver.)",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1260520,
+    "name": "Patrick's Parabox",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4559140,
+    "name": "Godius Eternal War",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2702170,
+    "name": "Strange Jigsaws",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 376210,
+    "name": "The Isle",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3376990,
+    "name": "Kabuto Park",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2070550,
+    "name": "A Castle Full of Cats",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4001890,
+    "name": "How to Fish",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2081880,
+    "name": "Kathana",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1696770,
+    "name": "The Mermaid Mask",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3947460,
+    "name": "Creator Chronicles",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3041230,
+    "name": "Windrose",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2739630,
+    "name": "of the Devil",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1717770,
+    "name": "The Upturned",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3321460,
+    "name": "Crimson Desert Enhanced",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3950020,
+    "name": "Duet Night Abyss",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2179170,
+    "name": "A Tower Full of Cats",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3357650,
+    "name": "PRAGMATA",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2479810,
+    "name": "Gray Zone Warfare",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3715020,
+    "name": "Ye Guild Clerk!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2436940,
+    "name": "Sephiria",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2221490,
+    "name": "Tom Clancy’s The Division® 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1530140,
+    "name": "Aventura Copilului Albastru și Urât",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2569510,
+    "name": "MLB 9 Innings Rivals 26",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1740300,
+    "name": "Smushi Come Home",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4656000,
+    "name": "BOMBANANA!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1035990,
+    "name": "Dialtown: Phone Dating Sim",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4508340,
+    "name": "NTE: Neverness to Everness",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 476600,
+    "name": "Call of Duty®: WWII",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3599690,
+    "name": "Funi Raccoon Game",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3557620,
+    "name": "Blue Archive",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 266410,
+    "name": "iRacing",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 790060,
+    "name": "The Void Rains Upon Her Heart",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1144200,
+    "name": "Ready or Not",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2443110,
+    "name": "South Scrimshaw, Part One",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3240220,
+    "name": "Grand Theft Auto V Enhanced",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1825750,
+    "name": "Soulworker : Your Destiny Awaits",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2206340,
+    "name": "Aokana - Four Rhythms Across the Blue - EXTRA2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4560660,
+    "name": "Eslabong",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 4585340,
+    "name": "Horse Magnifier: The Full Horse",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1284210,
+    "name": "Guild Wars 2®",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2166050,
+    "name": "Moonleap",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1285190,
+    "name": "Borderlands 4",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 761890,
+    "name": "Albion Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3793580,
+    "name": "MAHOUTEQ!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1568590,
+    "name": "Goose Goose Duck",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3618850,
+    "name": "Pronoun Palace",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4108000,
+    "name": "Machine Party",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 444200,
+    "name": "World of Tanks Blitz",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4309030,
+    "name": "错过的暑假可以放第二次吗？",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2622000,
+    "name": "Astral Party ",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 8500,
+    "name": "EVE Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 858940,
+    "name": "Flowers -Le volume sur ete-",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1627720,
+    "name": "Lies of P",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2346660,
+    "name": "DFHack - Dwarf Fortress Modding Engine",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2183900,
+    "name": "Warhammer 40,000: Space Marine 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 766570,
+    "name": "Russian Fishing 4",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1422650,
+    "name": "Chicken Hill",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3751260,
+    "name": "The Blood of Dawnwalker",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 202970,
+    "name": "Call of Duty®: Black Ops II",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3534790,
+    "name": "Mesmalie",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3079210,
+    "name": "Hell Let Loose: Vietnam",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1684410,
+    "name": "Seal World",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1449850,
+    "name": "Yu-Gi-Oh! Master Duel",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3174070,
+    "name": "Texas Hold'em Poker: Pokerist",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3579050,
+    "name": "Strawberry Chocolate",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2288340,
+    "name": "ACE COMBAT 8: WINGS OF THEVE",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2325290,
+    "name": "Sky: Children of the Light",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 303590,
+    "name": "Hidden in Plain Sight",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1476970,
+    "name": "IdleOn - The Incremental MMO",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2233770,
+    "name": "The Thief, the Witch, the Toad, and the Mushroom.",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4659620,
+    "name": "Touhou Koumakyou: New Classic - the Embodiment of Scarlet Devil",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 42700,
+    "name": "Call of Duty®: Black Ops",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3247500,
+    "name": "Shooters, Ready!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2001120,
+    "name": "Split Fiction",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 223750,
+    "name": "DCS World Steam Edition",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2112520,
+    "name": "her tears were my light",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4356430,
+    "name": "NBA 2K27",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 4584110,
+    "name": "Soul Land: Awakening World",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4833450,
+    "name": "Money for Girls: Amortized",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3892270,
+    "name": "Gamble With Your Friends",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 767560,
+    "name": "War Robots",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4169820,
+    "name": "Our Brief Eternity",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3513350,
+    "name": "Wuthering Waves",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 440900,
+    "name": "Conan Exiles Enhanced",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1070550,
+    "name": "Don't Escape Trilogy",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3564740,
+    "name": "Where Winds Meet",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2964090,
+    "name": "World of Warships: Legends",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2059670,
+    "name": "Moss II VR",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1665460,
+    "name": "eFootball™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2051620,
+    "name": "Enlisted",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2933200,
+    "name": "Tukoni: Forest Keepers",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3447040,
+    "name": "Sora no Kiseki the 1st",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2948190,
+    "name": "World of Sea Battle",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2393760,
+    "name": "Tall Trails",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2456740,
+    "name": "inZOI",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3144230,
+    "name": "Modern Warships",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3030210,
+    "name": "Slash/Jump",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2429640,
+    "name": "Throne and Liberty",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2912430,
+    "name": "Platypus Reclayed",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4162040,
+    "name": "Zenless Zone Zero",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 550470,
+    "name": "NosTale - Anime MMORPG",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4051150,
+    "name": "Chronigma",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3672400,
+    "name": "Farever",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3486280,
+    "name": "Long Knives",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 454650,
+    "name": "DRAGON BALL XENOVERSE 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2505570,
+    "name": "Burger Shop 3",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1984270,
+    "name": "Digimon Story Time Stranger",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1238840,
+    "name": "Battlefield™ 1",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1295320,
+    "name": "Can of Wormholes",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 958260,
+    "name": "DEAD OR ALIVE Xtreme Venus Vacation",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 221100,
+    "name": "DayZ",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3390880,
+    "name": "CAPTURED 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4025700,
+    "name": "Heartopia",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1573360,
+    "name": "Infinity Kingdom",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4015260,
+    "name": "Slinkie Dinkie",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3764200,
+    "name": "Resident Evil Requiem",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1286830,
+    "name": "STAR WARS™: The Old Republic™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3739190,
+    "name": "Heavy Spoilers RPG: The true identity of the final enemy is the hero's father",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1222670,
+    "name": "The Sims™ 4",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2207440,
+    "name": "LOK Digital",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4511370,
+    "name": "非凡仙途",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 269210,
+    "name": "Hero Siege",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 513710,
+    "name": "SCUM",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4073960,
+    "name": "ブループロトコル：スターレゾナンス",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1118200,
+    "name": "People Playground",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3008130,
+    "name": "Dying Light: The Beast",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1238810,
+    "name": "Battlefield™ V",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3768760,
+    "name": "007 First Light",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3767850,
+    "name": "SpiritVale",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2074920,
+    "name": "The First Descendant",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1824220,
+    "name": "Chivalry 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 400,
+    "name": "Portal",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3065940,
+    "name": "Gallipoli",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 433340,
+    "name": "Slime Rancher",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2767030,
+    "name": "Marvel Rivals",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 781030,
+    "name": "DK Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1671210,
+    "name": "DELTARUNE",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4421010,
+    "name": "Bills Must Be Paid",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 581320,
+    "name": "Insurgency: Sandstorm",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 546560,
+    "name": "Half-Life: Alyx",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 633230,
+    "name": "NARUTO TO BORUTO: SHINOBI STRIKER",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2231450,
+    "name": "Pizza Tower",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2406770,
+    "name": "Bodycam",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2918150,
+    "name": "ONE PIECE Bounty Rush",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 420530,
+    "name": "OneShot",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1903340,
+    "name": "Clair Obscur: Expedition 33",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3199170,
+    "name": "Blood Strike",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1089980,
+    "name": "The Henry Stickmin Collection",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1478500,
+    "name": "Big Walk",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 359320,
+    "name": "Elite Dangerous",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1920960,
+    "name": "VPet-Simulator",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3451980,
+    "name": "Soul's Remnant",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2420510,
+    "name": "HoloCure - Save the Fans!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3308670,
+    "name": "GIRLS' FRONTLINE 2: EXILIUM",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1099410,
+    "name": "A Total War Saga: TROY",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2134320,
+    "name": "ENA: Dream BBQ",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2868840,
+    "name": "Slay the Spire 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 702320,
+    "name": "March of Empires",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1144400,
+    "name": "Senren＊Banka",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 380600,
+    "name": "Fishing Planet",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1040200,
+    "name": "Crime Scene Cleaner",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2399420,
+    "name": "Le Mans Ultimate",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 9900,
+    "name": "Star Trek Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1931770,
+    "name": "Chants of Sennaar",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1114150,
+    "name": "CarX Street",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1584090,
+    "name": "Touhou Mystia's Izakaya",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2536520,
+    "name": "Diablo II: Resurrected – Infernal Edition",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 4651220,
+    "name": "Conqueror's Blade: Three Kingdoms",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 774181,
+    "name": "Rhythm Doctor",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1611600,
+    "name": "WARNO",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1568400,
+    "name": "Sheepy: A Short Adventure",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4570720,
+    "name": "DragonSword : Awakening",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1172710,
+    "name": "Dune: Awakening",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1230140,
+    "name": "ATRI -My Dear Moments-",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3609080,
+    "name": "StarSavior",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 686810,
+    "name": "Hell Let Loose",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 667970,
+    "name": "VTOL VR",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3673150,
+    "name": "Vegas Casino & Slots: Slottist",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2313250,
+    "name": "Travellin Cats in Paris",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2651280,
+    "name": "Marvel's Spider-Man 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 4074010,
+    "name": "Dig, Dig, Die",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1361320,
+    "name": "The Room 4: Old Sins",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3681010,
+    "name": "Nioh 3",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 605230,
+    "name": "Grey Hack",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1533420,
+    "name": "Neon White",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1295660,
+    "name": "Sid Meier's Civilization VII",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 384180,
+    "name": "Prominence Poker",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3862670,
+    "name": "Shelldiver",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 594650,
+    "name": "Hunt: Showdown 1896",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2167580,
+    "name": "Summoners War: Chronicles",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1170880,
+    "name": "Grimm's Hollow",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 431240,
+    "name": "Golf With Your Friends",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1129190,
+    "name": "Our Life: Beginnings & Always",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 593600,
+    "name": "PixARK",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1424330,
+    "name": "Wobbledogs",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 604500,
+    "name": "Tank Force: Online Shooter Game",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3373660,
+    "name": "Look Outside",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2060160,
+    "name": "The Farmer Was Replaced",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1881700,
+    "name": "Undawn",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3195790,
+    "name": "White Knuckle",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1868140,
+    "name": "DAVE THE DIVER",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1140620,
+    "name": "CosmicBreak Universal",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1353230,
+    "name": "Bomb Rush Cyberfunk",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2798330,
+    "name": "Dungeon Settlers",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1431300,
+    "name": "SAND: Raiders of Sophie",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4122860,
+    "name": "Z.A.T.O. // I Love the World and Everything In It",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2203070,
+    "name": "Dragonheir: Silent Gods",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3548580,
+    "name": "Chill with You : Lo-Fi Story",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 212500,
+    "name": "The Lord of the Rings Online™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1059990,
+    "name": "Trombone Champ",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 550650,
+    "name": "Black Squad",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 324160,
+    "name": "CLANNAD",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3527290,
+    "name": "PEAK",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1755920,
+    "name": "Star Hunter - Infinite Lagrange",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2458530,
+    "name": "魔女的夜宴",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1527950,
+    "name": "Wartales",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 4212480,
+    "name": "Ragnarok: The New World",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2570630,
+    "name": "20 Small Mazes",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1426210,
+    "name": "It Takes Two",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 200210,
+    "name": "Realm of the Mad God Exalt",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2381620,
+    "name": "Steam Engine Simulator",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3419430,
+    "name": "Bongo Cat",
+    "identity_source": "https://store.steampowered.com/search/results/?start=0&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2167960,
+    "name": "Buy a Croquette!",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3241660,
+    "name": "R.E.P.O.",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 601510,
+    "name": "Yu-Gi-Oh! Duel Links",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3370870,
+    "name": "Berry Bury Berry",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1254120,
+    "name": "Bless Unleashed",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2905170,
+    "name": "Magic Archery",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 777150,
+    "name": "Adventure Land - The Code MMORPG",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 397740,
+    "name": "Hylics",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1621690,
+    "name": "Core Keeper",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 3798230,
+    "name": "Idol Party 2 - Love Vibe",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1328840,
+    "name": "Lost in Play",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2483190,
+    "name": "Forza Horizon 6",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 436150,
+    "name": "Governor of Poker 3",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2368470,
+    "name": "An Arcade Full of Cats",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2362060,
+    "name": "CODE VEIN II",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 365590,
+    "name": "Tom Clancy’s The Division™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1996010,
+    "name": "Crow Country",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 719640,
+    "name": "War Planet Online: Global Conquest",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1927720,
+    "name": "Monument Valley",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3624140,
+    "name": "Wanderburg",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1105420,
+    "name": "Game of Thrones Winter is Coming",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1070710,
+    "name": "Kind Words (lo fi chill beats to write to)",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3059520,
+    "name": "F1® 25",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2290180,
+    "name": "Riders Republic",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2052410,
+    "name": "WITCH ON THE HOLY NIGHT",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3837350,
+    "name": "Staffer Retro : A Supernatural Mystery Quest",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 389430,
+    "name": "Knight Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3636770,
+    "name": "Servant of the Lake",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 552990,
+    "name": "World of Warships",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 304050,
+    "name": "Trove",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2291850,
+    "name": "Underground Blossom",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1850570,
+    "name": "DEATH STRANDING DIRECTOR'S CUT",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 843380,
+    "name": "Super Animal Royale",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 4515660,
+    "name": "Control, I'm Not Coming Back",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 4354570,
+    "name": "FINAL FANTASY VII REVELATION",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1827180,
+    "name": "Toram Online",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 3472550,
+    "name": "The Mr. Rabbit Magic Show",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 799960,
+    "name": "Wizard101",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1567800,
+    "name": "星空列车与白的旅行",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 1562700,
+    "name": "SANABI",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 1238860,
+    "name": "Battlefield 4™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 432350,
+    "name": "Epic Battle Fantasy 5",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 3489700,
+    "name": "Stellar Blade™",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&filter=topsellers",
+    "selection_group": "top_sellers"
+  },
+  {
+    "appid": 2437170,
+    "name": "SMITE 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 1067850,
+    "name": "Kindergarten 2",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2100280,
+    "name": "World of Tanks: HEAT",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2299900,
+    "name": "Felvidek",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 2287550,
+    "name": "Farm RPG",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 2915460,
+    "name": "OneShot: World Machine Edition",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&sort_by=Reviews_DESC",
+    "selection_group": "high_review_scores"
+  },
+  {
+    "appid": 663090,
+    "name": "Granado Espada",
+    "identity_source": "https://store.steampowered.com/search/results/?start=100&count=100&category1=998&infinite=1&l=english&json=1&tags=128&sort_by=Released_ASC",
+    "selection_group": "long_running_multiplayer"
+  },
+  {
+    "appid": 236390,
+    "name": "War Thunder",
+    "identity_source": "https://store.steampowered.com/app/236390/",
+    "selection_group": "previously_page_limited_history",
+    "initial_enddate": 1406564710
+  }
+]

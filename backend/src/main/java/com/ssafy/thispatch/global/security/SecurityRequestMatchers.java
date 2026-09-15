@@ -15,8 +15,7 @@ public final class SecurityRequestMatchers {
 		matcher(HttpMethod.POST, "/auth/login"),
 		matcher(HttpMethod.POST, "/auth/signup"),
 		matcher(HttpMethod.POST, "/auth/refresh"),
-		matcher(HttpMethod.POST, "/auth/steam/token"),
-		matcher(HttpMethod.POST, "/auth/steam/signup"));
+		matcher(HttpMethod.POST, "/auth/steam/token"));
 
 	private SecurityRequestMatchers() {
 	}

@@ -11,7 +11,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum MemberErrorCode implements ErrorCode {
 
-	SESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "세션 정보를 조회할 수 없습니다.");
+	SESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "세션 정보를 조회할 수 없습니다."),
+	NICKNAME_ALREADY_SET(HttpStatus.CONFLICT, "이미 닉네임이 설정된 회원입니다.");
 
 	private final HttpStatus status;
 	private final String message;

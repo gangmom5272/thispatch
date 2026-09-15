@@ -130,7 +130,7 @@ class JwtAuthenticationFilterTest {
 
 	@ParameterizedTest
 	@CsvSource({"GET, /auth/steam/login", "GET, /auth/steam/callback", "POST, /auth/login",
-		"POST, /auth/signup", "POST, /auth/refresh", "POST, /auth/steam/token", "POST, /auth/steam/signup"})
+		"POST, /auth/signup", "POST, /auth/refresh", "POST, /auth/steam/token"})
 	void publicAuthEndpointsIgnoreAccessCredentials(String method, String path) throws Exception {
 		for (String token : List.of("invalid-token", expiredAccessToken(), tokens.issueAccessToken(42),
 			tokens.issueRefreshToken(42))) {

@@ -19,11 +19,12 @@
 | Optional | 인증 선택 |
 | None | 인증 요구 없음 |
 
-- Access Token 인증 없이 접근하는 API: `POST /auth/login`, `POST /auth/signup`, `GET /auth/steam/login`, `GET /auth/steam/callback`, `POST /auth/steam/token`, `POST /auth/steam/signup`, `POST /auth/refresh`.
-- `GET /session`은 Authorization 선택이며, `POST /auth/logout`과 각 도메인에서 Required로 표기한 API는 인증 필수다.
-- 로그인·회원가입 성공 시 Access Token과 Refresh Token은 Response Body의 `data.accessToken`, `data.refreshToken`으로 반환한다. HttpOnly Cookie로 전달하지 않는다.
-- Steam 콜백은 `302 Redirect`로 1회용 `loginCode` 또는 `signupToken`을 전달한다. Access Token과 Refresh Token은 Redirect URL에 포함하지 않는다.
-- `loginCode`와 `signupToken`은 각각 로그인 토큰 교환과 회원가입 전용이며 일반 API 인증에 사용할 수 없다.
+- Access Token 인증 없이 접근하는 API: `POST /auth/login`, `POST /auth/signup`, `GET /auth/steam/login`, `GET /auth/steam/callback`, `POST /auth/steam/token`, `POST /auth/refresh`.
+- `GET /session`은 Authorization 선택이며, `POST /auth/steam/signup`(최초 닉네임 설정), `POST /auth/logout`과 각 도메인에서 Required로 표기한 API는 인증 필수다.
+- 자체 로그인·회원가입 및 Steam 로그인 토큰 교환 성공 시 Access Token과 Refresh Token은 Response Body의 `data.accessToken`, `data.refreshToken`으로 반환한다. HttpOnly Cookie로 전달하지 않는다. Steam 최초 닉네임 설정에서는 토큰을 발급하지 않는다.
+- Steam 콜백은 신규 회원을 닉네임 없이 먼저 생성하고, 신규·기존 회원 모두 `302 Redirect`로 1회용 `loginCode`를 동일한 프론트 콜백에 전달한다. Access Token과 Refresh Token은 Redirect URL에 포함하지 않는다.
+- `loginCode`는 로그인 토큰 교환 전용이며 일반 API 인증에 사용할 수 없다.
+- Steam 로그인 토큰 교환 응답의 `data.nickname`, `/session` 응답의 `data.user.nickname`은 `string | null`이다. 프론트는 닉네임이 `null`이면 닉네임 설정 화면으로 이동하며, 별도의 `onboardingRequired` 필드는 사용하지 않는다.
 - Refresh Token은 `POST /auth/refresh`, `POST /auth/logout`의 Request Body로 전달한다. 재발급 응답은 기존 계약대로 새 Access Token을 반환한다.
 
 ## Response
@@ -97,8 +98,9 @@
 
 - `401` 응답은 `WWW-Authenticate: Bearer` 헤더를 포함하며 로그인 페이지로 Redirect하지 않는다.
 - 응답에는 `code`, `message`, `responsedAt`만 포함한다. 토큰·자격 증명·예외 상세는 포함하지 않는다.
-- 자체 로그인 자격 증명 불일치, Steam 임시 코드·토큰 오류, Refresh Token 오류 등 API별 비즈니스 오류는 각 endpoint의 계약을 유지한다.
+- 자체 로그인 자격 증명 불일치, Steam 로그인 코드 오류, Refresh Token 오류 등 API별 비즈니스 오류는 각 endpoint의 계약을 유지한다.
 - 현재 접근 규칙은 공개 endpoint의 HTTP Method·URL과 `GET /session`을 허용하고, 나머지 요청에 인증을 요구한다. 역할별 권한 규칙은 추가하지 않는다.
+- `POST /auth/steam/signup`은 URL의 `/auth` 접두어와 관계없이 인증 필수다. 구현 시 Security 공개 경로 및 JWT 필터 제외 목록에서 제거해야 한다.
 - 서버 내부 `ERROR` dispatch는 원래 오류 처리를 위해 허용한다. 클라이언트가 직접 보내는 `/error` 요청은 공개하지 않는다.
 - Bearer 인증을 기준으로 HTTP 세션 인증, form login, HTTP Basic, Security 기본 로그아웃과 요청 저장을 사용하지 않는다. CSRF 필터는 비활성화하며, CORS는 기존 서블릿 필터가 처리한다.
 - `JwtAuthenticationFilter`는 Authorization 헤더의 Access Token을 검증하고 회원 ID를 담은 `MemberPrincipal`을 SecurityContext에 등록한다. Refresh Token은 일반 API 인증에 사용할 수 없다.

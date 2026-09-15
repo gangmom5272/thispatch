@@ -13,6 +13,7 @@ import {
   routeSegment,
 } from "@/router/paths"
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
+import PlaytimeTopicsPage from "@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"
 import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
@@ -45,6 +46,8 @@ export const router = createBrowserRouter([
             element:
               tab === GAME_DETAIL_TABS.reactionTrends ? (
                 <ReactionTrendsPage />
+              ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
+                <PlaytimeTopicsPage />
               ) : (
                 <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
               ),

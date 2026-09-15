@@ -80,3 +80,106 @@ export interface PatchDetail {
   bodyFormat: "PLAIN_TEXT" | "HTML"
   url: string | null
 }
+
+/** 플레이타임 구간 식별자. ALL=전체, B1~B4=사분위 경계 구간. */
+export type PlaytimeBandId = "ALL" | "B1" | "B2" | "B3" | "B4"
+
+export interface PlaytimeTopicsMeta {
+  period: StatPeriod
+  timezone: string
+  aggregationBasis: "UPDATED_AT"
+  dataStatus: "AVAILABLE" | "PARTIAL" | "EMPTY"
+}
+
+export interface PlaytimeScale {
+  /** 경계 산출에 쓴 표본 출처. 항상 게임 전체 리뷰. */
+  source: "ALL_GAME_REVIEWS"
+  sampleCount: number
+  p25Minutes: number
+  medianMinutes: number
+  p75Minutes: number
+}
+
+export interface PlaytimeBandStats {
+  band: PlaytimeBandId
+  minMinutes: number
+  /** null이면 상한 없음(B4). */
+  maxMinutesExclusive: number | null
+  reviewCount: number
+  positiveCount: number
+  negativeCount: number
+  positiveRate: number | null
+  sampleSufficient: boolean
+}
+
+export interface PlaytimeTopicHighestBand {
+  band: Exclude<PlaytimeBandId, "ALL">
+  mentionRate: number
+}
+
+export interface PlaytimeTopicRow {
+  topicId: number
+  name: string
+  mentionCount: number
+  /** 선택 구간(또는 전체) 언급률(%). */
+  mentionRate: number
+  /** 전체 구간 언급률(%). 흰 선 기준. */
+  overallMentionRate: number
+  /** 전체 대비 차이(percentage points). 전체 선택 시 null. */
+  differencePp: number | null
+  highestBand: PlaytimeTopicHighestBand | null
+}
+
+export interface PlaytimeFallbackReview {
+  id: number
+  sentiment: "POSITIVE" | "NEGATIVE"
+  reviewDate: string
+  playtimeMinutes: number
+  languageCode: string
+  body: string
+}
+
+export interface PlaytimeFallbackBandItems {
+  band: Exclude<PlaytimeBandId, "ALL">
+  items: PlaytimeFallbackReview[]
+}
+
+export interface PlaytimeTopicsFallback {
+  reasonCode: "INSUFFICIENT_SAMPLE"
+  message: string
+  totalCount: number
+  itemsByBand: PlaytimeFallbackBandItems[]
+}
+
+export interface PlaytimeTopics {
+  meta: PlaytimeTopicsMeta
+  selectedBand: PlaytimeBandId
+  minimumSampleCount: number
+  sampleSufficient: boolean
+  scale: PlaytimeScale
+  overall: PlaytimeBandStats
+  bands: PlaytimeBandStats[]
+  topics: PlaytimeTopicRow[]
+  fallback: PlaytimeTopicsFallback | null
+}
+
+export type PlaytimeTopicsSummaryStatus = "COMPLETED" | "SKIPPED"
+
+export interface PlaytimeTopicsAiSummary {
+  meta: PlaytimeTopicsMeta
+  selectedBand: PlaytimeBandId
+  summary: {
+    status: PlaytimeTopicsSummaryStatus
+    text: string | null
+    recurringExpressions: string[]
+    targetPeriod: StatPeriod
+    targetReviewCount: number
+    usedReviewCount: number | null
+    selection: {
+      code: string
+      limit: number
+      description: string
+    } | null
+    reasonCode: "INSUFFICIENT_SAMPLE" | null
+  }
+}

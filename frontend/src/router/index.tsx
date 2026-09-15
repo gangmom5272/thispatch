@@ -6,12 +6,14 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_TABS,
   GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
   paths,
   routeSegment,
 } from "@/router/paths"
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
+import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
@@ -40,7 +42,12 @@ export const router = createBrowserRouter([
           },
           ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
             path: tab,
-            element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
+            element:
+              tab === GAME_DETAIL_TABS.reactionTrends ? (
+                <ReactionTrendsPage />
+              ) : (
+                <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
+              ),
           })),
         ],
       },

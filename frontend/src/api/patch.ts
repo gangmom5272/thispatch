@@ -1,4 +1,4 @@
-import type { CaseSearch, CaseSearchInput, PlanStructure } from "../types"
+import type { CaseSearch, CaseSearchInput, PatchDetail, PlanStructure } from "../types"
 import { api } from "./client"
 
 export function createPlanStructure(gameId: number, text: string): Promise<PlanStructure> {
@@ -13,6 +13,17 @@ export function createCaseSearch(
   return api.post<CaseSearch>({
     path: `/games/${gameId}/case-searches`,
     body: input,
+    config: { signal },
+  })
+}
+
+export function getPatch(
+  gameId: number,
+  patchId: string,
+  signal?: AbortSignal,
+): Promise<PatchDetail> {
+  return api.get<PatchDetail>({
+    path: `/games/${gameId}/patches/${patchId}`,
     config: { signal },
   })
 }

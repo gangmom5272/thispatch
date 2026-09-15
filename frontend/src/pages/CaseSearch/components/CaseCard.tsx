@@ -1,18 +1,11 @@
 import { useId, useState } from "react"
 import { Link } from "react-router"
+import RateBar from "@/components/RateBar"
 import { GAME_GENRES } from "@/constants/games"
+import { formatDeltaPp, formatPercent } from "@/lib/format"
 import { gameCaseDetailPath } from "@/router/paths"
-import type { SimilarCase } from "@/types"
+import type { CaseDetailLocationState, CaseOutcome, SimilarCase } from "@/types"
 import CaseGamePopover from "./CaseGamePopover"
-
-function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`
-}
-
-function formatDelta(value: number): string {
-  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
-  return `${sign}${Math.abs(value).toFixed(1)}%p`
-}
 
 function formatFollowUp(ratio: number | null): string {
   return ratio === null
@@ -26,28 +19,6 @@ function deltaTone(delta: number): string {
   return "text-sb-ink-mute"
 }
 
-function RateBar({ before, after }: { before: number; after: number }) {
-  const kept = Math.max(0, Math.min(before, after))
-  const changed = Math.abs(after - before)
-  return (
-    <svg
-      role="img"
-      aria-label={`긍정률 ${formatPercent(before)}에서 ${formatPercent(after)}로 변화`}
-      className="h-[10px] w-full"
-      preserveAspectRatio="none"
-    >
-      <rect width="100%" height="100%" rx="4" className="fill-sb-canvas-soft" />
-      <rect width={`${kept}%`} height="100%" className="fill-sb-hairline-strong" />
-      <rect
-        x={`${kept}%`}
-        width={`${changed}%`}
-        height="100%"
-        className={after >= before ? "fill-sb-pos" : "fill-sb-neg"}
-      />
-    </svg>
-  )
-}
-
 function SummaryRow({ label, tone, text }: { label: string; tone: string; text: string }) {
   return (
     <div className="flex items-start gap-sb-2">
@@ -59,7 +30,13 @@ function SummaryRow({ label, tone, text }: { label: string; tone: string; text: 
   )
 }
 
-function GameInfoArea({ item, detailPath }: { item: SimilarCase; detailPath: string }) {
+interface GameInfoAreaProps {
+  item: SimilarCase
+  detailPath: string
+  detailState: CaseDetailLocationState
+}
+
+function GameInfoArea({ item, detailPath, detailState }: GameInfoAreaProps) {
   const popoverId = useId()
   const [open, setOpen] = useState(false)
   const show = () => setOpen(true)
@@ -69,7 +46,7 @@ function GameInfoArea({ item, detailPath }: { item: SimilarCase; detailPath: str
     <div className="relative" onMouseLeave={hide}>
       <Link
         to={detailPath}
-        state={{ case: item }}
+        state={detailState}
         aria-label={`${item.gameTitle} 사례 상세 비교`}
         aria-describedby={open ? popoverId : undefined}
         onMouseEnter={show}
@@ -113,16 +90,24 @@ function GameInfoArea({ item, detailPath }: { item: SimilarCase; detailPath: str
   )
 }
 
-export default function CaseCard({ item, gameId }: { item: SimilarCase; gameId: number }) {
+interface CaseCardProps {
+  item: SimilarCase
+  gameId: number
+  outcome: CaseOutcome
+  outcomeName: string
+}
+
+export default function CaseCard({ item, gameId, outcome, outcomeName }: CaseCardProps) {
   const genreNames = item.genres
     .map((id) => GAME_GENRES.find((genre) => genre.id === id)?.name)
     .filter((name) => name !== undefined)
   const tone = deltaTone(item.deltaPp)
   const detailPath = gameCaseDetailPath(gameId, item.patchId)
+  const detailState: CaseDetailLocationState = { case: item, outcome, outcomeName }
 
   return (
     <li className="relative flex flex-col rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-surface hover:border-sb-hairline-strong has-focus-visible:border-sb-primary">
-      <GameInfoArea item={item} detailPath={detailPath} />
+      <GameInfoArea item={item} detailPath={detailPath} detailState={detailState} />
       <div className="flex flex-col gap-sb-2 px-sb-4 pt-sb-2 pb-sb-3">
         {genreNames.length > 0 && <p className="text-sb-ink-mute">{genreNames.join(" · ")}</p>}
         <p className="font-sb-mono text-sb-ink-mute tabular-nums">
@@ -138,7 +123,7 @@ export default function CaseCard({ item, gameId }: { item: SimilarCase; gameId: 
             →
           </span>
           <span className={`font-medium ${tone}`}>{formatPercent(item.positiveRateAfter)}</span>
-          <span className={`ml-auto font-medium ${tone}`}>{formatDelta(item.deltaPp)}</span>
+          <span className={`ml-auto font-medium ${tone}`}>{formatDeltaPp(item.deltaPp)}</span>
         </div>
         <RateBar before={item.positiveRateBefore} after={item.positiveRateAfter} />
 
@@ -173,7 +158,7 @@ export default function CaseCard({ item, gameId }: { item: SimilarCase; gameId: 
 
         <Link
           to={detailPath}
-          state={{ case: item }}
+          state={detailState}
           className="mt-sb-1 self-end rounded-sb-tag text-sb-primary after:absolute after:inset-0 after:rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
         >
           사례 상세 비교 <span aria-hidden="true">→</span>

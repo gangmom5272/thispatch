@@ -16,6 +16,7 @@ import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
+import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"
 
 export const router = createBrowserRouter([
   {
@@ -54,7 +55,7 @@ export const router = createBrowserRouter([
       },
       {
         path: routeSegment(paths.gameCaseDetailPattern),
-        element: <PlaceholderPage title="사례 상세 비교" />,
+        element: <CaseDetailPage />,
       },
       {
         path: routeSegment(paths.methodology),

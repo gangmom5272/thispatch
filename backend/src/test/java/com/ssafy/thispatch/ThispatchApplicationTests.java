@@ -45,10 +45,11 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V4, each applied exactly once").hasSize(4);
-		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4");
+		assertThat(history).as("V1 through V5, each applied exactly once").hasSize(5);
+		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4", "5");
 		assertThat(history).extracting(row -> row.get("script"))
-			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql", "V4__add_member_steam_id_unique.sql");
+			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
+				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();

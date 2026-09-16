@@ -11,7 +11,7 @@ GPU 노트북 1대(RTX 4070 8GB)에서 돈다. 클러스터 노드가 아니고 
 | `batch/classify_reviews.py` | 리뷰 → 임베딩 → 로지스틱 회귀 5개 → `review_topic` Parquet (다중 라벨). 영어·한국어 | 매일 (초기 1회 `--base`) |
 | `batch/qwen_backfill.py` | 변경 문장 청크 → Qwen3.5-9B → 대상·속성·조건으로 `patch_change` 덮어쓰기. 최근 공지 우선, 중복 문장 1회, 시간 예산 | 매일 남는 시간 + 백필 |
 | `batch/run_daily.sh` | WSL: `hdfs dfs -get` → 위 셋 → `hdfs dfs -put` | 매일 (Spark 뒤) |
-| `api/main.py`, `api/compare.py`, `api/summarize.py` | FastAPI. `POST /plan/structure`(기획안 구조화, Qwen 1회) · `POST /plan/restate`(수정 슬롯 → 재진술, 문장 틀) · `POST /embed/query`(질의 벡터) · `POST /cases/cards`(화면 04 카드 1줄 + 결과군 패턴, 문장 틀) · `POST /cases/compare`(화면 05 공통점·차이점, 문장 틀 + Qwen 옵션) · `POST /reviews/summarize`(화면 02 AI 대표 반응 요약: 제목·요약·반복 표현·근거 2건, Qwen 1회). 오류 응답은 백엔드 공통 형식. AI 서버는 DB 를 보지 않고 백엔드가 사례 데이터를 본문에 담아 보낸다 | 상시, 백엔드가 호출 |
+| `api/main.py`, `api/compare.py`, `api/summarize.py` | FastAPI. `POST /plan/structure`(기획안 구조화, Qwen 1회) · `POST /plan/restate`(수정 슬롯 → 재진술, 문장 틀) · `POST /embed/query`(질의 벡터) · `POST /cases/cards`(화면 04 카드 1줄 + 결과군 패턴, 문장 틀) · `POST /cases/compare`(화면 05 공통점·차이점, 문장 틀 + Qwen 옵션) · `POST /reviews/summarize`(화면 02 AI 대표 반응 요약: 제목·요약·반복 표현·근거 2건, Qwen 1회) · `POST /trends/summarize`(화면 01 반응 추세 요약: 일별 집계·패치 시점 → 수치 계산 + 문장, Qwen 옵션). 오류 응답은 백엔드 공통 형식. AI 서버는 DB 를 보지 않고 백엔드가 사례 데이터를 본문에 담아 보낸다 | 상시, 백엔드가 호출 |
 | `batch/chunking.py`, `rules.py`, `qwen_prompt.py` | 청크 분리(동료 steam_pipeline 이식), 규칙, 프롬프트·스키마 | 라이브러리 |
 | `batch/dev_make_*_input.py` | 개발용 입력 생성(PoC JSON → Parquet). HDFS 준비 후 불필요 | 개발 |
 | `batch/train_topic_clf.py` | 사람 라벨(0908_return) + LLM 라벨 → 토픽 분류기 학습·문턱값 선정 | 라벨 갱신 시 |
@@ -54,6 +54,7 @@ Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네
 | 사례 비교 API (`/cases/compare`) | 문장 틀 0ms, Qwen 해석 13초 | 사례 변경점 40개 입력 기준 |
 | 카드·재진술 API | 밀리초 | LLM 없음 |
 | 리뷰 요약 API (`/reviews/summarize`) | 8건(평균 7,200자) 10초 | 짧은 리뷰면 더 빠름. 검증 루프 1회 통과 |
+| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) | 수치 계산은 전부 서버에서. `use_llm=true` 면 Qwen 1회가 더 붙는다 |
 | 질의 임베딩 API | 밀리초 | |
 
 ## 아직 안 정해진 것

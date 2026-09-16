@@ -18,11 +18,14 @@ COPY common/build.gradle common/
 COPY backend/build.gradle backend/
 COPY collector/build.gradle collector/
 COPY spark/build.gradle spark/
+COPY catalog/build.gradle catalog/
 RUN chmod +x gradlew \
  && ./gradlew :backend:dependencies --no-daemon -q || true
 
 # 소스는 :backend 와 :common 만 넣는다.
-# collector·spark 는 노트북 클러스터에서 도는 것이라 이미지에 들어갈 이유가 없다.
+# collector·spark·catalog 는 노트북 클러스터에서 도는 것이라
+# 이미지에 들어갈 이유가 없다. build.gradle 만 넣는 것은 Gradle 이
+# settings.gradle 에 적힌 모든 모듈의 디렉터리가 있어야 설정을 끝내기 때문이다.
 COPY common/src common/src
 COPY backend/src backend/src
 

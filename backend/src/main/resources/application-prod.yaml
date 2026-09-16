@@ -18,6 +18,12 @@
 #   붙는 척하다 한참 뒤에 터진다. 없으면 아예 기동을 막는 편이 낫다.
 #   빠진 변수 이름이 그대로 로그에 찍혀서 원인도 바로 보인다.
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
     username: ${POSTGRES_USER}

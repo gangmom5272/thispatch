@@ -24,10 +24,26 @@ public class AppidPartitioner implements Partitioner {
     public static final String KEY_APPIDS = "appids";
     public static final String KEY_PARTITION = "partitionNo";
 
-    private final List<Long> appids;
+    /**
+     * 이 시각(unix 초)보다 오래 고쳐진 리뷰를 만나면 그 게임은 그만 받는다.
+     * 0 이면 끝까지 받는다(전량 수집).
+     *
+     * <p>게임마다 다른 값을 둘 이유가 없어서 <b>모든 조각에 같은 값</b>이 들어간다.
+     * 자세한 것은 {@code ManagerConfig.resolveSince} 를 보라.
+     */
+    public static final String KEY_SINCE_TS = "sinceTs";
 
+    private final List<Long> appids;
+    private final long sinceTs;
+
+    /** 전량 수집. 끝까지 받는다. */
     public AppidPartitioner(List<Long> appids) {
+        this(appids, 0L);
+    }
+
+    public AppidPartitioner(List<Long> appids, long sinceTs) {
         this.appids = appids;
+        this.sinceTs = sinceTs;
     }
 
     @Override
@@ -48,6 +64,7 @@ public class AppidPartitioner implements Partitioner {
             ExecutionContext ctx = new ExecutionContext();
             ctx.putString(KEY_APPIDS, join(split.get(i)));
             ctx.putInt(KEY_PARTITION, i);
+            ctx.putLong(KEY_SINCE_TS, sinceTs);
             // 이름은 Spring Batch 가 StepExecution 이름에 쓴다. 로그에서 구분된다.
             result.put("partition" + i, ctx);
         }

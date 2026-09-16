@@ -80,7 +80,13 @@ export default function OutcomeColumn({ group, gameId }: { group: CaseGroup; gam
         <div className="flex flex-col pt-sb-2">
           <ul className="flex flex-col gap-sb-3">
             {visibleCases.map((item) => (
-              <CaseCard key={`${item.gameId}-${item.patchId}`} item={item} gameId={gameId} />
+              <CaseCard
+                key={`${item.gameId}-${item.patchId}`}
+                item={item}
+                gameId={gameId}
+                outcome={group.outcome}
+                outcomeName={group.name}
+              />
             ))}
           </ul>
           {hasMore && (

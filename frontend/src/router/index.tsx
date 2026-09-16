@@ -18,8 +18,10 @@ import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrends
 import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
+import LanguageAnalysisPage from "@/pages/LanguageAnalysis/LanguageAnalysisPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
+import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
                 <PlaytimeTopicsPage />
               ) : tab === GAME_DETAIL_TABS.reviews ? (
                 <ReviewsPage />
+              ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
+                <LanguageAnalysisPage />
               ) : (
                 <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
               ),
@@ -67,7 +71,7 @@ export const router = createBrowserRouter([
       },
       {
         path: routeSegment(paths.gameCaseDetailPattern),
-        element: <PlaceholderPage title="사례 상세 비교" />,
+        element: <CaseDetailPage />,
       },
       {
         path: routeSegment(paths.methodology),

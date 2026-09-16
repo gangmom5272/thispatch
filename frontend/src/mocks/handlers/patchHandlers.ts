@@ -3,6 +3,7 @@ import type {
   CaseGroup,
   CaseSearch,
   CaseSearchInput,
+  PatchDetail,
   PlanStructure,
   SimilarCase,
 } from "../../types"
@@ -102,8 +103,27 @@ function similarCase(
     commonalitySummary,
     differenceSummary,
     comparison: {
-      commonalities: [{ title: "변경 방향이 같습니다.", description: commonalitySummary }],
-      differences: [{ title: "적용 범위가 다릅니다.", description: differenceSummary }],
+      commonalities: [
+        { title: "변경 방향이 같습니다", description: commonalitySummary },
+        {
+          title: "장르와 런 구조가 같습니다",
+          description:
+            "둘 다 한 판이 짧게 끝나고 실패가 반복되는 구조라 난이도 상향의 체감이 같은 방식으로 쌓입니다.",
+        },
+      ],
+      differences: [
+        { title: "적용 범위가 다릅니다", description: differenceSummary },
+        {
+          title: "변경 폭과 대상 수가 다릅니다",
+          description:
+            "사례는 체력 +35% / 공격력 +25%를 보스 포함 6종에 적용했습니다. 초안은 체력 +20% / 공격력 +10%를 일반 적 1종에만 적용해 폭이 절반 수준입니다.",
+        },
+        {
+          title: "동시 변경 여부가 다릅니다",
+          description:
+            "사례는 같은 회차에 보상 재화 −20%를 함께 넣어 반응이 어느 항목 때문인지 분리되지 않습니다. 초안은 적 상향만 담고 있습니다.",
+        },
+      ],
     },
   }
 }
@@ -239,6 +259,27 @@ function repeatCases(cases: SimilarCase[], count: number): SimilarCase[] {
   })
 }
 
+const samplePatchBody = [
+  "밸런스",
+  "- Warden 계열 적 체력 +35%",
+  "- Warden 계열 적 공격력 +25%",
+  "- 보스 조우 시 추가 페이즈 1개 도입",
+  "",
+  "경제",
+  "- 전투 종료 보상 재화 획득량 -20%",
+  "",
+  "콘텐츠",
+  "- 신규 유물 4종 추가",
+  "- 일일 도전 모드 시드 교체 주기 단축",
+].join("\n")
+
+function findSampleCase(gameId: number, patchId: string): SimilarCase | undefined {
+  const basePatchId = patchId.split("-")[0]
+  return sampleGroups
+    .flatMap((group) => group.cases)
+    .find((item) => item.gameId === gameId && item.patchId === basePatchId)
+}
+
 const emptyGroups: CaseGroup[] = sampleGroups.map((group) => ({
   ...group,
   caseCount: 0,
@@ -306,5 +347,26 @@ export const patchHandlers = [
       ],
     }
     return HttpResponse.json(okEnvelope(data), { status: 201 })
+  }),
+  http.get(`${baseURL}/games/:gameId/patches/:patchId`, async ({ request, params }) => {
+    await delay(500)
+    if (!userFromAuthHeader(request)) {
+      return HttpResponse.json(errorBody("401", "인증이 필요합니다."), { status: 401 })
+    }
+    const item = findSampleCase(Number(params.gameId), String(params.patchId))
+    if (!item) {
+      return HttpResponse.json(errorBody("404", "패치를 찾을 수 없습니다."), { status: 404 })
+    }
+    const data: PatchDetail = {
+      patchId: String(params.patchId),
+      gameId: item.gameId,
+      title: `${item.gameTitle} ${item.patchTitle}`,
+      patchedOn: item.patchedOn,
+      publishedAt: `${item.patchedOn}T09:00:00Z`,
+      body: samplePatchBody,
+      bodyFormat: "PLAIN_TEXT",
+      url: `https://store.steampowered.com/news/app/${item.gameId}/view/${params.patchId}`,
+    }
+    return HttpResponse.json(okEnvelope(data))
   }),
 ]

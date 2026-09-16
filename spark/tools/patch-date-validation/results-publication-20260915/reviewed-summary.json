@@ -1,0 +1,17 @@
+{
+  "reviewed_rows": 142,
+  "release_rows": 137,
+  "release_games": 15,
+  "same_utc_calendar_label": 132,
+  "same_utc_calendar_label_percent": 96.35,
+  "source_zone_known_release_rows": 14,
+  "source_zone_known_same_day": 14,
+  "utc_day_differences": {
+    "0": 132,
+    "-1": 1,
+    "1": 2,
+    "93": 1,
+    "2": 1
+  },
+  "year_inferred_release_rows": 6
+}

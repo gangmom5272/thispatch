@@ -1,0 +1,9 @@
+{
+  "policy": "patch-date-publication-3",
+  "unique_announcements": 95913,
+  "games": 390,
+  "matching_publication_kst_dates": 95913,
+  "missing_dates": 0,
+  "jar_sha256": "afe6fb840c3083eff74da93b33073b2ac6df2a14fb2d164421ed5e628f56218c",
+  "meaning": "Publication-date conversion coverage; not measured accuracy against actual deployment dates."
+}

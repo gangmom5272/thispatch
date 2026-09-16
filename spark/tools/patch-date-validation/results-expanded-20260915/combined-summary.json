@@ -1,0 +1,254 @@
+{
+  "prior": {
+    "notice_pairs": 40577,
+    "apps_with_notices": 98,
+    "unique_gids": 40577,
+    "unique_bodies": 33924,
+    "empty_bodies": 72,
+    "publication_range_utc": [
+      "2008-10-19T02:27:37+00:00",
+      "2026-09-15T02:00:01+00:00"
+    ],
+    "feeds": {
+      "steam_updates": 1785,
+      "steam_community_announcements": 38792
+    },
+    "classifier_scope": {
+      "PATCH/DEFAULT": 9928,
+      "REVIEW_REQUIRED/DEFAULT": 28181,
+      "NOT_PATCH/DEFAULT": 1406,
+      "REVIEW_REQUIRED/TEST": 450,
+      "PATCH/TEST": 537,
+      "REVIEW_REQUIRED/NON_STEAM": 53,
+      "PATCH/MIXED": 2,
+      "NOT_PATCH/TEST": 8,
+      "REVIEW_REQUIRED/OTHER_GAME": 8,
+      "REVIEW_REQUIRED/MIXED": 3,
+      "PATCH/CLIENT": 1
+    },
+    "decision": {
+      "PATCH": 10468,
+      "REVIEW_REQUIRED": 28695,
+      "NOT_PATCH": 1414
+    },
+    "status": {
+      "REVIEW_REQUIRED": 39163,
+      "NOT_APPLICABLE": 1414
+    },
+    "date_reason": {
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 923,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 9002,
+      "PATCH_NOT_CONFIRMED": 28695,
+      "NOT_PATCH": 1414,
+      "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 540,
+      "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 1
+    },
+    "diagnostic_kst_status": {
+      "REVIEW_REQUIRED": 39163,
+      "NOT_APPLICABLE": 1414
+    },
+    "diagnostic_forced_status": {
+      "REVIEW_REQUIRED": 40577
+    },
+    "diagnostic_forced_kst_status": {
+      "REVIEW_REQUIRED": 40577
+    },
+    "diagnostic_forced_kst_reason": {
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 1207,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 39294,
+      "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+      "MISSING_TITLE_OR_BODY": 73,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 1
+    }
+  },
+  "expanded_run": {
+    "notice_pairs": 55338,
+    "apps_with_notices": 293,
+    "unique_gids": 55338,
+    "unique_bodies": 51028,
+    "empty_bodies": 169,
+    "publication_range_utc": [
+      "2008-10-22T20:27:28+00:00",
+      "2026-09-15T02:08:40+00:00"
+    ],
+    "feeds": {
+      "steam_updates": 33,
+      "steam_community_announcements": 55305
+    },
+    "classifier_scope": {
+      "REVIEW_REQUIRED/DEFAULT": 41421,
+      "REVIEW_REQUIRED/TEST": 512,
+      "PATCH/DEFAULT": 11972,
+      "NOT_PATCH/DEFAULT": 1016,
+      "REVIEW_REQUIRED/NON_STEAM": 40,
+      "NOT_PATCH/TEST": 20,
+      "PATCH/TEST": 353,
+      "PATCH/MIXED": 1,
+      "REVIEW_REQUIRED/OTHER_GAME": 3
+    },
+    "decision": {
+      "REVIEW_REQUIRED": 41976,
+      "PATCH": 12326,
+      "NOT_PATCH": 1036
+    },
+    "status": {
+      "REVIEW_REQUIRED": 54302,
+      "NOT_APPLICABLE": 1036
+    },
+    "date_reason": {
+      "PATCH_NOT_CONFIRMED": 41976,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 11513,
+      "NOT_PATCH": 1036,
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 457,
+      "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 354,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 2
+    },
+    "diagnostic_kst_status": {
+      "REVIEW_REQUIRED": 54302,
+      "NOT_APPLICABLE": 1036
+    },
+    "diagnostic_forced_status": {
+      "REVIEW_REQUIRED": 55338
+    },
+    "diagnostic_forced_kst_status": {
+      "REVIEW_REQUIRED": 55338
+    },
+    "diagnostic_forced_kst_reason": {
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 54212,
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 954,
+      "MISSING_TITLE_OR_BODY": 170,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 2
+    }
+  },
+  "new_unique": {
+    "notice_pairs": 55336,
+    "apps_with_notices": 293,
+    "unique_gids": 55336,
+    "unique_bodies": 51027,
+    "empty_bodies": 169,
+    "publication_range_utc": [
+      "2008-10-22T20:27:28+00:00",
+      "2026-09-15T02:08:40+00:00"
+    ],
+    "feeds": {
+      "steam_updates": 33,
+      "steam_community_announcements": 55303
+    },
+    "classifier_scope": {
+      "REVIEW_REQUIRED/DEFAULT": 41419,
+      "REVIEW_REQUIRED/TEST": 512,
+      "PATCH/DEFAULT": 11972,
+      "NOT_PATCH/DEFAULT": 1016,
+      "REVIEW_REQUIRED/NON_STEAM": 40,
+      "NOT_PATCH/TEST": 20,
+      "PATCH/TEST": 353,
+      "PATCH/MIXED": 1,
+      "REVIEW_REQUIRED/OTHER_GAME": 3
+    },
+    "decision": {
+      "REVIEW_REQUIRED": 41974,
+      "PATCH": 12326,
+      "NOT_PATCH": 1036
+    },
+    "status": {
+      "REVIEW_REQUIRED": 54300,
+      "NOT_APPLICABLE": 1036
+    },
+    "date_reason": {
+      "PATCH_NOT_CONFIRMED": 41974,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 11513,
+      "NOT_PATCH": 1036,
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 457,
+      "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 354,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 2
+    },
+    "diagnostic_kst_status": {
+      "REVIEW_REQUIRED": 54300,
+      "NOT_APPLICABLE": 1036
+    },
+    "diagnostic_forced_status": {
+      "REVIEW_REQUIRED": 55336
+    },
+    "diagnostic_forced_kst_status": {
+      "REVIEW_REQUIRED": 55336
+    },
+    "diagnostic_forced_kst_reason": {
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 54210,
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 954,
+      "MISSING_TITLE_OR_BODY": 170,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 2
+    }
+  },
+  "combined": {
+    "notice_pairs": 95913,
+    "apps_with_notices": 390,
+    "unique_gids": 95913,
+    "unique_bodies": 84899,
+    "empty_bodies": 241,
+    "publication_range_utc": [
+      "2008-10-19T02:27:37+00:00",
+      "2026-09-15T02:08:40+00:00"
+    ],
+    "feeds": {
+      "steam_updates": 1818,
+      "steam_community_announcements": 94095
+    },
+    "classifier_scope": {
+      "PATCH/DEFAULT": 21900,
+      "REVIEW_REQUIRED/DEFAULT": 69600,
+      "NOT_PATCH/DEFAULT": 2422,
+      "REVIEW_REQUIRED/TEST": 962,
+      "PATCH/TEST": 890,
+      "REVIEW_REQUIRED/NON_STEAM": 93,
+      "PATCH/MIXED": 3,
+      "NOT_PATCH/TEST": 28,
+      "REVIEW_REQUIRED/OTHER_GAME": 11,
+      "REVIEW_REQUIRED/MIXED": 3,
+      "PATCH/CLIENT": 1
+    },
+    "decision": {
+      "PATCH": 22794,
+      "REVIEW_REQUIRED": 70669,
+      "NOT_PATCH": 2450
+    },
+    "status": {
+      "REVIEW_REQUIRED": 93463,
+      "NOT_APPLICABLE": 2450
+    },
+    "date_reason": {
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 1380,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 20515,
+      "PATCH_NOT_CONFIRMED": 70669,
+      "NOT_PATCH": 2450,
+      "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 894,
+      "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 3
+    },
+    "diagnostic_kst_status": {
+      "REVIEW_REQUIRED": 93463,
+      "NOT_APPLICABLE": 2450
+    },
+    "diagnostic_forced_status": {
+      "REVIEW_REQUIRED": 95913
+    },
+    "diagnostic_forced_kst_status": {
+      "REVIEW_REQUIRED": 95913
+    },
+    "diagnostic_forced_kst_reason": {
+      "DEPLOYMENT_PENDING_OR_CONFLICTING": 2161,
+      "NO_EXPLICIT_DEPLOYMENT_DATE": 93504,
+      "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+      "MISSING_TITLE_OR_BODY": 243,
+      "DATE_OR_TIMEZONE_UNRESOLVED": 3
+    }
+  },
+  "overlap_pairs": 2,
+  "overlap_body_conflicts": [],
+  "cutoff": 1789438293,
+  "expanded_failed_apps": [],
+  "expanded_page_limited_apps": [],
+  "expanded_identity_types": {
+    "game": 301
+  }
+}

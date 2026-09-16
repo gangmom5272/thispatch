@@ -2,6 +2,11 @@ package com.ssafy.thispatch.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.spark.sql.functions.lit;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,6 +58,8 @@ class NewsLakeTest {
                 case "collected_ts" -> collectedTs;
                 case "title" -> title;
                 case "appid" -> 730L;
+                case "is_patch" -> false;
+                case "patch_reason" -> "0:unjudged";
                 case "contents" -> "[p]본문[/p]";
                 case "published_ts" -> 1_700_000_000L;
                 case "feedname" -> "steam_community_announcements";
@@ -135,6 +142,37 @@ class NewsLakeTest {
     }
 
     @Test
+    void readingLegacyParquetDoesNotInventClassificationColumns(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        lake(news("1", 500L, "CS2 Update")).selectExpr(NewsSchema.NEWS_SOURCE.fieldNames())
+                .write().parquet(path);
+        Dataset<Row> result = NewsLake.read(spark, path);
+        assertEquals(1, result.count());
+        assertFalse(Arrays.asList(result.columns()).contains("is_patch"));
+        assertFalse(Arrays.asList(result.columns()).contains("patch_reason"));
+    }
+
+    @Test
+    void readingClassifiedParquetKeepsTheVerdict(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        lake(news("1", 500L, "CS2 Update")).withColumn("is_patch", lit(true))
+                .withColumn("patch_reason", lit("PATCH_TITLE")).write().parquet(path);
+        Row result = NewsLake.read(spark, path).first();
+        assertTrue((boolean) result.getAs("is_patch"));
+        assertEquals("PATCH_TITLE", result.getAs("patch_reason"));
+    }
+
+    @Test
+    void partiallyConvertedPartitionsAreNotReportedAsClassified(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        Dataset<Row> notice = lake(news("1", 500L, "CS2 Update"));
+        notice.selectExpr(NewsSchema.NEWS_SOURCE.fieldNames()).write().parquet(path + "/dt=2026-09-15");
+        notice.withColumn("is_patch", lit(true)).withColumn("patch_reason", lit("PATCH_TITLE"))
+                .write().parquet(path + "/dt=2026-09-16");
+        assertThrows(IllegalArgumentException.class, () -> NewsLake.read(spark, path));
+    }
+
+    @Test
     @DisplayName("스키마 칼럼명이 DB news 테이블과 맞는다")
     void schemaMatchesTheDatabase() {
         // V1__init.sql 의 news 를 대조한 것이다. 이름이 어긋나면 적재에서 터진다.
@@ -146,8 +184,9 @@ class NewsLakeTest {
         assertTrue(names.contains("contents"));
         assertTrue(names.contains("url"));
         assertTrue(names.contains("feed_tags"));
-        // 판별 결과는 여기 없다. S15P21A202-130 이 채운다.
-        assertTrue(names.stream().noneMatch(n -> n.equals("is_patch") || n.equals("patch_reason")),
-                "패치 판별 결과가 수집 스키마에 섞였다: " + names);
+        assertTrue(names.contains("is_patch"));
+        assertTrue(names.contains("patch_reason"));
+        List<String> sourceFields = Arrays.asList(NewsSchema.NEWS_SOURCE.fieldNames());
+        assertTrue(sourceFields.stream().noneMatch(n -> n.equals("is_patch") || n.equals("patch_reason")));
     }
 }

@@ -1,0 +1,29 @@
+{
+  "input_output_content_alignment": 55338,
+  "frozen_code_sha256": {
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchDateResolver.java": "b830eb55eeb12cc1b00de51a7f12d15023cb7e6febf090ba3964430466e8b27a",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java": "f8b4619f681f46853f74320366b3222e79fab508097aa861d0267e50a6deb6df",
+    "spark/build/libs/thispatch-spark.jar": "495524851309182c0552aa437d899905b55ce95f60f8cbb09858ae130f55a8ad"
+  },
+  "source_review_hashes_verified": 42,
+  "resolved": 0,
+  "new_publication_after_cutoff": 0,
+  "prior_reused_predictions": 40577,
+  "expanded_pages": 614,
+  "expanded_duplicate_records": 351,
+  "expanded_conflicting_versions": [],
+  "expanded_empty_apps": [
+    202970,
+    4584110,
+    4051150,
+    3739190,
+    4511370,
+    1089980,
+    397740,
+    1567800
+  ],
+  "started_at": "2026-09-15T02:36:52.318782+00:00",
+  "finished_at": "2026-09-15T02:45:56.643428+00:00",
+  "raw_data_root": "/mnt/c/Users/SSAFY/Documents/ChatGPT/2학기 특화 pjt 2/steam_patch_audit/runs/date-validation-expanded-20260915",
+  "checks": "PASS"
+}

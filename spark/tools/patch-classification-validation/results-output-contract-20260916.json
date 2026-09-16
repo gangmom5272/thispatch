@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-16",
+  "scope": "Shared patch classification output, NewsToParquet, and review aggregation connection",
+  "rule_version": "patch-rules-5",
+  "contract": {
+    "is_patch": "decision == PATCH",
+    "patch_reason": "classifier reason code",
+    "unjudged_reason": "0:unjudged"
+  },
+  "full_run": {
+    "common": {
+      "tests": 16,
+      "failures": 0
+    },
+    "spark": {
+      "tests": 194,
+      "failures": 2
+    },
+    "failure_cause": "JUnit BooleanSupplier overload inferred by generic Row.getAs in two new assertions"
+  },
+  "correction": "Explicit boolean casts in the two test assertions; no production-code changes after the full run",
+  "rerun": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "cases": [
+      "reclassificationReplacesUnjudgedAndStaleResultsFromTheSource()",
+      "newsConversionParquetAndAggregationUseTheSameClassification(Path)"
+    ]
+  },
+  "jar_build": "success",
+  "live_hdfs_conversion": false,
+  "database_changes_or_loading": false,
+  "source_sha256": {
+    "common/src/main/java/com/ssafy/thispatch/common/NewsSchema.java": "4b6833590ae0651334297a6c46efdcdc70789e674b8f2c68dae054caf647bb34",
+    "spark/src/main/java/com/ssafy/thispatch/spark/NewsToParquet.java": "0acd712bd3b700fec1b8ba8435c58054e808bc694d555cb30b3ca682e8a2aa13",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java": "94e631f491bfdf141da3dfcd071dfcef824af29601d041d760e25e0d78c96d00",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassificationProcessor.java": "20122d526838c0a5409cfe39be0879b9697699bc3cc12fdb5f3f822cc654e422",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchStatAggregator.java": "2c127d706f100b802ecf5dbab9847ea2f765a17d3a695a736552a7da57be7192"
+  }
+}

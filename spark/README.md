@@ -218,3 +218,16 @@ DB에는 적용하지 않았습니다. 배포 시 Flyway가 실행할 변경 파
 토픽 HDFS 읽기/실행 잡과 실제 적재 연결은 아직 만들지 않았습니다. 공통 모듈에서 산출물 스키마가
 확정된 후 연결합니다. 14일 필터나 고정 시간 구간은 이번 변경에 넣지 않았습니다.
 집계 테스트 10개를 작성했으나 사용자 요청대로 실행은 보류했습니다. 검증 완료로 간주하지 않습니다.
+
+
+## 패치 공지 판정과 집계 연결
+
+`NewsToParquet`가 `PatchClassificationProcessor.classifyRows(news)`를 호출해 모든 수집본에
+공통 `PatchClassifier`의 `is_patch`, `patch_reason`을 붙인다. 판정으로 원문 행을 제외하지 않는다.
+`0:unjudged`는 아직 판정하지 않은 경우에만 쓰며 실제 판정 함수는 반환하지 않는다.
+
+`PatchStatAggregator`는 저장된 `is_patch`를 직접 읽고 최신 수집본의 true만 집계한다.
+게시 시각은 `published_ts`를 그대로 사용한다. AI 호출이나 DB 적재는 포함하지 않는다.
+
+`PatchClassificationJob [news_raw Parquet 경로]`는 최신 수집본을 재판정하는 읽기 전용 미리보기다.
+입출력 계약과 실행 예시는 [PATCH_CLASSIFICATION.md](PATCH_CLASSIFICATION.md#news_raw-데이터-연결)를 참고한다.

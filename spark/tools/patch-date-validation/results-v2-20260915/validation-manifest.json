@@ -1,0 +1,42 @@
+{
+  "rules": [
+    "patch-rules-4",
+    "patch-date-rules-2"
+  ],
+  "tests": {
+    "tests": 172,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "input_counts": [
+    40577,
+    55338
+  ],
+  "deduplicated_count": 95913,
+  "known_recoveries_checked": 3,
+  "estimated_sample_reviewed": 20,
+  "blocked_development_examples": [
+    "6212245217911791245",
+    "1795917897443585"
+  ],
+  "source_sha256": {
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchDateResolver.java": "9d06f332f760b7b86dc8edbdf8cc773f7765c22deb881d19a77bd797290d2c14",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchDeploymentDateParser.java": "6252c31ff5f5e71acdfaf69f3d6a52b537d42198bcf61c0dddbefc1d74e7651b",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java": "52d3e3bed53b49e4e49539e7bf2ec5a1998f57936a905b8a8c6edf04fe410b1e",
+    "spark/tools/patch-date-validation/PatchDateValidation.java": "6497cea25ed5b9b1403fde6e79ed66324718a20bd016bfd70fa6fb90da5634c6"
+  },
+  "artifact_sha256": {
+    "thispatch-spark.jar": "1380851d502ce6698da43b8edf9f9e0de5972f561f540e536c30202e6ea8d404",
+    "prior-output.tsv": "9fe8dc6efdea08f791ebf12a5a125e368a10f8d664067ac0959857bcbae23fbf",
+    "expanded-output.tsv": "fe5f171ecc223da61e5ef64e97cbf2ece5e274a2dbb12661c986ff2602441aae",
+    "summary.json": "947a5aae2b134f278b9669c96016c25af8a8797d63fa68acf8cb0479126e81ce",
+    "known-review-results.json": "f85ad9b2eb5facdcfb09dbbe74a74efb816b533043b34b0f2666b7a5ce71fbc5",
+    "estimated-source-review.json": "ecbb4a90f860c21f486fb9b02de5e1efa81851c2352a3ed56c4fc5bfc6e416f8"
+  },
+  "raw_corpora": [
+    "runs/date-validation-large-20260915",
+    "runs/date-validation-expanded-20260915"
+  ],
+  "checks": "PASS"
+}

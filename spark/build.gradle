@@ -10,6 +10,11 @@
 dependencies {
     implementation project(':common')
 
+    // NewsToPostgres 가 서비스 DB 에 쓴다. jar 에 같이 넣는다 —
+    // 클러스터 /opt/spark 에는 드라이버가 없고, --jars 로 매번 챙기면 빠뜨린다.
+    // catalog 모듈과 같은 버전으로 맞춘다.
+    implementation 'org.postgresql:postgresql:42.7.5'
+
     compileOnly "org.apache.spark:spark-core_${rootProject.ext.scalaBinary}:${rootProject.ext.sparkVersion}"
     compileOnly "org.apache.spark:spark-sql_${rootProject.ext.scalaBinary}:${rootProject.ext.sparkVersion}"
 

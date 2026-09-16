@@ -3,6 +3,7 @@ import type { Review } from "@/types/review"
 import { formatPlaytimeMinutes } from "@/pages/GameDetail/PlaytimeTopics/lib/format"
 import { formatShortMd } from "@/lib/seoulDate"
 import { resolveReviewBody } from "@/pages/GameDetail/Reviews/lib/resolveReviewBody"
+import { ReviewBodyExpandable } from "@/pages/GameDetail/Reviews/components/ReviewBodyExpandable"
 
 interface ReviewListCardProps {
   review: Review
@@ -13,7 +14,7 @@ interface ReviewListCardProps {
 /**
  * 필터 목록용 가로형 리뷰 카드.
  * 좌: 뱃지·날짜·본문·태그 / 우: 번역·원문·메타.
- * 번역 필드가 있으면 토글로 바꾸고, 없으면 원문만 보여준다.
+ * 본문은 2줄 클램프·더보기, 번역 필드가 있으면 토글한다.
  */
 export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps) {
   // showOriginal: true면 원문(body), false면 번역(있으면)
@@ -47,7 +48,7 @@ export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps
             </span>
           </div>
 
-          <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{displayBody}</p>
+          <ReviewBodyExpandable key={displayBody} text={displayBody} />
 
           {review.tags.length > 0 ? (
             <ul className="mt-sb-3 flex flex-wrap gap-sb-2">

@@ -1,0 +1,13 @@
+{
+  "branch": "feat/patch-analysis",
+  "commit": "ea17f39a463f6cf77506115cd74f0ffb73c0146b",
+  "classifier_version": "patch-rules-3",
+  "resolver_version": "patch-date-rules-1",
+  "announcement_zone": null,
+  "source_hashes": {
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java": "F8B4619F681F46853F74320366B3222E79FAB508097AA861D0267E50A6DEB6DF",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchDateResolver.java": "B830EB55EEB12CC1B00DE51A7F12D15023CB7E6FEBF090BA3964430466E8B27A",
+    "spark/build/libs/thispatch-spark.jar": "495524851309182C0552AA437D899905B55CE95F60F8CBB09858AE130F55A8AD",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchChangeSectioner.java": "24B9675EB93A2FBBF01350353703C43F9577760E58497C5E3C6A7E75D1847449"
+  }
+}

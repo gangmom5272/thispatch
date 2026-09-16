@@ -1,0 +1,99 @@
+{
+  "input_count": 95913,
+  "before_rule": "patch-rules-4",
+  "after_rule": "patch-rules-5",
+  "counts": {
+    "before": {
+      "PATCH": 22795,
+      "REVIEW_REQUIRED": 70668,
+      "NOT_PATCH": 2450
+    },
+    "after": {
+      "PATCH": 23814,
+      "REVIEW_REQUIRED": 68285,
+      "NOT_PATCH": 3814
+    }
+  },
+  "transitions": [
+    {
+      "before": "NOT_PATCH",
+      "after": "NOT_PATCH",
+      "count": 2445
+    },
+    {
+      "before": "NOT_PATCH",
+      "after": "REVIEW_REQUIRED",
+      "count": 5
+    },
+    {
+      "before": "PATCH",
+      "after": "NOT_PATCH",
+      "count": 113
+    },
+    {
+      "before": "PATCH",
+      "after": "PATCH",
+      "count": 22608
+    },
+    {
+      "before": "PATCH",
+      "after": "REVIEW_REQUIRED",
+      "count": 74
+    },
+    {
+      "before": "REVIEW_REQUIRED",
+      "after": "NOT_PATCH",
+      "count": 1256
+    },
+    {
+      "before": "REVIEW_REQUIRED",
+      "after": "PATCH",
+      "count": 1206
+    },
+    {
+      "before": "REVIEW_REQUIRED",
+      "after": "REVIEW_REQUIRED",
+      "count": 68206
+    }
+  ],
+  "reviewed_sample_counts": {
+    "PATCH": {
+      "REVIEW_REQUIRED": 17,
+      "PATCH": 13
+    },
+    "EXCLUDE": {
+      "NOT_PATCH": 8,
+      "REVIEW_REQUIRED": 14
+    },
+    "TEST_ONLY": {
+      "REVIEW_REQUIRED": 2
+    },
+    "UNRESOLVED": {
+      "REVIEW_REQUIRED": 6
+    }
+  },
+  "source_sha256": "06aac49edc31ed4c56dab68a1b9ce809bc6f499f8db81466adc06ff94d2016db",
+  "baseline_sha256": "501a99c3e932860a4d602f8c9aafcab978f9af5e937db8eea32e77f0c2a09621",
+  "source_hash_note": "SHA256 of UTF-8 source normalized to LF for compilation",
+  "limitations": "Same 60 development samples, not independent accuracy; corpus totals are classification counts.",
+  "validation": {
+    "final_tests": {
+      "tests": 87,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "command": "./gradlew :spark:test --tests '*PatchClass*' :spark:jar --offline",
+    "additional_sample": {
+      "selected": 20,
+      "manually_read": 17,
+      "unreviewed_indices": [
+        6,
+        7,
+        19
+      ],
+      "used_to_fix_regressions": true,
+      "note": "No longer an independent holdout after using found problems to change rules."
+    }
+  }
+}

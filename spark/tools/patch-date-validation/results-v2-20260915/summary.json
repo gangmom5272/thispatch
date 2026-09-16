@@ -1,0 +1,42 @@
+{
+  "notice_pairs": 95913,
+  "apps": 390,
+  "status": {
+    "ESTIMATED": 3194,
+    "REVIEW_REQUIRED": 90266,
+    "NOT_APPLICABLE": 2450,
+    "RESOLVED": 3
+  },
+  "reasons": {
+    "PUBLICATION_DATE_ESTIMATE": 3194,
+    "NO_EXPLICIT_DEPLOYMENT_DATE": 17984,
+    "PATCH_NOT_CONFIRMED": 70658,
+    "NOT_PATCH": 2450,
+    "DEPLOYMENT_PENDING_OR_CONFLICTING": 705,
+    "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 894,
+    "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+    "DATE_OR_TIMEZONE_UNRESOLVED": 22,
+    "DEPLOYMENT_DATE_RESOLVED": 3,
+    "DEPLOYMENT_AFTER_PUBLICATION": 1
+  },
+  "classifier": {
+    "PATCH": 22804,
+    "REVIEW_REQUIRED": 70659,
+    "NOT_PATCH": 2450
+  },
+  "sources": {
+    "PUBLICATION_DATE_PROXY": 3194,
+    "NONE": 92716,
+    "EXPLICIT_TIMESTAMP": 2,
+    "EXPLICIT_DATE": 1
+  },
+  "known_source_reviews_compared": 102,
+  "input_sha256": {
+    "prior": "06b6674e6f8ebbffbd34db1c8311ca46912493072c0f1b8587a82d61703b93ae",
+    "expanded": "3b6e8a71033bca9443e7d6517bfbdc699bf9c964ee725604c3f6b0a407a97e82"
+  },
+  "jar_sha256": "1380851d502ce6698da43b8edf9f9e0de5972f561f540e536c30202e6ea8d404",
+  "estimated_short_body_population": 2328,
+  "estimated_sample_seed": 20260917,
+  "warning": "No population accuracy claim; known examples were used in development."
+}

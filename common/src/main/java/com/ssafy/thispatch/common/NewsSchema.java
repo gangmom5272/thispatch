@@ -19,10 +19,9 @@ import org.apache.spark.sql.types.StructType;
  *   tags        ->  feed_tags        배열을 쉼표로 합친다 (DB 가 VARCHAR(300))
  * </pre>
  *
- * <p><b>여기서 패치인지 아닌지를 가리지 않는다.</b> DB 의 {@code is_patch} ·
- * {@code patch_reason} 은 {@code S15P21A202-130} 이 규칙으로 채운다. 이 단계는
- * 받은 것을 모양만 맞춰 넘긴다 — 규칙이 바뀔 때마다 11.7만 개를 다시 받지
- * 않으려면 판별과 수집이 갈라져 있어야 한다.
+ * <p>NewsToParquet가 원문 필드를 보존하고 공통 PatchClassifier의
+ * {@code is_patch} · {@code patch_reason}을 추가한다. 판정으로 행을 걸러내지 않는다.
+ * 원본 JSON은 보존하므로 규칙이 바뀌면 재수집 없이 재변환할 수 있다.
  */
 public final class NewsSchema {
 
@@ -44,7 +43,7 @@ public final class NewsSchema {
      *
      * <p><b>tags</b> — 스팀이 배열로 준다. DB 가 쉼표 구분 문자열이라 맞춘다.
      */
-    public static final StructType NEWS_RAW = new StructType(new StructField[] {
+    public static final StructType NEWS_SOURCE = new StructType(new StructField[] {
             // 식별
             f("gid", DataTypes.StringType, false),        // 19자리. 숫자로 바꾸지 않는다
             f("appid", DataTypes.LongType, false),
@@ -66,6 +65,11 @@ public final class NewsSchema {
             f("feed_tags", DataTypes.StringType, true),   // 쉼표 구분
             f("is_external_url", DataTypes.BooleanType, true),
     });
+
+    /** Parquet 계약. 과거 판정 없는 파일을 읽으면 추가 필드는 null이며 집계에서 제외된다. */
+    public static final StructType NEWS_RAW = NEWS_SOURCE
+            .add("is_patch", DataTypes.BooleanType, true)
+            .add("patch_reason", DataTypes.StringType, true);
 
     /**
      * 같은 공지를 두 번 받은 것만 하나로 줄이는 기준.

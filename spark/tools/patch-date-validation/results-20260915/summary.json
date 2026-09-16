@@ -1,0 +1,1406 @@
+{
+  "collected_app_notice_pairs": 40577,
+  "game_notice_pairs": 40577,
+  "games_with_notices": 98,
+  "unique_gids": 40577,
+  "unique_bodies": 33924,
+  "earliest_publication_utc": "2008-10-19T02:27:37+00:00",
+  "latest_publication_utc": "2026-09-15T02:00:01+00:00",
+  "classifier": {
+    "PATCH": 10468,
+    "REVIEW_REQUIRED": 28695,
+    "NOT_PATCH": 1414
+  },
+  "classifier_scope": {
+    "PATCH/DEFAULT": 9928,
+    "REVIEW_REQUIRED/DEFAULT": 28181,
+    "NOT_PATCH/DEFAULT": 1406,
+    "REVIEW_REQUIRED/TEST": 450,
+    "PATCH/TEST": 537,
+    "REVIEW_REQUIRED/NON_STEAM": 53,
+    "PATCH/MIXED": 2,
+    "NOT_PATCH/TEST": 8,
+    "REVIEW_REQUIRED/OTHER_GAME": 8,
+    "REVIEW_REQUIRED/MIXED": 3,
+    "PATCH/CLIENT": 1
+  },
+  "date_status": {
+    "REVIEW_REQUIRED": 39163,
+    "NOT_APPLICABLE": 1414
+  },
+  "date_reasons": {
+    "DEPLOYMENT_PENDING_OR_CONFLICTING": 923,
+    "NO_EXPLICIT_DEPLOYMENT_DATE": 9002,
+    "PATCH_NOT_CONFIRMED": 28695,
+    "NOT_PATCH": 1414,
+    "DEPLOYMENT_SCOPE_REQUIRES_VERIFICATION": 540,
+    "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+    "DATE_OR_TIMEZONE_UNRESOLVED": 1
+  },
+  "diagnostic_assumed_kst": {
+    "REVIEW_REQUIRED": 39163,
+    "NOT_APPLICABLE": 1414
+  },
+  "diagnostic_forced_patch_default": {
+    "REVIEW_REQUIRED": 40577
+  },
+  "diagnostic_forced_patch_default_and_kst": {
+    "REVIEW_REQUIRED": 40577
+  },
+  "diagnostic_forced_kst_reasons": {
+    "DEPLOYMENT_PENDING_OR_CONFLICTING": 1207,
+    "NO_EXPLICIT_DEPLOYMENT_DATE": 39294,
+    "DEPLOYMENT_CONTEXT_REQUIRES_VERIFICATION": 2,
+    "MISSING_TITLE_OR_BODY": 73,
+    "DATE_OR_TIMEZONE_UNRESOLVED": 1
+  },
+  "feeds": {
+    "steam_updates": 1785,
+    "steam_community_announcements": 38792
+  },
+  "empty_bodies": 72,
+  "failed_apps": [
+    {
+      "appid": 238960,
+      "game": null,
+      "pages": [],
+      "error": "ValueError: Cannot verify app identity"
+    },
+    {
+      "appid": 2694490,
+      "game": null,
+      "pages": [],
+      "error": "ValueError: Cannot verify app identity"
+    }
+  ],
+  "page_limited_apps": [
+    236390
+  ],
+  "per_game": [
+    {
+      "appid": "440",
+      "game": "Team Fortress 2",
+      "count": 1467,
+      "classifications": {
+        "PATCH": 789,
+        "REVIEW_REQUIRED": 670,
+        "NOT_PATCH": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 1459,
+        "NOT_APPLICABLE": 8
+      }
+    },
+    {
+      "appid": "550",
+      "game": "Left 4 Dead 2",
+      "count": 463,
+      "classifications": {
+        "PATCH": 133,
+        "REVIEW_REQUIRED": 324,
+        "NOT_PATCH": 6
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 457,
+        "NOT_APPLICABLE": 6
+      }
+    },
+    {
+      "appid": "570",
+      "game": "Dota 2",
+      "count": 1465,
+      "classifications": {
+        "PATCH": 498,
+        "REVIEW_REQUIRED": 943,
+        "NOT_PATCH": 24
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 1441,
+        "NOT_APPLICABLE": 24
+      }
+    },
+    {
+      "appid": "620",
+      "game": "Portal 2",
+      "count": 127,
+      "classifications": {
+        "PATCH": 62,
+        "REVIEW_REQUIRED": 65
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 127
+      }
+    },
+    {
+      "appid": "730",
+      "game": "Counter-Strike 2",
+      "count": 515,
+      "classifications": {
+        "PATCH": 346,
+        "REVIEW_REQUIRED": 167,
+        "NOT_PATCH": 2
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 513,
+        "NOT_APPLICABLE": 2
+      }
+    },
+    {
+      "appid": "4000",
+      "game": "Garry's Mod",
+      "count": 252,
+      "classifications": {
+        "PATCH": 164,
+        "REVIEW_REQUIRED": 78,
+        "NOT_PATCH": 10
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 242,
+        "NOT_APPLICABLE": 10
+      }
+    },
+    {
+      "appid": "105600",
+      "game": "Terraria",
+      "count": 155,
+      "classifications": {
+        "PATCH": 27,
+        "REVIEW_REQUIRED": 69,
+        "NOT_PATCH": 59
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 96,
+        "NOT_APPLICABLE": 59
+      }
+    },
+    {
+      "appid": "108600",
+      "game": "Project Zomboid",
+      "count": 573,
+      "classifications": {
+        "REVIEW_REQUIRED": 510,
+        "PATCH": 63
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 573
+      }
+    },
+    {
+      "appid": "218620",
+      "game": "PAYDAY 2",
+      "count": 1707,
+      "classifications": {
+        "REVIEW_REQUIRED": 967,
+        "PATCH": 718,
+        "NOT_PATCH": 22
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 1685,
+        "NOT_APPLICABLE": 22
+      }
+    },
+    {
+      "appid": "230410",
+      "game": "Warframe",
+      "count": 1412,
+      "classifications": {
+        "PATCH": 90,
+        "REVIEW_REQUIRED": 1295,
+        "NOT_PATCH": 27
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 1385,
+        "NOT_APPLICABLE": 27
+      }
+    },
+    {
+      "appid": "236390",
+      "game": "War Thunder",
+      "count": 4995,
+      "classifications": {
+        "REVIEW_REQUIRED": 4389,
+        "PATCH": 541,
+        "NOT_PATCH": 65
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 4930,
+        "NOT_APPLICABLE": 65
+      }
+    },
+    {
+      "appid": "236850",
+      "game": "Europa Universalis IV",
+      "count": 777,
+      "classifications": {
+        "REVIEW_REQUIRED": 619,
+        "PATCH": 137,
+        "NOT_PATCH": 21
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 756,
+        "NOT_APPLICABLE": 21
+      }
+    },
+    {
+      "appid": "242050",
+      "game": "Assassin’s Creed® IV Black Flag™",
+      "count": 8,
+      "classifications": {
+        "REVIEW_REQUIRED": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 8
+      }
+    },
+    {
+      "appid": "242760",
+      "game": "The Forest",
+      "count": 450,
+      "classifications": {
+        "PATCH": 205,
+        "REVIEW_REQUIRED": 239,
+        "NOT_PATCH": 6
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 444,
+        "NOT_APPLICABLE": 6
+      }
+    },
+    {
+      "appid": "251570",
+      "game": "7 Days to Die",
+      "count": 468,
+      "classifications": {
+        "REVIEW_REQUIRED": 275,
+        "PATCH": 192,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 467,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "252490",
+      "game": "Rust",
+      "count": 967,
+      "classifications": {
+        "REVIEW_REQUIRED": 378,
+        "PATCH": 200,
+        "NOT_PATCH": 389
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 578,
+        "NOT_APPLICABLE": 389
+      }
+    },
+    {
+      "appid": "252950",
+      "game": "Rocket League®",
+      "count": 884,
+      "classifications": {
+        "REVIEW_REQUIRED": 667,
+        "PATCH": 200,
+        "NOT_PATCH": 17
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 867,
+        "NOT_APPLICABLE": 17
+      }
+    },
+    {
+      "appid": "275850",
+      "game": "No Man's Sky",
+      "count": 152,
+      "classifications": {
+        "REVIEW_REQUIRED": 91,
+        "PATCH": 56,
+        "NOT_PATCH": 5
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 147,
+        "NOT_APPLICABLE": 5
+      }
+    },
+    {
+      "appid": "281990",
+      "game": "Stellaris",
+      "count": 907,
+      "classifications": {
+        "PATCH": 234,
+        "REVIEW_REQUIRED": 648,
+        "NOT_PATCH": 25
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 882,
+        "NOT_APPLICABLE": 25
+      }
+    },
+    {
+      "appid": "289070",
+      "game": "Sid Meier’s Civilization® VI",
+      "count": 313,
+      "classifications": {
+        "PATCH": 50,
+        "REVIEW_REQUIRED": 255,
+        "NOT_PATCH": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 305,
+        "NOT_APPLICABLE": 8
+      }
+    },
+    {
+      "appid": "292030",
+      "game": "The Witcher 3: Wild Hunt - Complete Edition",
+      "count": 117,
+      "classifications": {
+        "REVIEW_REQUIRED": 64,
+        "PATCH": 50,
+        "NOT_PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 114,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "294100",
+      "game": "RimWorld",
+      "count": 185,
+      "classifications": {
+        "REVIEW_REQUIRED": 80,
+        "PATCH": 97,
+        "NOT_PATCH": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 177,
+        "NOT_APPLICABLE": 8
+      }
+    },
+    {
+      "appid": "304930",
+      "game": "Unturned",
+      "count": 762,
+      "classifications": {
+        "PATCH": 619,
+        "REVIEW_REQUIRED": 142,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 761,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "306130",
+      "game": "The Elder Scrolls® Online",
+      "count": 665,
+      "classifications": {
+        "REVIEW_REQUIRED": 575,
+        "NOT_PATCH": 38,
+        "PATCH": 52
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 627,
+        "NOT_APPLICABLE": 38
+      }
+    },
+    {
+      "appid": "311210",
+      "game": "Call of Duty®: Black Ops III",
+      "count": 147,
+      "classifications": {
+        "PATCH": 86,
+        "REVIEW_REQUIRED": 61
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 147
+      }
+    },
+    {
+      "appid": "322330",
+      "game": "Don't Starve Together",
+      "count": 658,
+      "classifications": {
+        "PATCH": 476,
+        "NOT_PATCH": 26,
+        "REVIEW_REQUIRED": 156
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 632,
+        "NOT_APPLICABLE": 26
+      }
+    },
+    {
+      "appid": "346110",
+      "game": "ARK: Survival Evolved",
+      "count": 746,
+      "classifications": {
+        "REVIEW_REQUIRED": 666,
+        "NOT_PATCH": 27,
+        "PATCH": 53
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 719,
+        "NOT_APPLICABLE": 27
+      }
+    },
+    {
+      "appid": "359550",
+      "game": "Tom Clancy's Rainbow Six Siege",
+      "count": 766,
+      "classifications": {
+        "REVIEW_REQUIRED": 612,
+        "PATCH": 138,
+        "NOT_PATCH": 16
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 750,
+        "NOT_APPLICABLE": 16
+      }
+    },
+    {
+      "appid": "367520",
+      "game": "Hollow Knight",
+      "count": 31,
+      "classifications": {
+        "PATCH": 8,
+        "REVIEW_REQUIRED": 22,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 30,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "377160",
+      "game": "Fallout 4",
+      "count": 85,
+      "classifications": {
+        "REVIEW_REQUIRED": 28,
+        "PATCH": 53,
+        "NOT_PATCH": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 81,
+        "NOT_APPLICABLE": 4
+      }
+    },
+    {
+      "appid": "381210",
+      "game": "Dead by Daylight",
+      "count": 934,
+      "classifications": {
+        "REVIEW_REQUIRED": 707,
+        "PATCH": 218,
+        "NOT_PATCH": 9
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 925,
+        "NOT_APPLICABLE": 9
+      }
+    },
+    {
+      "appid": "386180",
+      "game": "Crossout",
+      "count": 2569,
+      "classifications": {
+        "REVIEW_REQUIRED": 2451,
+        "PATCH": 77,
+        "NOT_PATCH": 41
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 2528,
+        "NOT_APPLICABLE": 41
+      }
+    },
+    {
+      "appid": "393380",
+      "game": "Squad",
+      "count": 629,
+      "classifications": {
+        "REVIEW_REQUIRED": 342,
+        "PATCH": 224,
+        "NOT_PATCH": 63
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 566,
+        "NOT_APPLICABLE": 63
+      }
+    },
+    {
+      "appid": "394360",
+      "game": "Hearts of Iron IV",
+      "count": 754,
+      "classifications": {
+        "REVIEW_REQUIRED": 582,
+        "PATCH": 150,
+        "NOT_PATCH": 22
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 732,
+        "NOT_APPLICABLE": 22
+      }
+    },
+    {
+      "appid": "413150",
+      "game": "Stardew Valley",
+      "count": 74,
+      "classifications": {
+        "REVIEW_REQUIRED": 23,
+        "PATCH": 48,
+        "NOT_PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 71,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "427520",
+      "game": "Factorio",
+      "count": 886,
+      "classifications": {
+        "REVIEW_REQUIRED": 578,
+        "PATCH": 298,
+        "NOT_PATCH": 10
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 876,
+        "NOT_APPLICABLE": 10
+      }
+    },
+    {
+      "appid": "431960",
+      "game": "Wallpaper Engine",
+      "count": 100,
+      "classifications": {
+        "PATCH": 92,
+        "REVIEW_REQUIRED": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 100
+      }
+    },
+    {
+      "appid": "438100",
+      "game": "VRChat",
+      "count": 189,
+      "classifications": {
+        "REVIEW_REQUIRED": 107,
+        "PATCH": 80,
+        "NOT_PATCH": 2
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 187,
+        "NOT_APPLICABLE": 2
+      }
+    },
+    {
+      "appid": "438640",
+      "game": "LEGO® STAR WARS™: The Force Awakens",
+      "count": 8,
+      "classifications": {
+        "PATCH": 1,
+        "REVIEW_REQUIRED": 7
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 8
+      }
+    },
+    {
+      "appid": "444090",
+      "game": "Paladins®",
+      "count": 871,
+      "classifications": {
+        "REVIEW_REQUIRED": 654,
+        "PATCH": 117,
+        "NOT_PATCH": 100
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 771,
+        "NOT_APPLICABLE": 100
+      }
+    },
+    {
+      "appid": "489830",
+      "game": "The Elder Scrolls V: Skyrim Special Edition",
+      "count": 37,
+      "classifications": {
+        "PATCH": 18,
+        "REVIEW_REQUIRED": 19
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 37
+      }
+    },
+    {
+      "appid": "504230",
+      "game": "Celeste",
+      "count": 2,
+      "classifications": {
+        "REVIEW_REQUIRED": 1,
+        "PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 2
+      }
+    },
+    {
+      "appid": "526870",
+      "game": "Satisfactory",
+      "count": 230,
+      "classifications": {
+        "PATCH": 197,
+        "REVIEW_REQUIRED": 29,
+        "NOT_PATCH": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 226,
+        "NOT_APPLICABLE": 4
+      }
+    },
+    {
+      "appid": "529340",
+      "game": "Victoria 3",
+      "count": 361,
+      "classifications": {
+        "REVIEW_REQUIRED": 254,
+        "PATCH": 99,
+        "NOT_PATCH": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 353,
+        "NOT_APPLICABLE": 8
+      }
+    },
+    {
+      "appid": "548430",
+      "game": "Deep Rock Galactic",
+      "count": 494,
+      "classifications": {
+        "REVIEW_REQUIRED": 243,
+        "NOT_PATCH": 24,
+        "PATCH": 227
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 470,
+        "NOT_APPLICABLE": 24
+      }
+    },
+    {
+      "appid": "548570",
+      "game": "RAGE 2",
+      "count": 19,
+      "classifications": {
+        "PATCH": 7,
+        "REVIEW_REQUIRED": 12
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 19
+      }
+    },
+    {
+      "appid": "553850",
+      "game": "HELLDIVERS™ 2",
+      "count": 158,
+      "classifications": {
+        "REVIEW_REQUIRED": 56,
+        "PATCH": 95,
+        "NOT_PATCH": 7
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 151,
+        "NOT_APPLICABLE": 7
+      }
+    },
+    {
+      "appid": "570940",
+      "game": "DARK SOULS™: REMASTERED",
+      "count": 6,
+      "classifications": {
+        "REVIEW_REQUIRED": 4,
+        "NOT_PATCH": 1,
+        "PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 5,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "578080",
+      "game": "PUBG: BATTLEGROUNDS",
+      "count": 1348,
+      "classifications": {
+        "REVIEW_REQUIRED": 1094,
+        "PATCH": 226,
+        "NOT_PATCH": 28
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 1320,
+        "NOT_APPLICABLE": 28
+      }
+    },
+    {
+      "appid": "582010",
+      "game": "Monster Hunter: World",
+      "count": 269,
+      "classifications": {
+        "REVIEW_REQUIRED": 205,
+        "NOT_PATCH": 17,
+        "PATCH": 47
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 252,
+        "NOT_APPLICABLE": 17
+      }
+    },
+    {
+      "appid": "588650",
+      "game": "Dead Cells",
+      "count": 233,
+      "classifications": {
+        "REVIEW_REQUIRED": 143,
+        "NOT_PATCH": 6,
+        "PATCH": 84
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 227,
+        "NOT_APPLICABLE": 6
+      }
+    },
+    {
+      "appid": "594570",
+      "game": "Total War: WARHAMMER II",
+      "count": 434,
+      "classifications": {
+        "REVIEW_REQUIRED": 372,
+        "PATCH": 51,
+        "NOT_PATCH": 11
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 423,
+        "NOT_APPLICABLE": 11
+      }
+    },
+    {
+      "appid": "632360",
+      "game": "Risk of Rain 2",
+      "count": 110,
+      "classifications": {
+        "PATCH": 34,
+        "REVIEW_REQUIRED": 72,
+        "NOT_PATCH": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 106,
+        "NOT_APPLICABLE": 4
+      }
+    },
+    {
+      "appid": "646570",
+      "game": "Slay the Spire",
+      "count": 159,
+      "classifications": {
+        "REVIEW_REQUIRED": 51,
+        "NOT_PATCH": 4,
+        "PATCH": 104
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 155,
+        "NOT_APPLICABLE": 4
+      }
+    },
+    {
+      "appid": "678960",
+      "game": "CODE VEIN",
+      "count": 17,
+      "classifications": {
+        "REVIEW_REQUIRED": 5,
+        "PATCH": 12
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 17
+      }
+    },
+    {
+      "appid": "774171",
+      "game": "Muse Dash",
+      "count": 115,
+      "classifications": {
+        "REVIEW_REQUIRED": 102,
+        "PATCH": 13
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 115
+      }
+    },
+    {
+      "appid": "782330",
+      "game": "DOOM Eternal",
+      "count": 77,
+      "classifications": {
+        "REVIEW_REQUIRED": 47,
+        "PATCH": 27,
+        "NOT_PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 74,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "813780",
+      "game": "Age of Empires II: Definitive Edition",
+      "count": 450,
+      "classifications": {
+        "REVIEW_REQUIRED": 305,
+        "PATCH": 124,
+        "NOT_PATCH": 21
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 429,
+        "NOT_APPLICABLE": 21
+      }
+    },
+    {
+      "appid": "813820",
+      "game": "Realm Royale Reforged",
+      "count": 103,
+      "classifications": {
+        "REVIEW_REQUIRED": 72,
+        "PATCH": 31
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 103
+      }
+    },
+    {
+      "appid": "892970",
+      "game": "Valheim",
+      "count": 194,
+      "classifications": {
+        "PATCH": 121,
+        "REVIEW_REQUIRED": 56,
+        "NOT_PATCH": 17
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 177,
+        "NOT_APPLICABLE": 17
+      }
+    },
+    {
+      "appid": "960090",
+      "game": "Bloons TD 6",
+      "count": 85,
+      "classifications": {
+        "PATCH": 53,
+        "REVIEW_REQUIRED": 30,
+        "NOT_PATCH": 2
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 83,
+        "NOT_APPLICABLE": 2
+      }
+    },
+    {
+      "appid": "990080",
+      "game": "Hogwarts Legacy",
+      "count": 55,
+      "classifications": {
+        "REVIEW_REQUIRED": 38,
+        "PATCH": 17
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 55
+      }
+    },
+    {
+      "appid": "1030300",
+      "game": "Hollow Knight: Silksong",
+      "count": 8,
+      "classifications": {
+        "REVIEW_REQUIRED": 3,
+        "PATCH": 5
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 8
+      }
+    },
+    {
+      "appid": "1085660",
+      "game": "Destiny 2",
+      "count": 433,
+      "classifications": {
+        "REVIEW_REQUIRED": 427,
+        "NOT_PATCH": 3,
+        "PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 430,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "1086940",
+      "game": "Baldur's Gate 3",
+      "count": 145,
+      "classifications": {
+        "PATCH": 101,
+        "NOT_PATCH": 26,
+        "REVIEW_REQUIRED": 18
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 119,
+        "NOT_APPLICABLE": 26
+      }
+    },
+    {
+      "appid": "1091500",
+      "game": "Cyberpunk 2077",
+      "count": 117,
+      "classifications": {
+        "REVIEW_REQUIRED": 73,
+        "PATCH": 39,
+        "NOT_PATCH": 5
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 112,
+        "NOT_APPLICABLE": 5
+      }
+    },
+    {
+      "appid": "1097150",
+      "game": "Fall Guys",
+      "count": 69,
+      "classifications": {
+        "REVIEW_REQUIRED": 58,
+        "NOT_PATCH": 1,
+        "PATCH": 10
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 68,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "1113560",
+      "game": "NieR Replicant™ ver.1.22474487139...",
+      "count": 22,
+      "classifications": {
+        "NOT_PATCH": 4,
+        "REVIEW_REQUIRED": 17,
+        "PATCH": 1
+      },
+      "date_status": {
+        "NOT_APPLICABLE": 4,
+        "REVIEW_REQUIRED": 18
+      }
+    },
+    {
+      "appid": "1142710",
+      "game": "Total War: WARHAMMER III",
+      "count": 338,
+      "classifications": {
+        "REVIEW_REQUIRED": 223,
+        "NOT_PATCH": 9,
+        "PATCH": 106
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 329,
+        "NOT_APPLICABLE": 9
+      }
+    },
+    {
+      "appid": "1145350",
+      "game": "Hades II",
+      "count": 43,
+      "classifications": {
+        "REVIEW_REQUIRED": 19,
+        "PATCH": 23,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 42,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "1145360",
+      "game": "Hades",
+      "count": 44,
+      "classifications": {
+        "REVIEW_REQUIRED": 19,
+        "PATCH": 25
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 44
+      }
+    },
+    {
+      "appid": "1151640",
+      "game": "Horizon Zero Dawn™ Complete Edition",
+      "count": 27,
+      "classifications": {
+        "NOT_PATCH": 2,
+        "REVIEW_REQUIRED": 7,
+        "PATCH": 18
+      },
+      "date_status": {
+        "NOT_APPLICABLE": 2,
+        "REVIEW_REQUIRED": 25
+      }
+    },
+    {
+      "appid": "1158310",
+      "game": "Crusader Kings III",
+      "count": 478,
+      "classifications": {
+        "REVIEW_REQUIRED": 382,
+        "PATCH": 88,
+        "NOT_PATCH": 8
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 470,
+        "NOT_APPLICABLE": 8
+      }
+    },
+    {
+      "appid": "1172470",
+      "game": "Apex Legends™",
+      "count": 576,
+      "classifications": {
+        "REVIEW_REQUIRED": 450,
+        "PATCH": 125,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 575,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "1172620",
+      "game": "Sea of Thieves: 2026 Edition",
+      "count": 356,
+      "classifications": {
+        "PATCH": 90,
+        "REVIEW_REQUIRED": 264,
+        "NOT_PATCH": 2
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 354,
+        "NOT_APPLICABLE": 2
+      }
+    },
+    {
+      "appid": "1174180",
+      "game": "Red Dead Redemption 2",
+      "count": 43,
+      "classifications": {
+        "REVIEW_REQUIRED": 42,
+        "NOT_PATCH": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 42,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "1203220",
+      "game": "NARAKA: BLADEPOINT",
+      "count": 366,
+      "classifications": {
+        "REVIEW_REQUIRED": 271,
+        "NOT_PATCH": 5,
+        "PATCH": 90
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 361,
+        "NOT_APPLICABLE": 5
+      }
+    },
+    {
+      "appid": "1240440",
+      "game": "Halo Infinite",
+      "count": 414,
+      "classifications": {
+        "REVIEW_REQUIRED": 384,
+        "PATCH": 23,
+        "NOT_PATCH": 7
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 407,
+        "NOT_APPLICABLE": 7
+      }
+    },
+    {
+      "appid": "1245620",
+      "game": "ELDEN RING",
+      "count": 96,
+      "classifications": {
+        "REVIEW_REQUIRED": 55,
+        "NOT_PATCH": 11,
+        "PATCH": 30
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 85,
+        "NOT_APPLICABLE": 11
+      }
+    },
+    {
+      "appid": "1286680",
+      "game": "Tiny Tina's Wonderlands",
+      "count": 20,
+      "classifications": {
+        "REVIEW_REQUIRED": 20
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 20
+      }
+    },
+    {
+      "appid": "1325200",
+      "game": "Nioh 2 – The Complete Edition",
+      "count": 64,
+      "classifications": {
+        "REVIEW_REQUIRED": 51,
+        "NOT_PATCH": 1,
+        "PATCH": 12
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 63,
+        "NOT_APPLICABLE": 1
+      }
+    },
+    {
+      "appid": "1326470",
+      "game": "Sons Of The Forest",
+      "count": 73,
+      "classifications": {
+        "PATCH": 69,
+        "REVIEW_REQUIRED": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 73
+      }
+    },
+    {
+      "appid": "1364780",
+      "game": "Street Fighter™ 6",
+      "count": 184,
+      "classifications": {
+        "REVIEW_REQUIRED": 176,
+        "NOT_PATCH": 6,
+        "PATCH": 2
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 178,
+        "NOT_APPLICABLE": 6
+      }
+    },
+    {
+      "appid": "1446780",
+      "game": "MONSTER HUNTER RISE",
+      "count": 115,
+      "classifications": {
+        "REVIEW_REQUIRED": 90,
+        "NOT_PATCH": 11,
+        "PATCH": 14
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 104,
+        "NOT_APPLICABLE": 11
+      }
+    },
+    {
+      "appid": "1466860",
+      "game": "Age of Empires IV: Anniversary Edition",
+      "count": 252,
+      "classifications": {
+        "PATCH": 54,
+        "REVIEW_REQUIRED": 175,
+        "NOT_PATCH": 23
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 229,
+        "NOT_APPLICABLE": 23
+      }
+    },
+    {
+      "appid": "1604030",
+      "game": "V Rising",
+      "count": 142,
+      "classifications": {
+        "REVIEW_REQUIRED": 78,
+        "PATCH": 61,
+        "NOT_PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 139,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "1623730",
+      "game": "Palworld",
+      "count": 117,
+      "classifications": {
+        "NOT_PATCH": 6,
+        "REVIEW_REQUIRED": 68,
+        "PATCH": 43
+      },
+      "date_status": {
+        "NOT_APPLICABLE": 6,
+        "REVIEW_REQUIRED": 111
+      }
+    },
+    {
+      "appid": "1778820",
+      "game": "TEKKEN 8",
+      "count": 89,
+      "classifications": {
+        "REVIEW_REQUIRED": 85,
+        "PATCH": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 89
+      }
+    },
+    {
+      "appid": "1794680",
+      "game": "Vampire Survivors",
+      "count": 99,
+      "classifications": {
+        "REVIEW_REQUIRED": 37,
+        "PATCH": 59,
+        "NOT_PATCH": 3
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 96,
+        "NOT_APPLICABLE": 3
+      }
+    },
+    {
+      "appid": "1817070",
+      "game": "Marvel’s Spider-Man Remastered",
+      "count": 21,
+      "classifications": {
+        "PATCH": 16,
+        "REVIEW_REQUIRED": 5
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 21
+      }
+    },
+    {
+      "appid": "1888930",
+      "game": "The Last of Us™ Part I",
+      "count": 18,
+      "classifications": {
+        "PATCH": 17,
+        "REVIEW_REQUIRED": 1
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 18
+      }
+    },
+    {
+      "appid": "1938090",
+      "game": "Call of Duty®",
+      "count": 372,
+      "classifications": {
+        "REVIEW_REQUIRED": 345,
+        "NOT_PATCH": 9,
+        "PATCH": 18
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 363,
+        "NOT_APPLICABLE": 9
+      }
+    },
+    {
+      "appid": "1966720",
+      "game": "Lethal Company",
+      "count": 21,
+      "classifications": {
+        "PATCH": 17,
+        "REVIEW_REQUIRED": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 21
+      }
+    },
+    {
+      "appid": "1973530",
+      "game": "Limbus Company",
+      "count": 891,
+      "classifications": {
+        "PATCH": 36,
+        "REVIEW_REQUIRED": 831,
+        "NOT_PATCH": 24
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 867,
+        "NOT_APPLICABLE": 24
+      }
+    },
+    {
+      "appid": "2000950",
+      "game": "Call of Duty®: Modern Warfare®",
+      "count": 9,
+      "classifications": {
+        "NOT_PATCH": 3,
+        "REVIEW_REQUIRED": 6
+      },
+      "date_status": {
+        "NOT_APPLICABLE": 3,
+        "REVIEW_REQUIRED": 6
+      }
+    },
+    {
+      "appid": "2050650",
+      "game": "Resident Evil 4",
+      "count": 21,
+      "classifications": {
+        "NOT_PATCH": 2,
+        "REVIEW_REQUIRED": 19
+      },
+      "date_status": {
+        "NOT_APPLICABLE": 2,
+        "REVIEW_REQUIRED": 19
+      }
+    },
+    {
+      "appid": "2246340",
+      "game": "Monster Hunter Wilds",
+      "count": 129,
+      "classifications": {
+        "REVIEW_REQUIRED": 96,
+        "PATCH": 26,
+        "NOT_PATCH": 7
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 122,
+        "NOT_APPLICABLE": 7
+      }
+    },
+    {
+      "appid": "2399830",
+      "game": "ARK: Survival Ascended",
+      "count": 176,
+      "classifications": {
+        "REVIEW_REQUIRED": 160,
+        "PATCH": 12,
+        "NOT_PATCH": 4
+      },
+      "date_status": {
+        "REVIEW_REQUIRED": 172,
+        "NOT_APPLICABLE": 4
+      }
+    }
+  ]
+}

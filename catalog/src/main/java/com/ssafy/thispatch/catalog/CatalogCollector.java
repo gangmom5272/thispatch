@@ -54,6 +54,9 @@ public final class CatalogCollector {
             System.out.printf("   %d 개%n", tagRows);
             // 예전 실행에서 들어간 태그도 아는 것으로 친다.
             store.loadKnownTagIds();
+            // play_mode 는 마이그레이션에 13행이 박혀 있다 (2026-09-16 전수 조사).
+            // 스팀이 새 모드를 만들면 여기 없어서 건너뛰고, 아래에서 알려 준다.
+            store.loadKnownPlayModeIds();
 
             say("② 카탈로그");
             int start = 0;
@@ -61,6 +64,8 @@ public final class CatalogCollector {
             int total = -1;
             long games = 0;
             long links = 0;
+            long modeLinks = 0;
+            int skippedModes = 0;
             long skippedTags = 0;
             long received = 0;
             long dropped = 0;
@@ -84,11 +89,14 @@ public final class CatalogCollector {
                 games += store.upsertGames(batch);
                 links += store.insertGameTags(batch);
                 skippedTags += store.lastSkippedTags();
+                modeLinks += store.insertGamePlayModes(batch);
+                skippedModes += store.lastSkippedPlayModes();
 
                 page++;
                 start += SteamCatalogClient.PAGE_SIZE;
                 if (page % 20 == 0) {
-                    System.out.printf("   %d 페이지 · 게임 %,d · 태그연결 %,d%n", page, games, links);
+                    System.out.printf("   %d 페이지 · 게임 %,d · 태그연결 %,d · 모드연결 %,d%n",
+                            page, games, links, modeLinks);
                 }
 
                 // 받은 개수가 한 페이지보다 적으면 마지막 페이지다.
@@ -114,6 +122,13 @@ public final class CatalogCollector {
             }
             System.out.printf("   DB game       %,d 행%n", store.countGames());
             System.out.printf("   DB game_tag   %,d 행%n", store.countGameTags());
+            System.out.printf("   DB game_play_mode %,d 행%n", store.countGamePlayModes());
+            if (skippedModes > 0) {
+                // ⚠ 여기가 0 이 아니면 play_mode 표에 행을 더 넣어야 한다.
+                //   스팀이 새 플레이 모드를 만들었다는 뜻이다.
+                System.out.printf("   건너뜀        %,d (play_mode 에 없는 ID %s)%n",
+                        skippedModes, store.unknownPlayModeIds());
+            }
             System.out.printf("   걸린 시간     %.1f 초%n", (System.currentTimeMillis() - began) / 1000.0);
         }
     }

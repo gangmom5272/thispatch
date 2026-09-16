@@ -40,6 +40,22 @@ cd api && $PY -m uvicorn main:app --port 8100     # 또는 .\start.ps1 (Ollama �
 
 AI 서버는 **사용자가 직접 켠다**(자동 기동 없음). `api/start.ps1`(Windows) 또는 `bash api/start.sh`(WSL) 를 실행하면 Ollama 를 확인하고 서버를 띄운 뒤 `/health` 가 `ready:true` 가 될 때까지 진행을 보여 준다. 임베딩 모델(약 35초)·Qwen(약 10초)은 기동 시 백그라운드로 미리 올린다. 백엔드는 `GET /health` 의 `ready` 가 true 일 때부터 호출한다.
 
+### 백엔드가 호출하는 경로 — SSH 역터널
+
+EC2 에서 교육장 노트북 대역으로 나가는 라우팅이 없어 포트를 열어도 닿지 않는다(9/10 인프라 실측).
+반대 방향은 열려 있으므로 **노트북이 서버1 로 붙어 8100 을 거꾸로 넘긴다**.
+
+```bash
+.pi	unnel.ps1          # Windows. 또는 bash api/tunnel.sh (WSL)
+```
+
+백엔드는 `http://172.17.0.1:8100` 으로 부른다. 노트북 IP 가 바뀌어도 설정을 고칠 필요가 없다.
+도커 브리지 주소에 묶는 이유는 백엔드가 컨테이너 안에서 돌기 때문이고,
+그러려면 서버1 `sshd_config` 에 `GatewayPorts clientspecified` 가 있어야 한다(인프라 협의 중).
+확인은 서버1 에서 `curl http://172.17.0.1:8100/health`.
+
+노트북이 꺼지거나 절전으로 들어가면 AI 기능이 멈춘다. 서버에 GPU 가 없어 생기는 구조적 제약이다.
+
 운영(WSL)은 `pip install -r requirements.txt`(torch 는 CUDA 빌드 별도) 후 `DT=… bash batch/run_daily.sh`.
 Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네트워크).
 

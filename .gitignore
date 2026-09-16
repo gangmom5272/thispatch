@@ -46,11 +46,6 @@ venv/
 .idea/
 .vscode/
 .cursor/
-# 작업 요약만 추적 (frontend)
-!frontend/.cursor/
-frontend/.cursor/*
-!frontend/.cursor/docs/
-!frontend/.cursor/docs/**
 *.iml
 *.swp
 *.swo

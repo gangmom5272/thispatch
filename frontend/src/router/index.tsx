@@ -15,6 +15,7 @@ import {
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
 import PlaytimeTopicsPage from "@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"
 import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
+import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
@@ -48,6 +49,8 @@ export const router = createBrowserRouter([
                 <ReactionTrendsPage />
               ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
                 <PlaytimeTopicsPage />
+              ) : tab === GAME_DETAIL_TABS.reviews ? (
+                <ReviewsPage />
               ) : (
                 <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
               ),

@@ -12,6 +12,8 @@ This guide provides concrete rules, architectural patterns, and actionable check
 - **Business Value**: Clean Code = Reduced Maintenance Time (Code Reading, Debugging, Code Review) = Saving Resources and Time.
 - **Key Realization**: _Clean Code is NOT just short code._ It is code with clear domain context, proper cohesion, single responsibility, and consistent abstraction levels.
 - **Mindset**: _"It was right then, but wrong now."_ Features accumulate over time. Always view the big picture when modifying existing files rather than naively appending `if-else` blocks.
+- **Key Realization**: _Clean Code is NOT just short code._ It is code with clear domain context, proper cohesion, single responsibility, and consistent abstraction levels.
+- **Mindset**: _"It was right then, but wrong now."_ Features accumulate over time. Always view the big picture when modifying existing files rather than naively appending `if-else` blocks.
 
 ---
 
@@ -30,6 +32,7 @@ This guide provides concrete rules, architectural patterns, and actionable check
    - **Details (Inside)**: Open/close modal state (`isOpen`), animation triggers, DOM event bindings.
 3. **Prefer Declarative Programming over Imperative**:
    - Tell _what_ to do rather than listing step-by-step _how_ to do it.
+   - Tell _what_ to do rather than listing step-by-step _how_ to do it.
 
 #### Code Comparison
 
@@ -39,14 +42,16 @@ This guide provides concrete rules, architectural patterns, and actionable check
 // ❌ Implementation details, open states, and submit handling are scattered across the component
 function QuestionPage() {
   const [popupOpened, setPopupOpened] = useState(false)
+  const [popupOpened, setPopupOpened] = useState(false)
 
   async function handleClick() {
+    setPopupOpened(true)
     setPopupOpened(true)
   }
 
   async function handlePopupSubmit() {
     await sendQuestion(expertId)
-    alert('질문을 전송했습니다.')
+    alert("질문을 전송했습니다.")
   }
 
   return (
@@ -58,6 +63,7 @@ function QuestionPage() {
       </Popup>
     </>
   )
+  )
 }
 ```
 
@@ -67,17 +73,21 @@ function QuestionPage() {
 // ✅ Core parameters (title, contents) are passed explicitly; modal state & execution are encapsulated
 function QuestionPage() {
   const [openPopup] = usePopup()
+  const [openPopup] = usePopup()
 
   async function handleClick() {
     const confirmed = await openPopup({
       title: '보험 질문하기',
       contents: <div>전문가가 설명드려요</div>,
     })
+    })
     if (confirmed) {
+      await submitQuestion()
       await submitQuestion()
     }
   }
 
+  return <button onClick={handleClick}>질문하기</button>
   return <button onClick={handleClick}>질문하기</button>
 }
 ```
@@ -107,7 +117,7 @@ function QuestionPage() {
 // ❌ Logging code mixed directly into UI event handler
 <button
   onClick={async () => {
-    log('제출 버튼 클릭')
+    log("제출 버튼 클릭")
     await openConfirm()
   }}
 >
@@ -131,6 +141,7 @@ function QuestionPage() {
 ```tsx
 // ❌ DOM observer logic mixed with fetching logic
 const targetRef = useRef(null)
+const targetRef = useRef(null)
 useEffect(() => {
   const observer = new IntersectionObserver(([{ isIntersecting }]) => {
     if (isIntersecting) fetchMoreData()
@@ -138,7 +149,13 @@ useEffect(() => {
   if (targetRef.current) observer.observe(targetRef.current)
   return () => observer.disconnect()
 }, [])
+    if (isIntersecting) fetchMoreData()
+  })
+  if (targetRef.current) observer.observe(targetRef.current)
+  return () => observer.disconnect()
+}, [])
 
+return <div ref={targetRef}>더 보기</div>
 return <div ref={targetRef}>더 보기</div>
 ```
 
@@ -155,7 +172,7 @@ return <div ref={targetRef}>더 보기</div>
 
 ```tsx
 // ✅ Clear domain concept naming using Korean variables for complex conditions
-const 패널티풀림 = reasons.includes('PENALTY') === false
+const 패널티풀림 = reasons.includes("PENALTY") === false
 const 평점4점이상 = review.rate >= 80
 
 if (패널티풀림 && 평점4점이상) {
@@ -197,6 +214,7 @@ return (
     <Button rating={rating} />
   </>
 )
+)
 ```
 
 **Good (Consistent High-Level Abstraction)**
@@ -210,6 +228,7 @@ return (
     <Reviews />
     {rating !== 0 && <AgreementButton />}
   </>
+)
 )
 ```
 
@@ -255,6 +274,7 @@ When modifying or generating React components, follow this 4-step execution flow
 Before finalizing code edits or outputting new files, verify against this checklist:
 
 - [ ] **Cohesion**: Is single-purpose code kept together, without hiding critical business logic/props in black-box custom hooks?
+- [ ] **Declarative Style**: Does the component describe _what_ it renders rather than imperative step-by-step operations?
 - [ ] **Declarative Style**: Does the component describe _what_ it renders rather than imperative step-by-step operations?
 - [ ] **Single Responsibility**:
   - [ ] Do functions do only ONE task as described by their names?

@@ -14,6 +14,12 @@ pages/components → hooks/queries → api/도메인 함수 → api/client → a
 | 도메인 API | `src/api/<도메인>.ts`                  | 엔드포인트 1:1 함수, DTO 타입                                    | TanStack Query import    |
 | 서버 상태  | `src/hooks/queries/<도메인>Queries.ts` | 키 팩토리, `queryOptions` 팩토리, 커스텀 훅                      | axios·fetcher 직접 호출  |
 | UI         | `src/pages`, `src/components`          | 훅 사용, `isPending`/`isError` 분기                              | `api/` 직접 import       |
+| 계층       | 위치                                   | 책임                                                             | 금지                     |
+| ---------- | -------------------------------------- | ---------------------------------------------------------------- | ------------------------ |
+| 통신       | `src/api/client.ts`                    | axios 인스턴스, 인터셉터, envelope unwrap, fetcher(`api.get` 등) | `client` 인스턴스 export |
+| 도메인 API | `src/api/<도메인>.ts`                  | 엔드포인트 1:1 함수, DTO 타입                                    | TanStack Query import    |
+| 서버 상태  | `src/hooks/queries/<도메인>Queries.ts` | 키 팩토리, `queryOptions` 팩토리, 커스텀 훅                      | axios·fetcher 직접 호출  |
+| UI         | `src/pages`, `src/components`          | 훅 사용, `isPending`/`isError` 분기                              | `api/` 직접 import       |
 
 백엔드 공통 응답 envelope(`{ code, message, responseAt, data, success }`)는 `client.ts`가 벗겨서 반환하므로, 도메인 함수부터는 `data` 내용물 타입만 다룬다. 실패는 HTTP 상태와 무관하게 `success: false` 기준으로 판정되어 `ApiError`로 던져진다.
 
@@ -22,12 +28,12 @@ pages/components → hooks/queries → api/도메인 함수 → api/client → a
 ### ① `src/api/<도메인>.ts` — API 함수
 
 ```ts
-import { api } from '@/api/client'
-import type { Reservation } from '@/types'
+import { api } from "@/api/client"
+import type { Reservation } from "@/types"
 
 interface ReservationFilters {
-  status?: '예약 확정' | '예약 대기'
-  direction?: 'sent' | 'received'
+  status?: "예약 확정" | "예약 대기"
+  direction?: "sent" | "received"
 }
 
 export function getReservations(
@@ -38,9 +44,11 @@ export function getReservations(
     path: '/reservations',
     config: { params: filters, signal },
   })
+  })
 }
 
 export function cancelReservation(id: string): Promise<void> {
+  return api.delete<void>({ path: `/reservations/${id}` })
   return api.delete<void>({ path: `/reservations/${id}` })
 }
 ```
@@ -63,18 +71,18 @@ fetcher는 위치 인자가 아니라 **단일 객체 인자**를 받는다: `ap
 ```ts
 export function uploadPropertyImage(propertyId: number, file: File): Promise<string> {
   const formData = new FormData()
-  formData.append('image', file)
+  formData.append("image", file)
   return api.post<string>({
     path: `/properties/${propertyId}/images`,
     body: formData,
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { "Content-Type": "multipart/form-data" },
   })
 }
 
 export function reissuedToken(refreshToken: string): Promise<Token> {
   return api.post<Token>({
-    path: '/auth/refresh',
-    headers: { RefreshToken: refreshToken },
+    path: "/auth/refresh",
+    body: { refreshToken },
   })
 }
 ```
@@ -84,13 +92,13 @@ export function reissuedToken(refreshToken: string): Promise<Token> {
 ### ② `src/hooks/queries/<도메인>Queries.ts` — 키·옵션·훅
 
 ```ts
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from "@tanstack/react-query"
 
-import { getReservations, type ReservationFilters } from '@/api/reservation'
+import { getReservations, type ReservationFilters } from "@/api/reservation"
 
 export const reservationKeys = {
-  all: ['reservations'] as const,
-  lists: () => [...reservationKeys.all, 'list'] as const,
+  all: ["reservations"] as const,
+  lists: () => [...reservationKeys.all, "list"] as const,
   list: (filters: ReservationFilters) => [...reservationKeys.lists(), filters] as const,
 }
 
@@ -99,8 +107,10 @@ export const reservationListOptions = (filters: ReservationFilters) =>
     queryKey: reservationKeys.list(filters),
     queryFn: ({ signal }) => getReservations(filters, signal),
   })
+  })
 
 export function useReservationList(filters: ReservationFilters) {
+  return useQuery(reservationListOptions(filters))
   return useQuery(reservationListOptions(filters))
 }
 ```
@@ -114,7 +124,11 @@ export function useReservationList(filters: ReservationFilters) {
 ```tsx
 function ReservationList({ filters }: { filters: ReservationFilters }) {
   const { data, isPending, isError, refetch } = useReservationList(filters)
+  const { data, isPending, isError, refetch } = useReservationList(filters)
 
+  if (isPending) return <ReservationSkeleton />
+  if (isError) return <QueryErrorFallback retry={refetch} />
+  return <ul>{data.map(/* ... */)}</ul>
   if (isPending) return <ReservationSkeleton />
   if (isError) return <QueryErrorFallback retry={refetch} />
   return <ul>{data.map(/* ... */)}</ul>
@@ -123,6 +137,13 @@ function ReservationList({ filters }: { filters: ReservationFilters }) {
 
 ## 3. 네이밍 컨벤션
 
+| 대상                | 규칙                | 예시                                 |
+| ------------------- | ------------------- | ------------------------------------ |
+| API 함수            | 동사 시작 camelCase | `getProperties`, `toggleSaved`       |
+| 쿼리 키 팩토리      | `<도메인>Keys`      | `propertyKeys.list(filters)`         |
+| queryOptions 팩토리 | `<대상>Options`     | `propertyListOptions(filters)`       |
+| 쿼리 훅             | `use<대상>`         | `usePropertyList(filters)`           |
+| 뮤테이션 훅         | `use<동사><대상>`   | `useToggleSaved`, `useUpdateProfile` |
 | 대상                | 규칙                | 예시                                 |
 | ------------------- | ------------------- | ------------------------------------ |
 | API 함수            | 동사 시작 camelCase | `getProperties`, `toggleSaved`       |
@@ -143,16 +164,20 @@ function ReservationList({ filters }: { filters: ReservationFilters }) {
 
 ```tsx
 const { mutateAsync } = useUpdateProfile()
+const { mutateAsync } = useUpdateProfile()
 const [error, formAction, isPending] = useActionState(
   async (_prev: string | null, formData: FormData) => {
     try {
       await mutateAsync(toChanges(formData))
       return null
+      await mutateAsync(toChanges(formData))
+      return null
     } catch (e) {
-      return isApiError(e) ? e.message : '저장에 실패했습니다.'
+      return isApiError(e) ? e.message : "저장에 실패했습니다."
     }
   },
   null,
+)
 )
 ```
 
@@ -166,9 +191,17 @@ const [error, formAction, isPending] = useActionState(
 ```ts
 export function useToggleSaved() {
   const queryClient = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, saved }: { id: number; saved: boolean }) => toggleSaved(id, saved),
+    mutationFn: ({ id, saved }: { id: number; saved: boolean }) => toggleSaved(id, saved),
     onMutate: async ({ id, saved }) => {
+      await queryClient.cancelQueries({ queryKey: propertyKeys.all })
+      const previous = queryClient.getQueriesData({ queryKey: propertyKeys.all })
+      queryClient.setQueriesData<Property[]>({ queryKey: propertyKeys.lists() }, (old) =>
+        old?.map((p) => (p.id === id ? { ...p, saved } : p)),
+      )
+      return { previous }
       await queryClient.cancelQueries({ queryKey: propertyKeys.all })
       const previous = queryClient.getQueriesData({ queryKey: propertyKeys.all })
       queryClient.setQueriesData<Property[]>({ queryKey: propertyKeys.lists() }, (old) =>
@@ -178,7 +211,10 @@ export function useToggleSaved() {
     },
     onError: (_error, _variables, context) => {
       context?.previous.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data))
+      context?.previous.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data))
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: propertyKeys.all }),
+  })
     onSettled: () => queryClient.invalidateQueries({ queryKey: propertyKeys.all }),
   })
 }
@@ -192,8 +228,10 @@ export function useToggleSaved() {
 - `useEffect` + `useState`로 서버 데이터 보관 금지 — 서버 상태는 TanStack Query가 소유
 - envelope 타입(`ApiResponse`)을 통신 계층 밖에서 참조 금지
 
-## 7. 미확정 사항 (TBD)
+## 7. 인증·토큰 (확정)
 
-- accessToken·refreshToken 보관 위치 → 확정 시 `client.ts`의 요청 인터셉터·401 refresh single-flight 주석 해제 및 구현
-- refresh 엔드포인트 경로·요청 형식
-- 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중 — 함수 위 TODO 주석의 실제 호출로 교체하면 됨
+- **보관**: `src/lib/tokenStorage.ts` — accessToken·refreshToken을 `localStorage`에 저장·삭제한다.
+- **요청**: `client.ts` 요청 인터셉터가 accessToken이 있으면 `Authorization: Bearer …`를 붙인다. `skipAuthRefresh: true`인 요청(토큰 재발급)에는 Authorization을 붙이지 않는다.
+- **재발급**: `POST /auth/refresh`, body `{ refreshToken }` → `data.accessToken`. 401 시 single-flight로 한 번만 재발급 후 원요청을 재시도한다. 실패 시 토큰을 비운다.
+- **세션**: `GET /session`(Authorization 선택)으로 로그인 여부를 확인한다. 도메인 API는 `src/api/session.ts`, 훅은 `useSession`.
+- 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중일 수 있다 — 함수 위 TODO를 실제 호출로 교체한다.

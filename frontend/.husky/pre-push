@@ -1,0 +1,3 @@
+# Messages are normalized by commit-msg before Git creates the commit.
+# Allow existing history to be pushed without rewriting commit hashes.
+exit 0

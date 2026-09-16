@@ -31,6 +31,8 @@ public class CatalogStore implements AutoCloseable {
      *   그래서 아는 태그만 골라 넣는다.
      */
     private final Set<Integer> knownTagIds = new HashSet<>();
+    private final Set<Integer> knownPlayModeIds = new HashSet<>();
+    private final Set<Integer> unknownPlayModeIds = new HashSet<>();
 
     public CatalogStore(Connection conn) throws SQLException {
         this.conn = conn;
@@ -168,6 +170,68 @@ public class CatalogStore implements AutoCloseable {
         return lastSkippedTags;
     }
 
+    /**
+     * 게임과 플레이 모드를 잇는다. {@link #insertGameTags} 와 같은 모양이다 —
+     * weight 만 없다. 스팀이 플레이 모드에는 순서를 주지 않는다.
+     *
+     * <p>⚠ 모르는 ID 는 건너뛰고 센다. play_mode 는 마이그레이션에 13행이 박혀 있는데
+     * (2026-09-16 전수 조사), 스팀이 나중에 새 모드를 만들면 외래키 위반으로 배치가
+     * 통째로 롤백된다. 건너뛰고 몇 개인지 알려 주면 다음 날 알림에서 드러난다.
+     */
+    public int insertGamePlayModes(List<Game> games) throws SQLException {
+        String sql = """
+                INSERT INTO game_play_mode (appid, play_mode_id)
+                VALUES (?,?)
+                ON CONFLICT (appid, play_mode_id) DO NOTHING""";
+        int skipped = 0;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Game g : games) {
+                for (Integer id : g.playModeIds()) {
+                    if (!knownPlayModeIds.contains(id)) {
+                        skipped++;
+                        unknownPlayModeIds.add(id);
+                        continue;
+                    }
+                    ps.setLong(1, g.appid());
+                    ps.setInt(2, id);
+                    ps.addBatch();
+                }
+            }
+            int n = ps.executeBatch().length;
+            conn.commit();
+            lastSkippedPlayModes = skipped;
+            return n;
+        }
+    }
+
+    private int lastSkippedPlayModes;
+
+    /** 직전 {@link #insertGamePlayModes} 에서 play_mode 에 없어 건너뛴 수. */
+    public int lastSkippedPlayModes() {
+        return lastSkippedPlayModes;
+    }
+
+    /** 끝까지 한 번이라도 만난 모르는 플레이 모드 ID. 비어 있어야 정상이다. */
+    public Set<Integer> unknownPlayModeIds() {
+        return unknownPlayModeIds;
+    }
+
+    public void loadKnownPlayModeIds() throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT play_mode_id FROM play_mode");
+             var rs = ps.executeQuery()) {
+            while (rs.next()) {
+                knownPlayModeIds.add(rs.getInt(1));
+            }
+        }
+    }
+
+    public long countGamePlayModes() throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT count(*) FROM game_play_mode");
+             var rs = ps.executeQuery()) {
+            return rs.next() ? rs.getLong(1) : 0;
+        }
+    }
+
     public long countGames() throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("SELECT count(*) FROM game");
              var rs = ps.executeQuery()) {
@@ -230,5 +294,6 @@ public class CatalogStore implements AutoCloseable {
     public record Game(long appid, String name, String developer, String publisher,
                        String shortDescription, String storeUrlPath, Instant releaseTs,
                        Boolean isEarlyAccess, Boolean isComingSoon, Integer reviewCount,
-                       Integer positivePct, String capsulePath, List<GameTag> tags) {}
+                       Integer positivePct, String capsulePath, List<GameTag> tags,
+                       List<Integer> playModeIds) {}
 }

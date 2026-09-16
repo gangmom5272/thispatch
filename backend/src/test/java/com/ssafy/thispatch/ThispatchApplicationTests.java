@@ -45,12 +45,14 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V7, each applied exactly once").hasSize(7);
-		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4", "5", "6", "7");
+		assertThat(history).as("V1 through V8, each applied exactly once").hasSize(8);
+		assertThat(history).extracting(row -> row.get("version"))
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
-				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql");
+				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql",
+				"V8__add_game_play_modes.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -67,7 +69,8 @@ class ThispatchApplicationTests {
 				"flyway_schema_history", "patch_stat", "tag", "my_game", "daily_stat", "topic", "news",
 				"band_topic_stat", "band_stat", "recent_review", "batch_log", "game_tag", "game",
 				"language", "language_stat", "member", "batch_job", "review_topic",
-				"patch_chunk", "patch_change", "patch_change_type", "patch_change_direction", "patch_change_target_type");
+				"patch_chunk", "patch_change", "patch_change_type", "patch_change_direction", "patch_change_target_type",
+				"play_mode", "game_play_mode");
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname = 'vector'", Integer.class))
 			.isEqualTo(1);
 		assertThat(jdbc.queryForObject("""
@@ -127,6 +130,26 @@ class ThispatchApplicationTests {
 			"not_applicable|해당 없음", "unknown|알 수 없음"));
 		assertCodes(jdbc, "patch_change_target_type", List.of("player|플레이어", "enemy|적", "weapon|무기", "item|아이템",
 			"skill|스킬", "map|맵", "system|시스템", "other|기타", "unknown|알 수 없음"));
+		assertPlayModes(jdbc);
+	}
+
+	/**
+	 * 플레이 모드 13종.
+	 *
+	 * <p>추측이 아니라 2026-09-16 에 스팀 카탈로그 185,640 개 게임을 전수로 훑어서
+	 * 확인한 값이다. 여기가 줄거나 늘면 수집기가 모르는 ID 를 만나 조용히 버리게 되므로
+	 * 개수와 이름을 그대로 고정한다.
+	 *
+	 * <p>{@code assertCodes} 를 쓰지 않는 이유는 이 표에 {@code code} 와
+	 * {@code definition} 이 없기 때문이다. 스팀이 정한 숫자 ID 를 그대로 쓴다.
+	 */
+	private void assertPlayModes(JdbcTemplate jdbc) {
+		var rows = jdbc.queryForList("SELECT play_mode_id, name_ko FROM play_mode");
+		assertThat(rows).as("play_mode").hasSize(13);
+		assertThat(rows).extracting(row -> row.get("play_mode_id") + "|" + row.get("name_ko"))
+			.containsExactlyInAnyOrder("1|멀티플레이어", "2|싱글 플레이어", "9|협동", "20|MMO",
+				"24|공유 및 분할 화면", "27|크로스 플랫폼 멀티플레이어", "36|온라인 PvP", "37|로컬 PvP",
+				"38|온라인 협동", "39|스크린 공유 및 분할 협동", "47|LAN PvP", "48|LAN 협동", "49|PvP");
 	}
 
 	private void assertCodes(JdbcTemplate jdbc, String table, List<String> expected) {

@@ -84,7 +84,35 @@ final class CatalogMapper {
                 intOrNull(reviews, "review_count"),
                 intOrNull(reviews, "percent_positive"),
                 text(it.path("assets"), "main_capsule"),
-                toGameTags(it.path("tags")));
+                toGameTags(it.path("tags")),
+                toPlayModes(it.path("categories")));
+    }
+
+    /**
+     * 플레이 모드 ID. 싱글 · 멀티 · 협동 · PvP 같은 것들.
+     *
+     * <p>⚠ {@code categories} 에는 묶음이 둘이다. 여기서 쓰는 것은 앞의 것뿐이다.
+     *
+     * <pre>
+     *   supported_player_categoryids   플레이 모드      13종  ← 이것
+     *   feature_categoryids            도전과제 · 창작마당 등  45종
+     * </pre>
+     *
+     * 둘이 번호 공간을 나눠 써서 1~82 에 섞여 있다. 번호만 보고 고르면 안 된다.
+     * (2026-09-16 카탈로그 185,640 개 전수 조사)
+     *
+     * <p>이름은 여기서 붙이지 않는다. {@code play_mode} 표가 갖고 있고,
+     * 모르는 ID 는 {@link CatalogStore} 가 건너뛰면서 몇 개인지 알려 준다.
+     */
+    private static List<Integer> toPlayModes(JsonNode categories) {
+        List<Integer> out = new ArrayList<>();
+        for (JsonNode n : categories.path("supported_player_categoryids")) {
+            int id = n.asInt(-1);
+            if (id > 0) {
+                out.add(id);
+            }
+        }
+        return out;
     }
 
     private static List<CatalogStore.GameTag> toGameTags(JsonNode arr) {

@@ -6,13 +6,16 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_TABS,
   GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
-  GAME_DETAIL_TABS,
   paths,
   routeSegment,
 } from "@/router/paths"
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
+import PlaytimeTopicsPage from "@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"
+import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
+import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
 import LanguageAnalysisPage from "@/pages/LanguageAnalysis/LanguageAnalysisPage"
@@ -44,7 +47,13 @@ export const router = createBrowserRouter([
           ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
             path: tab,
             element:
-              tab === GAME_DETAIL_TABS.languageAnalysis ? (
+              tab === GAME_DETAIL_TABS.reactionTrends ? (
+                <ReactionTrendsPage />
+              ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
+                <PlaytimeTopicsPage />
+              ) : tab === GAME_DETAIL_TABS.reviews ? (
+                <ReviewsPage />
+              ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
                 <LanguageAnalysisPage />
               ) : (
                 <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />

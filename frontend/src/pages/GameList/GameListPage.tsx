@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router"
 import { isApiError } from "../../api/error"
-import Header from "../../components/Header"
 import LoadMoreSentinel from "../../components/LoadMoreSentinel"
 import {
   DEFAULT_GAME_FILTER,
@@ -87,7 +86,6 @@ export default function GameListPage() {
 
   return (
     <div className="min-h-screen bg-sb-canvas-base font-sb-sans text-sb-body text-sb-ink scheme-dark">
-      <Header />
       <main className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
         <h1 className="text-sb-section font-medium md:text-sb-display">게임 목록</h1>
 

@@ -26,9 +26,7 @@ blob-report
 .vscode/*
 !.vscode/extensions.json
 .idea
-.cursor/*
-!.cursor/docs/
-!.cursor/docs/**
+.cursor/
 .DS_Store
 *.suo
 *.ntvs*

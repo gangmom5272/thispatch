@@ -1,3 +1,5 @@
+import type { StatPeriod } from "@/types/statistics"
+
 /** 리뷰 긍정/부정. */
 export type ReviewSentiment = "POSITIVE" | "NEGATIVE"
 
@@ -18,6 +20,32 @@ export interface Review {
   tags: ReviewTag[]
   body: string
   reviewDate: string
+}
+
+/** GET /games/{gameId}/reviews 응답 data. */
+export interface ReviewsListData {
+  meta: {
+    period: StatPeriod
+    timezone: string
+    aggregationBasis: "UPDATED_AT"
+    lastCollectedAt: string | null
+  }
+  items: Review[]
+  page: {
+    limit: number
+    nextCursor: string | null
+    hasNext: boolean
+    totalCount: number
+  }
+}
+
+/** 리뷰 목록 조회 인자. */
+export interface ReviewsListParams {
+  gameId: number
+  /** 다중 선택 시 OR. 비우면 전체. */
+  topicIds?: number[]
+  cursor?: string
+  limit?: number
 }
 
 /**

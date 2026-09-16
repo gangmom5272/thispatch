@@ -75,7 +75,7 @@
 ## 4. 정해야 남은 것 (상대 확인 필요)
 
 1. **합의 완료:** `/news_raw`에 `is_patch`, `patch_reason`을 저장한다. 판정은 Spark `PatchClassifier`, DB 적재는 -25 담당이다. 판정·패치 리뷰 집계는 AI와 연결하지 않는다.
-2. 청크 분리·규칙 슬롯을 AI 노드가 하는 것에 이견 없는지 — Spark 담당
+2. **합의 완료(9/16):** 변경점 추출 정본은 Spark `PatchChangeExtractor`(`change-rules-2`)다. AI `rules.py`(`rule-v2`)는 DB `patch_change` 의 출처가 아니다. 구역 분리는 Spark `PatchChangeSectioner.split` 이 소제목 기준으로 하고, **토큰 한도에 맞춘 최종 청크 생성과 임베딩은 AI 노드**가 한다([PATCH_PROCESSING.md](../spark/PATCH_PROCESSING.md) 명시). 대조 결과는 부록 C 참고.
 3. `target`, `attribute` 컬럼 채택 여부 — ERD 담당 (미채택이면 Loader가 두 컬럼만 버림, AI 쪽 변경 없음)
 4. 초기 적재 시 `review_raw/base` 전체를 토픽 분류할지, 패치 창(전후 7일) 안 리뷰만 할지 — 백엔드. 기본값: 전체
 
@@ -126,3 +126,37 @@ String patchReason = result.reason();
 - `patch_change` 의 정규화 값은 **Qwen 출력이 최종**이다. 규칙(`rules.py`)은 같은 컬럼을 먼저 채우는 임시값이며 `patch_chunk.model_version` 으로 구분한다(`rule-v1` → `qwen3.5-9b-q4km`).
 - 규칙이 남는 이유 세 가지: ① 변경 문장 청크만 골라 Qwen 호출을 1/3 로 줄임(10,428 → 7,074) ② Qwen 이 그날 못 돈 공지도 방향·변경 유형은 당일 채워 검색 후보에서 빠지지 않게 ③ Qwen 결과가 근거 불일치(needs_review, 테스트 24%)일 때 대체값.
 - 규칙이 하지 않는 것: 대상 이름·속성·조건(Qwen 전용). 대상 종류는 규칙 50~62% 라 Qwen 이 덮어쓰면 끝.
+
+
+## 부록 C. 규칙 대조 (9/16 실측)
+
+같은 공지 1,314건을 같은 청크 33,547개로 잘라 양쪽 규칙을 돌린 결과다.
+입력이 같으므로 차이는 규칙에서만 온다.
+
+| | Spark `change-rules-2` | AI `rule-v2` |
+|---|---|---|
+| 뽑은 변경점 | 18,118 | 31,784 |
+| 변경점을 찾은 청크 | 44% | 58% |
+| 변경 유형 | fix 47% · modify 38% · add 13% | fix 35% · modify 35% · add 24% |
+| 방향 | not_applicable 62% · unknown 23% | not_applicable 35% · none 30% · increase 19% |
+| 대상 종류 | **unknown 98%** | unknown 34% · system 18% · player 14% |
+
+청크 단위로 "변경점이 있다/없다" 판정은 75% 일치한다.
+둘 다 찾은 청크 13,016개에서 첫 변경점의 **유형 91% · 방향 72% · 대상 31%** 가 같다.
+
+**Spark 가 더 정확한 곳** — 우리 규칙이 놓치는 걸러내기다. 화자 주어(`we released ...`),
+예정 구역(`Upcoming changes`), 홍보 문구(merch·newsletter), 부정문을 제외한다.
+`Last week we released new weapon collections` 를 우리는 `add` 로 잡지만 Spark 는 버린다.
+
+**AI 규칙이 더 넓은 곳** — 동사 목록과 방향 판정이다. Spark 는 `lowered`, `raised`,
+`buffed`, `nerfed`, `tweaked`, `rebalanced`, `restored`, `reverted`, `renamed` 와
+명사형 `fix`(`Clipping fix to prevent ...`, `Speculative fix for ...`)를 잡지 않는다.
+숫자만으로 방향을 읽는 규칙(`from 79 to 70` → decrease)도 없어 방향 unknown 이 23% 다.
+
+**대상 종류는 사실상 비어 있다.** Spark 는 대상 구절의 맨 앞이 명시적 명사일 때만 종류를
+정해 98% 가 unknown 이다. 의도된 보수성이지만(PATCH_PROCESSING.md), 화면에 표시할 값이
+남지 않는다. Qwen 백필이 `target`·`attribute` 를 채우므로 운영에는 문제가 없고,
+Qwen 이 못 돈 공지에서만 빈칸으로 남는다.
+
+정리하면 Spark 는 **정밀도**, AI 규칙은 **재현율** 이 높다. 정본은 Spark 로 하되
+위 동사·숫자 방향 두 가지를 보완하면 우리 규칙의 이점이 대부분 흡수된다.

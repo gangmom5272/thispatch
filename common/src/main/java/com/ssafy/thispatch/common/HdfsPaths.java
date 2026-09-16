@@ -40,7 +40,16 @@ public final class HdfsPaths {
      */
     public static final String REVIEW_DELTA = HDFS + "/review_raw/delta";
 
+    /** 공지 수집기가 떨구는 원본. 리뷰와 같이 {@code .jsonl.gz} 다. */
     public static final String NEWS_LANDING = HDFS + "/news_landing";
+
+    /**
+     * 공지를 Parquet 으로 바꾼 것. 패치 판별·분석이 여기서 읽는다.
+     *
+     * <p>리뷰처럼 base/delta 로 나누지 않는다. 공지는 수정되지 않고 양도 작다
+     * (게임당 100건 이하 · 전체 약 1천만 행). 수집 날짜로만 파티션하고, 같은 공지가
+     * 여러 날에 걸쳐 들어온 것은 읽을 때 {@link NewsLake} 가 정리한다.
+     */
     public static final String NEWS_RAW = HDFS + "/news_raw";
 
     /** AI 담당 산출물. 모양은 아직 정해지지 않았다. */
@@ -67,6 +76,10 @@ public final class HdfsPaths {
 
     public static String newsLandingOf(String dt) {
         return NEWS_LANDING + "/dt=" + dt;
+    }
+
+    public static String newsRawOf(String dt) {
+        return NEWS_RAW + "/dt=" + dt;
     }
 
     /**

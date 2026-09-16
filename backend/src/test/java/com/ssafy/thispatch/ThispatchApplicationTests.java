@@ -45,10 +45,12 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 then V2, each applied exactly once").hasSize(2);
-		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2");
+		assertThat(history).as("V1 through V7, each applied exactly once").hasSize(7);
+		assertThat(history).extracting(row -> row.get("version")).containsExactly("1", "2", "3", "4", "5", "6", "7");
 		assertThat(history).extracting(row -> row.get("script"))
-			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql");
+			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
+				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
+				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -75,6 +77,19 @@ class ThispatchApplicationTests {
 	}
 
 	private void assertConstraints(JdbcTemplate jdbc) {
+		assertThat(jdbc.queryForObject("""
+			SELECT data_type || '|' || is_nullable FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'band_topic_stat' AND column_name = 'positive_count'
+			""", String.class)).isEqualTo("integer|YES");
+		assertThat(jdbc.queryForObject("""
+			SELECT pg_get_constraintdef(oid) FROM pg_constraint
+			WHERE conrelid = 'public.band_topic_stat'::regclass
+			  AND conname = 'ck_band_topic_stat_positive_count' AND convalidated
+			""", String.class)).isEqualTo("CHECK ((positive_count >= 0))");
+		assertThat(jdbc.queryForObject("""
+			SELECT pg_get_constraintdef(oid) FROM pg_constraint
+			WHERE conrelid = 'public.member'::regclass AND conname = 'uk_member_email' AND convalidated
+			""", String.class)).isEqualTo("UNIQUE (email)");
 		var constraints = jdbc.queryForList("""
 			SELECT t.relname AS table_name, c.conname, c.contype::text AS kind,
 			       pg_get_constraintdef(c.oid) AS definition, c.convalidated

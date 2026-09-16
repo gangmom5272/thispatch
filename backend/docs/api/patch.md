@@ -281,7 +281,7 @@
 patchId      <- news.gid
 gameId       <- news.appid
 title        <- news.title
-publishedAt  <- news.published_at
+publishedAt  <- news.published_ts
 body         <- news.contents
 url          <- news.url
 patchedOn    <- patch_stat.patched_at

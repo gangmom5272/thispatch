@@ -14,6 +14,12 @@ pages/components → hooks/queries → api/도메인 함수 → api/client → a
 | 도메인 API | `src/api/<도메인>.ts`                  | 엔드포인트 1:1 함수, DTO 타입                                    | TanStack Query import    |
 | 서버 상태  | `src/hooks/queries/<도메인>Queries.ts` | 키 팩토리, `queryOptions` 팩토리, 커스텀 훅                      | axios·fetcher 직접 호출  |
 | UI         | `src/pages`, `src/components`          | 훅 사용, `isPending`/`isError` 분기                              | `api/` 직접 import       |
+| 계층       | 위치                                   | 책임                                                             | 금지                     |
+| ---------- | -------------------------------------- | ---------------------------------------------------------------- | ------------------------ |
+| 통신       | `src/api/client.ts`                    | axios 인스턴스, 인터셉터, envelope unwrap, fetcher(`api.get` 등) | `client` 인스턴스 export |
+| 도메인 API | `src/api/<도메인>.ts`                  | 엔드포인트 1:1 함수, DTO 타입                                    | TanStack Query import    |
+| 서버 상태  | `src/hooks/queries/<도메인>Queries.ts` | 키 팩토리, `queryOptions` 팩토리, 커스텀 훅                      | axios·fetcher 직접 호출  |
+| UI         | `src/pages`, `src/components`          | 훅 사용, `isPending`/`isError` 분기                              | `api/` 직접 import       |
 
 백엔드 공통 응답 envelope(`{ code, message, responseAt, data, success }`)는 `client.ts`가 벗겨서 반환하므로, 도메인 함수부터는 `data` 내용물 타입만 다룬다. 실패는 HTTP 상태와 무관하게 `success: false` 기준으로 판정되어 `ApiError`로 던져진다.
 
@@ -35,12 +41,14 @@ export function getReservations(
   signal?: AbortSignal,
 ): Promise<Reservation[]> {
   return api.get<Reservation[]>({
-    path: "/reservations",
+    path: '/reservations',
     config: { params: filters, signal },
+  })
   })
 }
 
 export function cancelReservation(id: string): Promise<void> {
+  return api.delete<void>({ path: `/reservations/${id}` })
   return api.delete<void>({ path: `/reservations/${id}` })
 }
 ```
@@ -99,8 +107,10 @@ export const reservationListOptions = (filters: ReservationFilters) =>
     queryKey: reservationKeys.list(filters),
     queryFn: ({ signal }) => getReservations(filters, signal),
   })
+  })
 
 export function useReservationList(filters: ReservationFilters) {
+  return useQuery(reservationListOptions(filters))
   return useQuery(reservationListOptions(filters))
 }
 ```
@@ -114,7 +124,11 @@ export function useReservationList(filters: ReservationFilters) {
 ```tsx
 function ReservationList({ filters }: { filters: ReservationFilters }) {
   const { data, isPending, isError, refetch } = useReservationList(filters)
+  const { data, isPending, isError, refetch } = useReservationList(filters)
 
+  if (isPending) return <ReservationSkeleton />
+  if (isError) return <QueryErrorFallback retry={refetch} />
+  return <ul>{data.map(/* ... */)}</ul>
   if (isPending) return <ReservationSkeleton />
   if (isError) return <QueryErrorFallback retry={refetch} />
   return <ul>{data.map(/* ... */)}</ul>
@@ -123,6 +137,13 @@ function ReservationList({ filters }: { filters: ReservationFilters }) {
 
 ## 3. 네이밍 컨벤션
 
+| 대상                | 규칙                | 예시                                 |
+| ------------------- | ------------------- | ------------------------------------ |
+| API 함수            | 동사 시작 camelCase | `getProperties`, `toggleSaved`       |
+| 쿼리 키 팩토리      | `<도메인>Keys`      | `propertyKeys.list(filters)`         |
+| queryOptions 팩토리 | `<대상>Options`     | `propertyListOptions(filters)`       |
+| 쿼리 훅             | `use<대상>`         | `usePropertyList(filters)`           |
+| 뮤테이션 훅         | `use<동사><대상>`   | `useToggleSaved`, `useUpdateProfile` |
 | 대상                | 규칙                | 예시                                 |
 | ------------------- | ------------------- | ------------------------------------ |
 | API 함수            | 동사 시작 camelCase | `getProperties`, `toggleSaved`       |
@@ -143,9 +164,12 @@ function ReservationList({ filters }: { filters: ReservationFilters }) {
 
 ```tsx
 const { mutateAsync } = useUpdateProfile()
+const { mutateAsync } = useUpdateProfile()
 const [error, formAction, isPending] = useActionState(
   async (_prev: string | null, formData: FormData) => {
     try {
+      await mutateAsync(toChanges(formData))
+      return null
       await mutateAsync(toChanges(formData))
       return null
     } catch (e) {
@@ -153,6 +177,7 @@ const [error, formAction, isPending] = useActionState(
     }
   },
   null,
+)
 )
 ```
 
@@ -166,9 +191,17 @@ const [error, formAction, isPending] = useActionState(
 ```ts
 export function useToggleSaved() {
   const queryClient = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, saved }: { id: number; saved: boolean }) => toggleSaved(id, saved),
+    mutationFn: ({ id, saved }: { id: number; saved: boolean }) => toggleSaved(id, saved),
     onMutate: async ({ id, saved }) => {
+      await queryClient.cancelQueries({ queryKey: propertyKeys.all })
+      const previous = queryClient.getQueriesData({ queryKey: propertyKeys.all })
+      queryClient.setQueriesData<Property[]>({ queryKey: propertyKeys.lists() }, (old) =>
+        old?.map((p) => (p.id === id ? { ...p, saved } : p)),
+      )
+      return { previous }
       await queryClient.cancelQueries({ queryKey: propertyKeys.all })
       const previous = queryClient.getQueriesData({ queryKey: propertyKeys.all })
       queryClient.setQueriesData<Property[]>({ queryKey: propertyKeys.lists() }, (old) =>
@@ -178,7 +211,10 @@ export function useToggleSaved() {
     },
     onError: (_error, _variables, context) => {
       context?.previous.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data))
+      context?.previous.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data))
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: propertyKeys.all }),
+  })
     onSettled: () => queryClient.invalidateQueries({ queryKey: propertyKeys.all }),
   })
 }

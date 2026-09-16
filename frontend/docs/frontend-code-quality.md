@@ -19,6 +19,7 @@
 // Before: 로딩·에러·빈 목록·정상 목록 분기가 한 컴포넌트 안에 뒤섞여 있어
 // 한눈에 "지금 어떤 상태를 그리는 화면인지" 읽기 어렵다.
 function PropertyListPage({ loading, error, properties }: PropertyListPageProps) {
+function PropertyListPage({ loading, error, properties }: PropertyListPageProps) {
   return (
     <main>
       {loading ? (
@@ -40,6 +41,7 @@ function PropertyListPage({ loading, error, properties }: PropertyListPageProps)
       )}
     </main>
   )
+  )
 }
 ```
 
@@ -47,13 +49,16 @@ function PropertyListPage({ loading, error, properties }: PropertyListPageProps)
 // After: 각 상태를 이름 있는 컴포넌트로 분리하면
 // PropertyListPage는 "어떤 상태일 때 무엇을 그리는지"만 담당한다.
 function PropertyListPage({ loading, error, properties }: PropertyListPageProps) {
+function PropertyListPage({ loading, error, properties }: PropertyListPageProps) {
   return (
     <main>
       {loading && <PropertyListSkeleton />}
       {!loading && error && <PropertyListError />}
       {!loading && !error && properties.length === 0 && <PropertyListEmpty />}
       {!loading && !error && properties.length > 0 && <PropertyGrid properties={properties} />}
+      {!loading && !error && properties.length > 0 && <PropertyGrid properties={properties} />}
     </main>
+  )
   )
 }
 
@@ -65,13 +70,16 @@ function PropertyListSkeleton() {
       ))}
     </div>
   )
+  )
 }
 
 function PropertyListError() {
   return <p className="text-destructive">매물을 불러오지 못했습니다</p>
+  return <p className="text-destructive">매물을 불러오지 못했습니다</p>
 }
 
 function PropertyListEmpty() {
+  return <p className="text-muted-foreground">조건에 맞는 매물이 없습니다</p>
   return <p className="text-muted-foreground">조건에 맞는 매물이 없습니다</p>
 }
 ```
@@ -81,6 +89,7 @@ function PropertyListEmpty() {
 ```tsx
 // Before: 600이 뭘 뜻하는지, 조건식이 어떤 상황을 판별하는지
 // 호출부만 봐서는 알 수 없다.
+setTimeout(() => setLoading(false), 600)
 setTimeout(() => setLoading(false), 600)
 
 if ((property.dealType === "월세" && property.monthlyRent > 0) || property.deposit === 0) {
@@ -92,11 +101,14 @@ if ((property.dealType === "월세" && property.monthlyRent > 0) || property.dep
 // After: 이름이 곧 설명이 되어 조건을 다시 읽을 필요가 없다.
 const MOCK_LOADING_MS = 600
 setTimeout(() => setLoading(false), MOCK_LOADING_MS)
+const MOCK_LOADING_MS = 600
+setTimeout(() => setLoading(false), MOCK_LOADING_MS)
 
 const isFreeDepositMonthlyRent = property.dealType === "월세" && property.monthlyRent > 0
 const hasNoDeposit = property.deposit === 0
 
 if (isFreeDepositMonthlyRent || hasNoDeposit) {
+  showFreeDepositBadge()
   showFreeDepositBadge()
 }
 ```
@@ -142,6 +154,9 @@ async function fetchProperty(id: number): Promise<Property | null> {
   const res = await api.get(`/properties/${id}`)
   if (!res.ok) return null
   return res.json()
+  const res = await api.get(`/properties/${id}`)
+  if (!res.ok) return null
+  return res.json()
 }
 
 async function fetchUser(id: number): Promise<User> {
@@ -183,6 +198,7 @@ function getIsSaved(property: Property): boolean {
 // After: 순수하게 값만 반환하는 함수와, 부작용을 일으키는 함수를 분리하고
 // 부작용이 있는 쪽은 이름에서부터 드러낸다.
 function getIsSaved(property: Property): boolean {
+  return property.saved
   return property.saved
 }
 
@@ -234,12 +250,14 @@ function PropertyListSkeleton() {
       ))}
     </div>
   )
+  )
 }
 ```
 
 ```tsx
 // After: 이 로직에서만 쓰는 상수를 바로 위에 선언해
 // "몇 개를 보여줄지"를 바꾸는 사람이 어디를 고쳐야 하는지 바로 알 수 있다.
+const SKELETON_COUNT = 6
 const SKELETON_COUNT = 6
 
 function PropertyListSkeleton() {
@@ -249,6 +267,7 @@ function PropertyListSkeleton() {
         <PropertyCardSkeleton key={i} />
       ))}
     </div>
+  )
   )
 }
 ```
@@ -275,10 +294,13 @@ const resetFilters = () => {
 // After: 필드 간 연관이 강한 필터를 하나의 객체로 묶어
 // 폼 전체를 하나의 단위로 다룬다 (PropertyFilterBar의 실제 방식).
 const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
 
+const resetFilters = () => setFilters(DEFAULT_FILTERS)
 const resetFilters = () => setFilters(DEFAULT_FILTERS)
 const setField = (key: keyof Filters) => (value: string) =>
   setFilters((prev) => ({ ...prev, [key]: value }))
+setFilters((prev) => ({ ...prev, [key]: value }))
 ```
 
 ### 4. 결합도 (Coupling) — 코드를 수정했을 때 영향 범위가 얼마나 좁은가
@@ -294,6 +316,7 @@ const setField = (key: keyof Filters) => (value: string) =>
 // API 응답 형식이 바뀌면 이 컴포넌트 전체를 다시 읽어야 한다.
 function PropertyDetailPage({ id }: { id: number }) {
   const [property, setProperty] = useState<Property | null>(null)
+  const [property, setProperty] = useState<Property | null>(null)
 
   useEffect(() => {
     fetch(`/api/properties/${id}`)
@@ -306,6 +329,8 @@ function PropertyDetailPage({ id }: { id: number }) {
 
   if (!property) return <DetailSkeleton />
   return <PropertyDetailView property={property} />
+  if (!property) return <DetailSkeleton />
+  return <PropertyDetailView property={property} />
 }
 ```
 
@@ -314,6 +339,7 @@ function PropertyDetailPage({ id }: { id: number }) {
 // 조회 방식이 바뀌면 useProperty만, 화면이 바뀌면 PropertyDetailView만 고치면 된다.
 function useProperty(id: number) {
   const [property, setProperty] = useState<Property | null>(null)
+  const [property, setProperty] = useState<Property | null>(null)
 
   useEffect(() => {
     fetchProperty(id).then((data) => {
@@ -321,11 +347,19 @@ function useProperty(id: number) {
       rememberLastViewedProperty(id)
     })
   }, [id])
+      setProperty(data)
+      rememberLastViewedProperty(id)
+    })
+  }, [id])
 
+  return property
   return property
 }
 
 function PropertyDetailPage({ id }: { id: number }) {
+  const property = useProperty(id)
+  if (!property) return <DetailSkeleton />
+  return <PropertyDetailView property={property} />
   const property = useProperty(id)
   if (!property) return <DetailSkeleton />
   return <PropertyDetailView property={property} />
@@ -345,6 +379,8 @@ function EntityCard({ type, entity }: { type: "property" | "user"; entity: Prope
   }
   const user = entity as User
   return <Card>{user.name}</Card>
+  const user = entity as User
+  return <Card>{user.name}</Card>
 }
 ```
 
@@ -353,9 +389,11 @@ function EntityCard({ type, entity }: { type: "property" | "user"; entity: Prope
 // 코드는 일부 중복되지만, 한쪽을 고쳐도 다른 쪽에 영향을 주지 않는다.
 function PropertyCard({ property }: { property: Property }) {
   return <Card>{property.title}</Card>
+  return <Card>{property.title}</Card>
 }
 
 function UserCard({ user }: { user: User }) {
+  return <Card>{user.name}</Card>
   return <Card>{user.name}</Card>
 }
 ```
@@ -369,14 +407,19 @@ function UserCard({ user }: { user: User }) {
 function App() {
   const user = useCurrentUser()
   return <PropertyListPage user={user} />
+  const user = useCurrentUser()
+  return <PropertyListPage user={user} />
 }
 function PropertyListPage({ user }: { user: User | null }) {
+  return <PropertyGrid user={user} />
   return <PropertyGrid user={user} />
 }
 function PropertyGrid({ user }: { user: User | null }) {
   return <PropertyCard user={user} />
+  return <PropertyCard user={user} />
 }
 function PropertyCard({ user }: { user: User | null }) {
+  return <span>{user?.name}</span>
   return <span>{user?.name}</span>
 }
 ```
@@ -387,14 +430,19 @@ function PropertyCard({ user }: { user: User | null }) {
 // user와 무관해져 결합도가 낮아진다.
 function App() {
   return <PropertyListPage />
+  return <PropertyListPage />
 }
 function PropertyListPage() {
+  return <PropertyGrid />
   return <PropertyGrid />
 }
 function PropertyGrid() {
   return <PropertyCard />
+  return <PropertyCard />
 }
 function PropertyCard() {
+  const { user } = useAuth()
+  return <span>{user?.name}</span>
   const { user } = useAuth()
   return <span>{user?.name}</span>
 }

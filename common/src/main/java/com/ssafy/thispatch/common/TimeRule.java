@@ -56,6 +56,29 @@ public final class TimeRule {
         return date.toString();
     }
 
+    /**
+     * 파티션 안에서 한 번 더 나누는 단위. KST 시각의 시(hour) 두 자리.
+     *
+     * <p><b>왜 필요한가.</b> HDFS 는 디렉터리 하나에 넣을 수 있는 항목 수가 정해져
+     * 있다 — {@code dfs.namenode.fs-limit.max-directory-items} 의 기본값이
+     * 1,048,576 이다. 리뷰는 페이지 하나가 파일 하나라, 전량 1.47억 건이면
+     * 약 150만 개가 된다. 2026-09-15 전량 수집에서 실제로 막혔다.
+     *
+     * <pre>
+     *   The directory item limit of /review_landing/dt=2026-09-15 is exceeded:
+     *   limit=1048576 items=1048576
+     * </pre>
+     *
+     * <p>조각 231개 중 110개가 여기서 멈췄고, 재투입한 110개도 같은 자리에서
+     * 1분 만에 죽었다. 폴더가 이미 꽉 차 있으니 몇 번을 돌려도 같다.
+     *
+     * <p>시 단위로 나누면 하루가 24칸이 되어 2,500만 개까지 들어간다.
+     * 최고 속도(3,090 리뷰/초 · 실측)로도 한 시간에 11.5만 개라 여유가 크다.
+     */
+    public static String hourBucket(long epochSeconds) {
+        return String.format("%02d", Instant.ofEpochSecond(epochSeconds).atZone(ZONE).getHour());
+    }
+
     /** KST 하루의 시작 (그 날 00:00:00 의 unix 초). */
     public static long startOfDay(LocalDate date) {
         return date.atStartOfDay(ZONE).toEpochSecond();

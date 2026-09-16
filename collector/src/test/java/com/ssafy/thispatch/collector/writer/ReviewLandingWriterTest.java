@@ -91,7 +91,10 @@ class ReviewLandingWriterTest {
 
         Path path = writer.writePage(730, page, receivedAt).orElseThrow();
 
-        assertEquals(new Path(HdfsPaths.reviewLandingOf("2026-09-14")), path.getParent());
+        // ⚠ dt 아래에 시(hour) 가 한 단계 더 있다. 날짜 하나에 몰아넣으면 HDFS
+        //   디렉터리 항목 한도(1,048,576)에 막힌다 — 2026-09-15 전량 수집 실측.
+        //   15:00:00.999Z 는 KST 2026-09-14 00 시다.
+        assertEquals(new Path(HdfsPaths.reviewLandingOf("2026-09-14") + "/00"), path.getParent());
         assertTrue(path.getName().startsWith("reviews-730-"));
         assertTrue(path.getName().endsWith(".jsonl.gz"));
         var lines = readLines(path);
@@ -115,8 +118,11 @@ class ReviewLandingWriterTest {
         var page = page();
         Path before = writer.writePage(730, page, Instant.parse("2026-09-13T14:59:59Z")).orElseThrow();
         Path after = writer.writePage(730, page, Instant.parse("2026-09-13T15:00:00Z")).orElseThrow();
-        assertEquals("dt=2026-09-13", before.getParent().getName());
-        assertEquals("dt=2026-09-14", after.getParent().getName());
+        // 부모가 시(hour) 폴더이므로 날짜는 그 위에서 본다.
+        assertEquals("23", before.getParent().getName());
+        assertEquals("dt=2026-09-13", before.getParent().getParent().getName());
+        assertEquals("00", after.getParent().getName());
+        assertEquals("dt=2026-09-14", after.getParent().getParent().getName());
     }
 
     @Test

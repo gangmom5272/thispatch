@@ -191,3 +191,74 @@ export interface PatchDetail {
   bodyFormat: string
   url: string
 }
+
+export interface AnalysisPeriod {
+  startDate: string
+  endDate: string
+  dayCount: number
+}
+
+export interface AnalysisMeta {
+  period: AnalysisPeriod
+  timezone: string
+  aggregationBasis: string
+  dataStatus: string
+}
+
+export interface LanguageShare {
+  languageCode: string
+  displayName: string
+  reviewCount: number
+  reviewShare: number
+  positiveRate: number
+  positiveCount: number
+  negativeCount: number
+  isSufficientSample: boolean
+}
+
+/** GET /games/{gameId}/language-analysis */
+export interface LanguageAnalysis {
+  meta: AnalysisMeta
+  totalReviewCount: number
+  sampleSufficient: boolean
+  minimumSampleCount: number
+  languages: LanguageShare[]
+}
+
+export type ReviewSentiment = "POSITIVE" | "NEGATIVE"
+
+export interface RepresentativeReview {
+  id: number
+  sentiment: ReviewSentiment
+  isUpdated: boolean
+  playtimeMinutes: number
+  languageCode: string
+  helpfulCount: number
+  tags: GameTag[]
+  /** 번역문. 명세 예시의 body가 한국어라 번역문으로 간주한다. */
+  body: string
+  // ponytail: 원문 필드는 API 명세에 없어 가정한 이름이다. 백엔드 확정 시 이름만 맞춘다.
+  originalBody: string | null
+  reviewDate: string
+}
+
+export interface LanguageSummary {
+  status: string
+  text: string | null
+  targetPeriod: AnalysisPeriod
+  targetReviewCount: number
+  usedReviewCount: number
+  selection: {
+    code: string
+    limit: number
+    description: string
+  }
+}
+
+/** GET /games/{gameId}/language-analysis/{languageCode} */
+export interface LanguageAnalysisDetail {
+  meta: AnalysisMeta
+  languageCode: string
+  summary: LanguageSummary
+  representativeReviews: RepresentativeReview[]
+}

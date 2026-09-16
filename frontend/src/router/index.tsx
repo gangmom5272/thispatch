@@ -30,11 +30,11 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <PlaceholderPage title="홈" />,
+        element: <GameListPage />,
       },
       {
-        path: routeSegment(paths.games),
-        element: <GameListPage />,
+        path: "games",
+        element: <Navigate to={paths.home} replace />,
       },
       {
         path: routeSegment(paths.gameDetailPattern),

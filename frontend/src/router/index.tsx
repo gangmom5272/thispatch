@@ -18,7 +18,7 @@ import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrends
 import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
-import LanguageAnalysisPage from "@/pages/LanguageAnalysis/LanguageAnalysisPage"
+import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
 import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"

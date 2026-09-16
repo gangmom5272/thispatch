@@ -1,28 +1,7 @@
 import { Link } from "react-router"
+import logo from "@/assets/logo.png"
 import { cn } from "@/lib/cn"
 import { paths } from "@/router/paths"
-
-function BrandMarkIcon({ size }: { size: number }) {
-  return (
-    <svg
-      aria-hidden
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-sb-primary"
-    >
-      <circle cx="18" cy="18" r="3" />
-      <circle cx="6" cy="6" r="3" />
-      <path d="M13 6h3a2 2 0 0 1 2 2v7" />
-      <path d="M11 18H8a2 2 0 0 1-2-2V9" />
-    </svg>
-  )
-}
 
 interface BrandLogoProps {
   size?: number
@@ -32,15 +11,18 @@ interface BrandLogoProps {
 
 export function BrandLogo({ size = 22, interactive = true, className }: BrandLogoProps) {
   const content = (
-    <>
-      <BrandMarkIcon size={size} />
-      <span>ThisPatch</span>
-    </>
+    <img
+      src={logo}
+      alt="ThisPatch"
+      width={1254}
+      height={314}
+      className="block aspect-[4/1] w-full object-cover"
+    />
   )
 
   const styles = cn(
-    "inline-flex items-center gap-[9px] font-medium tracking-[-0.2px] text-sb-ink",
-    size >= 40 ? "text-sb-heading" : "text-sb-lead",
+    "inline-flex max-w-full shrink-0 items-center",
+    size >= 40 ? "w-64" : "w-28 sm:w-36",
     className,
   )
 
@@ -53,7 +35,7 @@ export function BrandLogo({ size = 22, interactive = true, className }: BrandLog
       to={paths.home}
       className={cn(
         styles,
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary",
+        "cursor-pointer rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary",
       )}
     >
       {content}

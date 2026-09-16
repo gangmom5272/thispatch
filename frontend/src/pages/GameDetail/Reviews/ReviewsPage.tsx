@@ -96,6 +96,7 @@ export default function ReviewsPage() {
       ) : (
         <ReviewList
           items={listItems}
+          selectedTopicIds={selectedTopicIds}
           period={period}
           hasNextPage={Boolean(listQuery.hasNextPage)}
           isFetchingNextPage={listQuery.isFetchingNextPage}

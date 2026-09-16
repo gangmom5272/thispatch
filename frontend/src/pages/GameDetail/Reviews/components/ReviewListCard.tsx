@@ -2,22 +2,31 @@ import { useState } from "react"
 import type { Review } from "@/types/review"
 import { formatPlaytimeMinutes } from "@/pages/GameDetail/PlaytimeTopics/lib/format"
 import { formatShortMd } from "@/lib/seoulDate"
+import { resolveReviewBody } from "@/pages/GameDetail/Reviews/lib/resolveReviewBody"
 
 interface ReviewListCardProps {
   review: Review
+  /** 검색 칩에서 선택된 토픽 — 카드 태그에 강조 표시 */
+  selectedTopicIds: number[]
 }
 
 /**
  * 필터 목록용 가로형 리뷰 카드.
  * 좌: 뱃지·날짜·본문·태그 / 우: 번역·원문·메타.
- * 번역 API가 없어 토글은 UI만 두고 본문은 항상 body다.
+ * 번역 필드가 있으면 토글로 바꾸고, 없으면 원문만 보여준다.
  */
-export function ReviewListCard({ review }: ReviewListCardProps) {
-  // showOriginal: true면 「원문」 강조(표시 내용은 동일)
+export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps) {
+  // showOriginal: true면 원문(body), false면 번역(있으면)
   const [showOriginal, setShowOriginal] = useState(true)
   const isNegative = review.sentiment === "NEGATIVE"
   // channelLabel: 작성 채널(수정 / 첫 작성)
   const channelLabel = review.isUpdated ? "수정" : "첫 작성"
+  // hasFilter: 칩이 하나라도 선택된 상태
+  const hasFilter = selectedTopicIds.length > 0
+  // canTranslate: 번역 본문이 있을 때만 번역 토글이 의미 있음
+  const canTranslate = Boolean(review.translatedBody)
+  // displayBody: 토글·번역 유무에 따른 표시 문자열
+  const displayBody = resolveReviewBody(review, showOriginal)
 
   return (
     <article className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas p-sb-4">
@@ -38,18 +47,26 @@ export function ReviewListCard({ review }: ReviewListCardProps) {
             </span>
           </div>
 
-          <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{review.body}</p>
+          <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{displayBody}</p>
 
           {review.tags.length > 0 ? (
             <ul className="mt-sb-3 flex flex-wrap gap-sb-2">
-              {review.tags.map((tag) => (
-                <li
-                  key={tag.id}
-                  className="rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-0.5 text-sb-caption text-sb-ink-mute"
-                >
-                  {tag.name}
-                </li>
-              ))}
+              {review.tags.map((tag) => {
+                // highlighted: 현재 선택된 검색 칩과 일치하는 태그
+                const highlighted = hasFilter && selectedTopicIds.includes(tag.id)
+                return (
+                  <li
+                    key={tag.id}
+                    className={
+                      highlighted
+                        ? "rounded-sb-tag border border-sb-primary bg-sb-canvas-active px-sb-2 py-0.5 text-sb-caption font-medium text-sb-ink"
+                        : "rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-0.5 text-sb-caption text-sb-ink-mute"
+                    }
+                  >
+                    {tag.name}
+                  </li>
+                )
+              })}
             </ul>
           ) : null}
         </div>
@@ -59,10 +76,11 @@ export function ReviewListCard({ review }: ReviewListCardProps) {
             <button
               type="button"
               onClick={() => setShowOriginal(false)}
+              disabled={!canTranslate}
               className={
                 !showOriginal
-                  ? "h-sb-control flex-1 cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-2 text-sb-caption text-sb-ink"
-                  : "h-sb-control flex-1 cursor-pointer rounded-sb-control px-sb-2 text-sb-caption text-sb-ink-mute hover:text-sb-ink"
+                  ? "h-sb-control flex-1 cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-2 text-sb-caption text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  : "h-sb-control flex-1 cursor-pointer rounded-sb-control px-sb-2 text-sb-caption text-sb-ink-mute hover:text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
               }
             >
               번역

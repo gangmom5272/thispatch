@@ -1,10 +1,13 @@
 import type { Review } from "@/types/review"
 import { ReviewListCard } from "@/pages/GameDetail/Reviews/components/ReviewListCard"
+import LoadMoreSentinel from "@/components/LoadMoreSentinel"
 import { formatDisplayRange } from "@/lib/seoulDate"
 import type { StatPeriod } from "@/types/statistics"
 
 interface ReviewListProps {
   items: Review[]
+  /** 검색에서 선택된 토픽 id — 카드 태그 강조용 */
+  selectedTopicIds: number[]
   period: StatPeriod | null
   hasNextPage: boolean
   isFetchingNextPage: boolean
@@ -13,10 +16,11 @@ interface ReviewListProps {
 }
 
 /**
- * 필터된 리뷰 목록 + 고지 문구 + 더 보기.
+ * 필터된 리뷰 목록 + 고지 문구 + 무한 스크롤 센티널.
  */
 export function ReviewList({
   items,
+  selectedTopicIds,
   period,
   hasNextPage,
   isFetchingNextPage,
@@ -44,7 +48,7 @@ export function ReviewList({
         <ul className="flex flex-col gap-sb-3">
           {items.map((review) => (
             <li key={review.id}>
-              <ReviewListCard review={review} />
+              <ReviewListCard review={review} selectedTopicIds={selectedTopicIds} />
             </li>
           ))}
         </ul>
@@ -66,16 +70,14 @@ export function ReviewList({
       ) : null}
 
       {hasNextPage && !isFetchNextPageError ? (
-        <div className="flex justify-center py-sb-2">
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={isFetchingNextPage}
-            className="h-sb-control cursor-pointer rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-6 text-sb-body text-sb-ink hover:bg-sb-canvas-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isFetchingNextPage ? "불러오는 중…" : "더 보기"}
-          </button>
-        </div>
+        <LoadMoreSentinel
+          key={items.length}
+          isLoading={isFetchingNextPage}
+          loadingLabel="다음 리뷰를 불러오는 중…"
+          onReach={() => {
+            if (!isFetchingNextPage) onLoadMore()
+          }}
+        />
       ) : null}
     </section>
   )

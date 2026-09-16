@@ -18,7 +18,13 @@ export interface Review {
   languageCode: string
   helpfulCount: number
   tags: ReviewTag[]
+  /** 원문 본문 */
   body: string
+  /**
+   * 한국어 번역 본문. 없으면 null.
+   * 번역 API는 없고 응답에 필드가 올 때만 토글로 표시한다.
+   */
+  translatedBody: string | null
   reviewDate: string
 }
 

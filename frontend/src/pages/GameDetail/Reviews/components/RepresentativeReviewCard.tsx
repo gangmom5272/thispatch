@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { Review } from "@/types/review"
 import { formatPlaytimeMinutes } from "@/pages/GameDetail/PlaytimeTopics/lib/format"
+import { resolveReviewBody } from "@/pages/GameDetail/Reviews/lib/resolveReviewBody"
 
 interface RepresentativeReviewCardProps {
   review: Review
@@ -8,14 +9,18 @@ interface RepresentativeReviewCardProps {
 
 /**
  * 최근 대표 리뷰 그리드용 카드.
- * 번역 API가 없어 번역/원문 토글은 UI만 두고 본문은 항상 body다.
+ * 번역 필드가 있으면 토글로 원문/번역을 바꾸고, 없으면 원문만 보여준다.
  */
 export function RepresentativeReviewCard({ review }: RepresentativeReviewCardProps) {
-  // showOriginal: true면 「원문」 강조(실질 표시는 동일 body)
+  // showOriginal: true면 원문(body), false면 번역(있으면)
   const [showOriginal, setShowOriginal] = useState(true)
   const isNegative = review.sentiment === "NEGATIVE"
   // channelLabel: isUpdated면 수정본, 아니면 첫 작성
   const channelLabel = review.isUpdated ? "수정" : "첫 작성"
+  // canTranslate: 번역 본문이 있을 때만 번역 토글이 의미 있음
+  const canTranslate = Boolean(review.translatedBody)
+  // displayBody: 토글·번역 유무에 따른 표시 문자열
+  const displayBody = resolveReviewBody(review, showOriginal)
 
   return (
     <article className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas p-sb-4">
@@ -41,10 +46,11 @@ export function RepresentativeReviewCard({ review }: RepresentativeReviewCardPro
           <button
             type="button"
             onClick={() => setShowOriginal(false)}
+            disabled={!canTranslate}
             className={
               !showOriginal
-                ? "h-sb-control cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-3 text-sb-caption text-sb-ink"
-                : "h-sb-control cursor-pointer rounded-sb-control px-sb-3 text-sb-caption text-sb-ink-mute hover:text-sb-ink"
+                ? "h-sb-control cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-3 text-sb-caption text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
+                : "h-sb-control cursor-pointer rounded-sb-control px-sb-3 text-sb-caption text-sb-ink-mute hover:text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
             번역
@@ -63,7 +69,7 @@ export function RepresentativeReviewCard({ review }: RepresentativeReviewCardPro
         </div>
       </div>
 
-      <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{review.body}</p>
+      <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{displayBody}</p>
 
       {review.tags.length > 0 ? (
         <ul className="mt-sb-3 flex flex-wrap gap-sb-2">

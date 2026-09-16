@@ -2,6 +2,11 @@ package com.ssafy.thispatch.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.spark.sql.functions.lit;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -134,6 +139,37 @@ class NewsLakeTest {
 
         assertEquals(expected, actual);
         assertTrue(actual.stream().noneMatch(c -> c.startsWith("_")), "내부 칼럼이 남았다: " + actual);
+    }
+
+    @Test
+    void readingLegacyParquetDoesNotInventClassificationColumns(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        lake(news("1", 500L, "CS2 Update")).selectExpr(NewsSchema.NEWS_SOURCE.fieldNames())
+                .write().parquet(path);
+        Dataset<Row> result = NewsLake.read(spark, path);
+        assertEquals(1, result.count());
+        assertFalse(Arrays.asList(result.columns()).contains("is_patch"));
+        assertFalse(Arrays.asList(result.columns()).contains("patch_reason"));
+    }
+
+    @Test
+    void readingClassifiedParquetKeepsTheVerdict(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        lake(news("1", 500L, "CS2 Update")).withColumn("is_patch", lit(true))
+                .withColumn("patch_reason", lit("PATCH_TITLE")).write().parquet(path);
+        Row result = NewsLake.read(spark, path).first();
+        assertTrue((boolean) result.getAs("is_patch"));
+        assertEquals("PATCH_TITLE", result.getAs("patch_reason"));
+    }
+
+    @Test
+    void partiallyConvertedPartitionsAreNotReportedAsClassified(@TempDir Path directory) {
+        String path = directory.resolve("news").toString();
+        Dataset<Row> notice = lake(news("1", 500L, "CS2 Update"));
+        notice.selectExpr(NewsSchema.NEWS_SOURCE.fieldNames()).write().parquet(path + "/dt=2026-09-15");
+        notice.withColumn("is_patch", lit(true)).withColumn("patch_reason", lit("PATCH_TITLE"))
+                .write().parquet(path + "/dt=2026-09-16");
+        assertThrows(IllegalArgumentException.class, () -> NewsLake.read(spark, path));
     }
 
     @Test

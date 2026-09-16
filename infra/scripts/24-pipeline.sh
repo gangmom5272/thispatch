@@ -110,9 +110,9 @@ run_stage() {
     #   환경에 false 가 남아 있으면 조용히 전량이 된다. 파이프라인에서는 그럴 수 없다.
     collect)      guard_collect && ensure_workers                     && COLLECT_INCREMENTAL=true bash "$HERE/12-deploy-collector.sh" run ;;
     retry)        bash "$HERE/23-collect-retry.sh" now ;;
-    convert)      spark_job com.ssafy.thispatch.spark.JsonToParquet ;;
+    convert)      spark_job com.ssafy.thispatch.spark.JsonToParquet && convert_today com.ssafy.thispatch.spark.JsonToParquet /review_landing ;;
     news)         ensure_workers && bash "$HERE/12-deploy-collector.sh" run-news ;;
-    news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet ;;
+    news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet && convert_today com.ssafy.thispatch.spark.NewsToParquet /news_landing ;;
     compact)      spark_job com.ssafy.thispatch.spark.Compaction ;;
     topics|aggregate|load)
       echo "  아직 만들지 않았다. 건너뛴다."
@@ -124,7 +124,38 @@ run_stage() {
 
 spark_job() {
   [ -f "$SPARK_JAR" ] || { echo "  jar 가 없다: $SPARK_JAR" >&2; return 1; }
-  "$SPARK_SUBMIT" --class "$1" --master yarn --deploy-mode client "$SPARK_JAR"
+  "$SPARK_SUBMIT" --class "$1" --master yarn --deploy-mode client "$SPARK_JAR" "${@:2}"
+}
+
+# ── 오늘 날짜 것도 변환한다 ──────────────────────────────────
+#
+# ⚠ 이것이 없으면 자정을 넘긴 밤에 방금 받은 것이 통째로 안 변환된다.
+#
+#   landing 의 dt 는 잡 파라미터가 아니라 '파일을 쓴 시각' 으로 정해진다
+#   (ReviewLandingWriter · NewsLandingWriter 둘 다 TimeRule.partition(collectedAt)).
+#   그래서 수집이 자정을 넘기면 파티션이 갈린다 — 실제로 갈렸다:
+#     /review_landing/dt=2026-09-14   수정 시각 2026-09-15 00:00
+#
+#   JsonToParquet·NewsToParquet 은 '오늘' 파티션을 건너뛴다. 수집기가 아직
+#   쓰고 있는 중에 변환하면 반쪽짜리가 '변환 완료' 로 남기 때문이다. 맞는 판단이다.
+#
+#   그런데 파이프라인 안에서는 사정이 다르다. 단계가 순서대로 도니까
+#   convert 가 시작될 때 수집은 이미 끝나 있다. 건너뛸 이유가 없고,
+#   건너뛰면 아침에 raw 가 비어 있다.
+#
+#   그래서 인자 없이 한 번(밀린 날짜들), 오늘 날짜를 주고 한 번 더 부른다.
+#   쓰기 모드가 Overwrite 라 같은 날짜를 두 번 만들어도 안전하다.
+HDFS_BIN=${HDFS_BIN:-/opt/hadoop/bin/hdfs}
+
+convert_today() {
+  local cls="$1" root="$2" dt
+  dt=$(date +%F)
+  if ! "$HDFS_BIN" dfs -test -d "$root/dt=$dt" 2>/dev/null; then
+    echo "  오늘($dt) landing 이 없다 — 더 변환할 것 없음."
+    return 0
+  fi
+  echo "  오늘($dt) 것도 변환한다 (이 단계에서는 수집이 이미 끝났다)."
+  spark_job "$cls" "$dt"
 }
 
 # ⚠ 워커가 떠 있지 않으면 매니저가 조각을 뿌려 놓고 영원히 기다린다. 에러도 안 난다.

@@ -1,0 +1,99 @@
+/* thispatch.pen: active SB screens and SB Components (not the legacy palette). */
+@theme static {
+  --color-sb-canvas-base: #0e141b;
+  --color-sb-canvas-surface: #16202d;
+  --color-sb-canvas: #1b2838;
+  --color-sb-canvas-soft: #22303e;
+  --color-sb-canvas-active: #24384d;
+  --color-sb-canvas-header: #171a21;
+  --color-sb-canvas-night: #0b1118;
+  --color-sb-canvas-night-soft: #131c27;
+
+  --color-sb-hairline: #223447;
+  --color-sb-hairline-strong: #35526b;
+  --color-sb-hairline-cool: #2a475e;
+
+  --color-sb-primary: #3ecf8e;
+  --color-sb-primary-deep: #24b47e;
+  --color-sb-primary-soft: #4ade80;
+  --color-sb-on-primary: #171717;
+  --color-sb-on-dark: #ffffff;
+  --color-sb-ink: #ffffff;
+  --color-sb-ink-mute: #9fadba;
+  --color-sb-ink-mute-2: #8a98a6;
+  --color-sb-ink-faint: #5a6b7c;
+
+  --color-sb-pos: #3ecf8e;
+  --color-sb-pos-dim: #1f5540;
+  --color-sb-pos-text: #4ade80;
+  --color-sb-neg: #ff6b5e;
+  --color-sb-neg-dim: #8c3a33;
+  --color-sb-neg-text: #ff8a7e;
+  --color-sb-mark: #ffc93c;
+  --color-sb-amber-text: #ffd166;
+  --color-sb-accent-yellow: #ffdb13;
+  --color-sb-accent-violet: #a36cd8;
+  --color-sb-violet-text: #c9a3ec;
+  --color-sb-tint-blue: #1a3a50;
+  --color-sb-tint-amber: #3a2d08;
+  --color-sb-tint-green: #17352a;
+  --color-sb-tint-red: #3a1816;
+  --color-sb-line-amber: #5a4a12;
+  --color-sb-line-green: #2f6b4f;
+  --color-sb-line-red: #5a2320;
+  --color-sb-scrim: #0e141bcc;
+
+  /* Loaded in index.html via Google Fonts at weights 400 and 500. */
+  --font-sb-sans: "Noto Sans KR", system-ui, sans-serif;
+  --font-sb-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  /* Pixel sizes preserve the canvas scale independently of the starter root font. */
+  --text-sb-caption: 14px;
+  --text-sb-caption--line-height: 1.5;
+  --text-sb-body: 16px;
+  --text-sb-body--line-height: 1.5;
+  --text-sb-lead: 18px;
+  --text-sb-lead--line-height: 1.75;
+  --text-sb-lead--letter-spacing: -0.2px;
+  --text-sb-title: 22px;
+  --text-sb-title--line-height: 1.2;
+  --text-sb-title--letter-spacing: -0.33px;
+  --text-sb-heading: 28px;
+  --text-sb-heading--line-height: 1.2;
+  --text-sb-heading--letter-spacing: -0.42px;
+  --text-sb-section: 36px;
+  --text-sb-section--line-height: 1.15;
+  --text-sb-section--letter-spacing: -0.72px;
+  --text-sb-display: 64px;
+  --text-sb-display--line-height: 1.1;
+  --text-sb-display--letter-spacing: -1.92px;
+
+  --spacing-sb-1: 4px;
+  --spacing-sb-2: 8px;
+  --spacing-sb-3: 12px;
+  --spacing-sb-4: 16px;
+  --spacing-sb-5: 20px;
+  --spacing-sb-6: 24px;
+  --spacing-sb-8: 32px;
+  --spacing-sb-12: 48px;
+  --spacing-sb-control: 40px;
+  --spacing-sb-header: 56px;
+  --spacing-sb-sidebar: 232px;
+  --spacing-sb-landing-gutter: 120px;
+  --spacing-sb-landing-section: 110px;
+  --container-sb-page: 1440px;
+
+  --radius-sb-tag: 4px;
+  --radius-sb-control: 6px;
+  --radius-sb-card: 8px;
+  --radius-sb-modal: 12px;
+
+  --shadow-sb-hero: 0 18px 48px -8px #00000099;
+  --shadow-sb-modal: 0 16px 44px #00000080;
+  --shadow-sb-popover: 0 12px 32px -4px #00000099;
+}
+
+@theme inline {
+  --font-sans: var(--font-sb-sans);
+  --font-mono: var(--font-sb-mono);
+}

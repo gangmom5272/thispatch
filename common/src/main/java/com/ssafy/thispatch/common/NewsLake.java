@@ -70,6 +70,27 @@ public final class NewsLake {
      * {@code spark.sql.files.ignoreMissingFiles} 를 켜 둔다.
      */
     public static Dataset<Row> read(SparkSession spark) {
-        return spark.read().schema(NewsSchema.NEWS_RAW).parquet(HdfsPaths.NEWS_RAW);
+        return read(spark, HdfsPaths.NEWS_RAW);
+    }
+
+    /** 판정 컬럼의 실제 존재 여부를 보존한다. 일부만 재변환된 입력은 완료로 취급하지 않는다. */
+    public static Dataset<Row> read(SparkSession spark, String path) {
+        Dataset<Row> stored = spark.read().option("mergeSchema", "true").parquet(path);
+        var columns = Arrays.asList(stored.columns());
+        boolean hasPatchFlag = columns.contains("is_patch");
+        boolean hasPatchReason = columns.contains("patch_reason");
+        if (!hasPatchFlag && !hasPatchReason) {
+            // 적재기는 컬럼 존재로 판정 유무를 구분한다. 없는 결과를 null 컬럼으로 만들지 않는다.
+            return spark.read().schema(NewsSchema.NEWS_SOURCE).parquet(path);
+        }
+        if (!hasPatchFlag || !hasPatchReason) {
+            throw new IllegalArgumentException("Both is_patch and patch_reason are required for classified news");
+        }
+        Dataset<Row> classified = spark.read().schema(NewsSchema.NEWS_RAW).parquet(path);
+        if (classified.filter(col("is_patch").isNull().or(col("patch_reason").isNull()))
+                .limit(1).count() != 0) {
+            throw new IllegalArgumentException("Incomplete news classification: reconvert all input partitions first");
+        }
+        return classified;
     }
 }

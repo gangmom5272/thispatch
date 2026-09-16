@@ -212,10 +212,29 @@ GET /games?search=slay&limit=5
 | `lastCollectedAt` | datetime? |
 | `isMine` | boolean |
 
+**Processing Rules / Notes — 조회·매핑**
+
+- Query Parameter, Request Body는 없다. `gameId`는 `game.appid`에 대응한다.
+- `id`, `title`, `description`은 각각 `game.appid`, `game.name`, `game.short_description`을 반환한다.
+- `capsuleImageUrl`은 `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{gameId}/{capsule_path}`로 조합한다. `capsule_path`의 하위 경로를 유지하며, 값이 없으면 `null`이다. 대체 이미지는 사용하지 않는다.
+- `reviewCount`, `positiveRate`는 각각 `game.store_review_count`, `game.store_positive_pct`를 반환한다. 스토어에서 수집한 통계이며 리뷰 배치 집계로 대체하거나 재계산하지 않는다. `positiveRate`의 단위는 퍼센트(0~100)다.
+- `releasedOn`은 `game.release_ts`를 `Asia/Seoul` 기준 날짜(`yyyy-MM-dd`)로 변환한다.
+- `lastCollectedAt`은 게임 카탈로그 수집 시각인 `game.collected_at`을 UTC ISO 8601 형식으로 반환한다. 리뷰 수집·집계 시각을 뜻하지 않는다.
+- nullable 필드는 값이 없으면 JSON `null`로 포함한다. 리뷰 수·긍정률의 `null`과 실제 `0`은 구분한다.
+- `tags`는 해당 게임의 `game_tag`와 `tag`를 연결하여 `tag.tag_id`, `tag.name_ko`를 반환한다. 연결된 전체 태그를 `game_tag.weight` 내림차순, 동률이면 `tag.tag_id` 오름차순으로 정렬한다. 태그가 없으면 `[]`다.
+- `isMine`은 검증된 Access Token의 `MemberPrincipal.memberId`와 `gameId`에 해당하는 `my_game` 등록 관계의 존재 여부다. 클라이언트가 전달한 회원 ID는 사용하지 않는다.
+- 저장된 게임을 조회하며 요청 중 Steam API 호출이나 데이터 갱신은 수행하지 않는다.
+
 **Error Responses**
 
-- `401`: 인증 필요
-- `404`: 게임 없음
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | `gameId`가 long으로 변환되지 않음 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `404` | `GAME_NOT_FOUND` | 게임을 찾을 수 없습니다. | `game.appid`에 해당 게임이 없음 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회·트랜잭션 실패 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다.
 
 > 사례 게임 hover에서도 별도 preview API를 만들지 않고 이 API를 재사용한다.
 

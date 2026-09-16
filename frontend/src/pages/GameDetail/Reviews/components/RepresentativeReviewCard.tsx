@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { Review } from "@/types/review"
 import { formatPlaytimeMinutes } from "@/pages/GameDetail/PlaytimeTopics/lib/format"
 import { resolveReviewBody } from "@/pages/GameDetail/Reviews/lib/resolveReviewBody"
+import { ReviewBodyExpandable } from "@/pages/GameDetail/Reviews/components/ReviewBodyExpandable"
 
 interface RepresentativeReviewCardProps {
   review: Review
@@ -9,7 +10,7 @@ interface RepresentativeReviewCardProps {
 
 /**
  * 최근 대표 리뷰 그리드용 카드.
- * 번역 필드가 있으면 토글로 원문/번역을 바꾸고, 없으면 원문만 보여준다.
+ * 번역 필드가 있으면 토글로 원문/번역을 바꾸고, 본문은 2줄 클램프·더보기를 쓴다.
  */
 export function RepresentativeReviewCard({ review }: RepresentativeReviewCardProps) {
   // showOriginal: true면 원문(body), false면 번역(있으면)
@@ -69,7 +70,7 @@ export function RepresentativeReviewCard({ review }: RepresentativeReviewCardPro
         </div>
       </div>
 
-      <p className="mt-sb-3 text-sb-body leading-relaxed text-sb-ink">{displayBody}</p>
+      <ReviewBodyExpandable key={displayBody} text={displayBody} />
 
       {review.tags.length > 0 ? (
         <ul className="mt-sb-3 flex flex-wrap gap-sb-2">

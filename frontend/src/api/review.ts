@@ -2,7 +2,7 @@ import { api } from "@/api/client"
 import type { Review, ReviewsListData, ReviewsListParams } from "@/types/review"
 
 /**
- * 최근 대표 리뷰(최대 3건)를 조회한다.
+ * 최근 대표 리뷰(최대 4건)를 조회한다.
  * GET /games/{gameId}/reviews/representative
  */
 export function getRepresentativeReviews(gameId: number, signal?: AbortSignal): Promise<Review[]> {

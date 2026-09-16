@@ -36,10 +36,7 @@ import org.springframework.integration.dsl.IntegrationFlow;
  *
  * <p>마스터는 스팀 API 를 직접 호출하지 않는다. 나누고 지켜보기만 한다.
  */
-<<<<<<< HEAD
-=======
 @Slf4j
->>>>>>> cc38dc07f59bb4cf350cebcfb7ad9ac8bdfb0e8c
 @Configuration
 @Profile("manager")
 @EnableBatchIntegration

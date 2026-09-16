@@ -22,11 +22,6 @@ catalog/src/
 # 프론트는 frontend/Jenkinsfile 이 따로 빌드해서 정적 파일로 배포한다.
 frontend/
 
-# 프론트. 백엔드 이미지와 아무 상관이 없다.
-# 빼지 않으면 빌드 컨텍스트가 392K -> 2.0M 으로 늘어난다 (실측).
-# 프론트는 frontend/Jenkinsfile 이 따로 빌드해서 정적 파일로 배포한다.
-frontend/
-
 # 인프라 스크립트·설정. Dockerfile 자신만 필요하다
 infra/scripts/
 infra/nginx/

@@ -53,6 +53,8 @@ class NewsLakeTest {
                 case "collected_ts" -> collectedTs;
                 case "title" -> title;
                 case "appid" -> 730L;
+                case "is_patch" -> false;
+                case "patch_reason" -> "0:unjudged";
                 case "contents" -> "[p]본문[/p]";
                 case "published_ts" -> 1_700_000_000L;
                 case "feedname" -> "steam_community_announcements";
@@ -146,8 +148,9 @@ class NewsLakeTest {
         assertTrue(names.contains("contents"));
         assertTrue(names.contains("url"));
         assertTrue(names.contains("feed_tags"));
-        // 판별 결과는 여기 없다. S15P21A202-130 이 채운다.
-        assertTrue(names.stream().noneMatch(n -> n.equals("is_patch") || n.equals("patch_reason")),
-                "패치 판별 결과가 수집 스키마에 섞였다: " + names);
+        assertTrue(names.contains("is_patch"));
+        assertTrue(names.contains("patch_reason"));
+        List<String> sourceFields = Arrays.asList(NewsSchema.NEWS_SOURCE.fieldNames());
+        assertTrue(sourceFields.stream().noneMatch(n -> n.equals("is_patch") || n.equals("patch_reason")));
     }
 }

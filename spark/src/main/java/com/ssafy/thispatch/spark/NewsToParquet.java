@@ -49,9 +49,8 @@ import org.apache.spark.sql.types.StructType;
  *   ... thispatch-spark.jar --all           처음부터 다시
  * </pre>
  *
- * <p><b>패치인지 아닌지는 가리지 않는다.</b> {@code S15P21A202-130} 이 이 결과를
- * 읽어 규칙으로 판별한다. 여기서 걸러 버리면 규칙을 고칠 때마다 11.7만 개를
- * 다시 받아야 한다.
+ * <p>공통 PatchClassifier로 is_patch와 patch_reason을 채운다.
+ * 판정으로 행을 제외하지 않고 수집 이력과 원본 JSON을 보존한다.
  */
 public final class NewsToParquet {
 
@@ -204,7 +203,7 @@ public final class NewsToParquet {
      * {@code TIMESTAMPTZ} 변환은 적재 단계에서 한다.
      */
     static Dataset<Row> toOurShape(Dataset<Row> raw) {
-        return raw.select(
+        Dataset<Row> mapped = raw.select(
                 col("gid"),
                 col("appid"),
                 col("title"),
@@ -223,6 +222,9 @@ public final class NewsToParquet {
                 array_join(coalesce(col("tags"), lit(null).cast("array<string>")), ",")
                         .as("feed_tags"),
                 col("is_external_url"));
+        // 최신 공지 선택은 읽는 쪽에서 한다. 변환 단계에서는 수집 이력을 유지한다.
+        Dataset<Row> classified = PatchClassificationProcessor.classifyRows(mapped);
+        return classified.selectExpr(NewsSchema.NEWS_RAW.fieldNames());
     }
 
     /**

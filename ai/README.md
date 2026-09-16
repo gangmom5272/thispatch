@@ -16,6 +16,14 @@ GPU 노트북 1대(RTX 4070 8GB)에서 돈다. 클러스터 노드가 아니고 
 | `batch/dev_make_*_input.py` | 개발용 입력 생성(PoC JSON → Parquet). HDFS 준비 후 불필요 | 개발 |
 | `models/` | 분류기 `logreg-gemma512-v1.joblib` (git 밖, 0905 노트북 08 산출) | |
 
+## 패치 판정 입력
+
+판정은 Spark `PatchClassifier` 하나로 통일하며 `NewsToParquet`가 공통 함수를 호출해
+`/news_raw`에 `is_patch`, `patch_reason`을 저장한다. 판정·패치 리뷰 집계에 AI는 관여하지 않는다.
+`0:unjudged`는 판정 전 전용 값이다. 기존 Python 개발 도구의 PoC 판정은 운영 패치 집계에 사용하지 않는다.
+상세 계약은 [CONTRACT.md 부록 A](CONTRACT.md#부록-a-패치-판정-정본과-전달-상태)를 따른다.
+아래 임베딩 개발 실행 예시는 별도의 판정 필드가 있는 호환 입력을 전제로 한다.
+
 ## 실행 (개발기, Windows py313)
 
 ```bash

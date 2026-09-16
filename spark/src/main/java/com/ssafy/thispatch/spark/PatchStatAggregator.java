@@ -1,6 +1,8 @@
 package com.ssafy.thispatch.spark;
 
 import com.ssafy.thispatch.common.TimeRule;
+import com.ssafy.thispatch.common.NewsLake;
+import java.util.Arrays;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -21,10 +23,10 @@ public final class PatchStatAggregator {
     private PatchStatAggregator() {}
 
     /**
-     * Internal patch input: gid STRING, appid LONG, published_ts LONG (nullable), eligible_for_review_stats BOOLEAN.
-     * Eligibility describes patch relevance and scope, not deployment-date verification.
+     * Internal patch input: gid STRING, appid LONG, published_ts LONG (nullable), is_patch BOOLEAN.
+     * is_patch is true only for a confirmed PATCH. patch_reason is not needed for aggregation.
      * coverageStart/End describe COMPLETE review activity history, not just min/max timestamps in a sample.
-     * Missing publication times, unapproved patches and incomplete windows produce no completed stat row.
+     * Missing publication times, unconfirmed patches and incomplete windows produce no completed stat row.
      */
     public static Dataset<Row> aggregate(Dataset<Row> reviews, Dataset<Row> patches,
                                          LocalDate coverageStart, LocalDate coverageEndExclusive,
@@ -36,19 +38,29 @@ public final class PatchStatAggregator {
         requireType(patches, "gid", DataTypes.StringType);
         requireType(patches, "appid", DataTypes.LongType);
         requireType(patches, "published_ts", DataTypes.LongType);
-        requireType(patches, "eligible_for_review_stats", DataTypes.BooleanType);
-        Dataset<Row> approved = patches.filter(col("eligible_for_review_stats").equalTo(true)
+        requireType(patches, "is_patch", DataTypes.BooleanType);
+        // Read all observations first: filtering true before latest() would revive an older classification.
+        if (Arrays.asList(patches.columns()).contains("collected_ts")) {
+            requireType(patches, "collected_ts", DataTypes.LongType);
+            patches = patches.select("gid", "appid", "published_ts", "is_patch", "collected_ts").dropDuplicates();
+            if (patches.filter(col("collected_ts").isNull().or(col("collected_ts").lt(0))).limit(1).count() != 0
+                    || patches.groupBy("gid", "collected_ts").count().filter(col("count").gt(1)).limit(1).count() != 0) {
+                throw new IllegalArgumentException("Invalid or conflicting news collection timestamps");
+            }
+            patches = NewsLake.latest(patches);
+        }
+        Dataset<Row> confirmedPatches = patches.filter(col("is_patch").equalTo(true)
                         .and(col("published_ts").isNotNull()))
                 .select("gid", "appid", "published_ts").dropDuplicates();
-        if (approved.filter(col("gid").isNull().or(length(trim(col("gid"))).equalTo(0))
+        if (confirmedPatches.filter(col("gid").isNull().or(length(trim(col("gid"))).equalTo(0))
                         .or(length(col("gid")).gt(20)).or(col("appid").isNull()).or(col("appid").leq(0))
                         .or(col("published_ts").lt(0))).limit(1).count() != 0
-                || approved.groupBy("gid").count().filter(col("count").gt(1)).limit(1).count() != 0) {
+                || confirmedPatches.groupBy("gid").count().filter(col("count").gt(1)).limit(1).count() != 0) {
             throw new IllegalArgumentException("Invalid or conflicting patch identifiers / publication timestamps");
         }
         var kstStart = udf((UDF1<Long, Long>) timestamp ->
                 TimeRule.startOfDay(PatchDateResolver.resolve(Instant.ofEpochSecond(timestamp))), DataTypes.LongType);
-        Dataset<Row> windows = approved.withColumn("day_start", kstStart.apply(col("published_ts")))
+        Dataset<Row> windows = confirmedPatches.withColumn("day_start", kstStart.apply(col("published_ts")))
                 .withColumn("window_start", col("day_start").minus(SEVEN_DAYS_SECONDS))
                 .withColumn("window_end", col("day_start").plus(SEVEN_DAYS_SECONDS))
                 .filter(col("window_start").geq(TimeRule.startOfDay(coverageStart))

@@ -8,7 +8,8 @@
 ## 1. 누가 무엇을 읽고 쓰나
 
 ```
-/news_raw/dt=D            (수집·Spark) ──▶ AI 노드 ──▶ /embeddings/patch_chunk/dt=D
+/news_raw/dt=D (Spark 변환·판정 완료) ──▶ 후속 처리
+                                                    ──▶ /embeddings/patch_chunk/dt=D
                                                     ──▶ /embeddings/patch_change/dt=D
 /review_raw/{base,delta/dt=D}  (Spark)  ──▶ AI 노드 ──▶ /review_topic/dt=D
 ```
@@ -21,7 +22,7 @@
 
 | 경로 | 형식 | 필요한 컬럼 | 비고 |
 |---|---|---|---|
-| `/news_raw/dt=D/` | Parquet | `gid` string, `appid` long, `title`, `contents`(BBCode 원문), `feed_tags` string(쉼표 연결), `published_ts` long(unix초), `collected_ts` long, `is_patch` bool, `patch_reason` string | 수집 담당 스키마(9/15 확정). **`is_patch=true`인 행만 처리**. 같은 공지가 여러 날 들어올 수 있어 `gid` 당 `collected_ts` 최신 한 벌만 읽는다(`NewsLake.latest` 와 같은 기준, `common.read_news`) |
+| `/news_raw/dt=D/` | Parquet | `gid` string, `appid` long, `title`, `contents`(BBCode 원문), `feed_tags` string(쉼표 연결), `published_ts` long(unix초), `collected_ts` long | `NewsSchema.NEWS_RAW`는 원문 필드와 `is_patch` BOOLEAN, `patch_reason` STRING을 포함한다. `NewsToParquet`가 공통 PatchClassifier를 호출한다. 최신 수집본은 `NewsLake.latest` 기준. 판정·패치 리뷰 집계에 AI는 관여하지 않는다. 부록 A 참고. |
 | `/review_raw/base/`, `/review_raw/delta/dt=D/` | Parquet | `recommendationid` long, `appid` long, `review_text`, `language_code`, `created_ts` long, `updated_ts` long | `ReviewSchema.REVIEW_RAW` 그대로. 초기 1회는 base 전체, 이후 delta만. **같은 `recommendationid` 가 여러 판 있을 수 있음**(수정본·재수집, `common/ReviewLake` 주석 참고) → AI 노드는 `updated_ts` 최신 한 벌에만 토픽을 붙인다 |
 
 > 제안: 공지 원문 → 청크 분리 → 규칙 슬롯(방향·변경 유형)은 **AI 노드(Python)** 가 한다. 코드가 이미 있고(동료 `sections.py`, PoC 규칙), Spark 쪽은 아직 리뷰 변환만 있다. Spark 담당이 원하면 옮길 수 있게 청크 출력 컬럼을 아래처럼 고정한다.
@@ -73,7 +74,7 @@
 
 ## 4. 정해야 남은 것 (상대 확인 필요)
 
-1. ~~`/news_raw` 형식~~ → **해소(9/15)**: Parquet, `dt=` 파티션, `is_patch`·`patch_reason` 포함, 게임당 공지 전량(기간 제한 없음). 판정 코드는 `spark/.../PatchJudge.java`(부록 A 와 동일, JUnit 5건)
+1. **합의 완료:** `/news_raw`에 `is_patch`, `patch_reason`을 저장한다. 판정은 Spark `PatchClassifier`, DB 적재는 -25 담당이다. 판정·패치 리뷰 집계는 AI와 연결하지 않는다.
 2. 청크 분리·규칙 슬롯을 AI 노드가 하는 것에 이견 없는지 — Spark 담당
 3. `target`, `attribute` 컬럼 채택 여부 — ERD 담당 (미채택이면 Loader가 두 컬럼만 버림, AI 쪽 변경 없음)
 4. 초기 적재 시 `review_raw/base` 전체를 토픽 분류할지, 패치 창(전후 7일) 안 리뷰만 할지 — 백엔드. 기본값: 전체
@@ -85,33 +86,40 @@
 - 경로·Ollama 주소는 전부 환경 변수(`AI_WORK_DIR`, `OLLAMA_URL`). 코드에 절대 경로 없음.
 
 
-## 부록 A. 패치 공지 판정 규칙 (Spark 담당용, `news.is_patch` · `patch_reason`)
+## 부록 A. 패치 판정 정본과 전달 상태
 
-PoC(0904, 209공지·사람 라벨 490건 검토, 재현율 90%대) 규칙. 모델 없이 정규식 5개. 제목은 `title`, 본문은 BBCode 태그(`\[/?[a-z*][^\]]*\]`)를 지운 `contents`, 태그는 `feed_tags`.
+2026-09-16 합의: 판정은 [PatchClassifier.java](../spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java)
+하나로 통일한다. 규칙 버전은 `patch-rules-5`이며 이전 부록 A의 PoC 규칙은 사용하지 않는다.
 
-| 순서 | 조건 | 결과 | `patch_reason` |
-|---|---|---|---|
-| 1 | `feed_tags` 에 `patchnotes` 포함 | **패치** | `1:tag` |
-| 2 | 제목에 NEG 매치 **and** 제목에 PATCH_KW 없음 **and** 본문 변경 동사 < 15 | 비패치 | `2:negative` |
-| 3 | 제목에 RELEASE 매치 **and** (변경 동사 ≥ 5 **or** 제목에 버전 번호) | 패치 | `3:release` |
-| 4 | 제목에 PATCH_KW 매치 **and** 제목에 PREVIEW 없음 **and** (변경 동사 ≥ 5 **or** 제목에 버전 번호) | 패치 | `4:title_kw` |
-| 5 | 본문 변경 동사 ≥ 15 | 패치 | `5:body_verbs` |
-| 6 | 그 외 | 비패치 | `6:else` |
+`NewsToParquet` → `PatchClassificationProcessor.classifyRows` → `PatchClassifier` 순서로 호출한다.
+원문 13개 필드에 다음 2개를 추가해 `/news_raw/dt=D` Parquet에 저장한다. 판정으로 행을 제외하지 않는다.
 
-PoC 분포: 1번이 패치의 77%, 4번 22%. 정규식(대소문자 무시):
+| 상태 | is_patch (BOOLEAN) | patch_reason (STRING) |
+|---|---|---|
+| PATCH 확정 | true | 정본 함수의 사유 코드 |
+| NOT_PATCH | false | 제외 사유 코드 |
+| REVIEW_REQUIRED | false | 근거 부족·충돌 사유 코드 |
+| 판정 전 | false | `0:unjudged` (예약값) |
 
+`0:unjudged`는 적재 전 임시 상태이며 판정 함수의 실제 반환 사유와 겹치지 않는다.
+근거 부족은 미판별이 아니다. 실제 판정 사유는 대문자 코드 그대로 저장한다.
+
+```java
+PatchClassifier.Result result = PatchClassifier.classify(title, contents, tags);
+boolean isPatch = result.isPatch();
+String patchReason = result.reason();
 ```
-VERB     (increased|decreased|reduced|buffed|nerfed|fixed|adjusted|changed|added|removed|lowered|raised|improved|tweaked|rebalanced|reworked|replaced|resolved|corrected|no longer|can now|will now|now deals|now has|now costs|now takes|now grants|updated|scaled|capped|doubled|halved|disabled|enabled|renamed|restored|reverted)
-         → 본문에서 매치 수 = "변경 동사" 개수
-NEG      (newsletter|\bsale\b|discount|%\s*off|\bevent\b|dev\s*diary|behind the scenes|deep dive|roadmap|survey|soundtrack|\bost\b|merch|stream|trailer|recap|wallpaper|contest|giveaway|free weekend|community spotlight|fan ?art|interview|anniversary|award|nomination|\bq&a\b|lore|comic|cosplay|kickstarter|state of the game|celebrating)
-PATCH_KW (patch|hotfix|hot-fix|update|fix(es|ed)?\b|patch notes|release notes|changelog|balance|version|\bv?\d+\.\d+(\.\d+)?\b)
-PREVIEW  (preview|coming soon|upcoming|incoming|teaser|sneak peek|roadmap|what.s next|in development|announc(e|ing)|reveal|delay|postpone|arrives|will be|on \w+ \d+(st|nd|rd|th))
-RELEASE  (out now|now available|now live|is live|has arrived|released|launch(es|ed)?\b|available now)
-VERSION  \bv?\d+\.\d+(\.\d+)?\b
-```
 
-원본 코드: `0904/poc/scripts/16_rule_slots_3games.py` 의 `judge()`. Java 판은 `spark/src/main/java/com/ssafy/thispatch/spark/PatchJudge.java`(9/15 수집 담당이 이동해 `NewsToParquet` 에서 호출, `ai/docs/` 사본은 이동 뒤 삭제).
-AI 노드는 `is_patch=true` 행만 읽으므로 이 판정이 곧 임베딩·Qwen 대상 범위다.
+서명은 `public static Result classify(String title, String contents, List<String> tags)`다.
+원본 tags 배열을 전달한다. Dataset 처리기는 쉼표 연결 feed_tags를 목록으로 바꿔 호출한다.
+
+- 원본 JSON을 보존하고 재변환 시 현재 규칙으로 판정한다. 별도 PatchJudge/PoC 규칙을 연결하지 않는다.
+- 패치 집계는 저장된 `is_patch=true`만 사용한다. `patch_reason`을 다시 판정하지 않는다.
+- 패치 결정일은 `published_ts`의 KST 날짜다. `patched_at`은 게시 시각을 보존한다.
+- 판정·패치 리뷰 집계에 AI는 관여하지 않는다. 별도의 AI 임베딩·분석 계약은 이번 연결 범위 밖이다.
+- DB 재적재·기존 판정 보호는 -25 담당이며 이 변경에서 DB 스키마·마이그레이션·적재를 수정하거나 실행하지 않았다.
+- 운영 재변환·배포는 아직 실행하지 않았다. 상세 입력 검증과 진단 필드는 [판정 문서](../spark/PATCH_CLASSIFICATION.md)를 따른다.
+
 
 ## 부록 B. 규칙 슬롯과 Qwen 의 관계 (검토 요청 회신)
 

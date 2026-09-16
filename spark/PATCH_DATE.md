@@ -21,10 +21,10 @@ LocalDate patchDate = PatchDateResolver.resolve(publishedAt);
 `PatchStatAggregator`는 내부 입력의 `published_ts LONG`에 Steam 공지 게시 시각(Unix 초)을 받는다.
 이전 `patched_ts` 입력은 사용하지 않는다. KST 게시일 D를 중심으로 이전 7일·이후 7일을 집계한다.
 기존 출력 필드 `patched_at`에는 공지 게시 시각을 보존한다.
-`eligible_for_review_stats`는 패치·대상 적합성만 나타내며 실제 적용일 검증을 요구하지 않는다.
+`is_patch=true`인 확정 패치만 집계한다. 실제 적용일 검증은 요구하지 않는다.
 
 이 정책의 날짜는 공지 게시일을 기준으로 정한 서비스상의 패치일이다.
-HDFS 입력 어댑터와 DB 적재는 아직 연결되어 있지 않다.
+NewsToParquet의 판정 출력과 집계 입력을 연결했다. 운영 HDFS 실행·DB 적재는 별도다.
 
 ## 검증과 이전 기록
 

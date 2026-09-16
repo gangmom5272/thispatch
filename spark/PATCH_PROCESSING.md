@@ -23,7 +23,7 @@ Flyway V1/V2를 기준으로 만들었으며 마이그레이션이나 DB 데이�
 LLM·임베딩 실행, 토큰 제한 기반 최종 청크 생성, DB 적재는 이 코드에 포함하지 않는다.
 패치 결정일은 공지 게시 시각의 KST 날짜다. `PatchDateResolver`의 게시일 정책은 [PATCH_DATE.md](PATCH_DATE.md)를 따른다.
 본문 날짜 추출과 날짜 확정·추정·보류 구분은 폐기했다.
-입력 어댑터와 드라이버 적재 통로는 팀 계약이 연결된 후 작업해야 한다.
+패치 판정의 Parquet 출력과 리뷰 집계 입력은 연결했다. 변경점 입력 어댑터와 DB 적재 통로는 별도다.
 
 ## patch_change
 
@@ -70,10 +70,10 @@ Spark 변환은 결정적이지만, 이것만으로 DB 재실행 중복까지 �
 `PatchStatAggregator.aggregate(reviews, patches, coverageStart, coverageEndExclusive, aggregatedAt)`를 호출한다.
 
 - reviews: `common.ReviewSchema`의 `appid`, `recommendationid`, `created_ts`, `updated_ts`, `collected_ts`, `voted_up`.
-- patches: `gid STRING`, `appid LONG`, `published_ts LONG`, `eligible_for_review_stats BOOLEAN`.
-- 패치 입력은 **모듈 내부 계약**이며 합의된 공지 HDFS 스키마나 DB 신규 컬럼이 아니다.
+- patches: `gid STRING`, `appid LONG`, `published_ts LONG`, `is_patch BOOLEAN`.
+- patches는 합의된 `NewsSchema.NEWS_RAW`를 그대로 전달할 수 있다. `collected_ts`가 있으면 gid별 최신 수집본부터 선택한다. 이미 공지별 한 행으로 정리한 입력은 위 4개 필드만으로도 호출할 수 있다.
 - published_ts는 Steam 공지의 date 필드(게시 시각, Unix 초)다. 본문에서 추출한 적용시각은 입력하지 않는다.
-- eligible_for_review_stats는 패치 여부와 적용 대상이 통계에 적합한 경우 true다. 실제 적용일 검증은 요구하지 않는다.
+- is_patch는 `PatchClassifier`의 PATCH 확정만 true다. false/null은 제외한다. `patch_reason`은 비패치·근거 부족·미판별(`0:unjudged`)의 구분용이며 통계 계산에는 사용하지 않는다.
 - coverageStart/End는 모든 대상 게임의 리뷰 수정 이력이 수집 완료되었다고 호출자가 보증하는 KST 날짜 구간이다.
   파일의 min/max 날짜나 하루치 샘플만 보고 완전 수집으로 간주하면 안 된다.
 - 마감 이전 수집된 관측만 사용하며 수집 이후에 알려진 정보는 해당 실행에 포함하지 않는다.

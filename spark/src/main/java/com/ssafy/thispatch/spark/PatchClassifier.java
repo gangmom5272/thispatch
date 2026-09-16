@@ -7,12 +7,18 @@ import java.util.regex.Pattern;
 
 /** English-first Steam notice classifier. No date inference, model calls, or database writes. */
 public final class PatchClassifier {
-    public static final String RULE_VERSION = "patch-rules-4";
+    public static final String RULE_VERSION = "patch-rules-5";
+    /** Reserved for ingestion before classification; classify() never returns this reason. */
+    public static final String UNJUDGED_REASON = "0:unjudged";
 
     public enum Decision { PATCH, NOT_PATCH, REVIEW_REQUIRED }
     public enum Scope { DEFAULT, TEST, MIXED, CLIENT, NON_STEAM, OTHER_GAME }
 
-    public record Result(Decision decision, Scope scope, int stage, String reason, String evidence) {}
+    public record Result(Decision decision, Scope scope, int stage, String reason, String evidence) {
+        public boolean isPatch() {
+            return decision == Decision.PATCH;
+        }
+    }
 
     private static final Pattern TEST_SCOPE = pattern("\\b(?:public test|stress test|test branch|beta|experimental|unstable)\\b|공개 테스트|테스트 서버");
     private static final Pattern STABLE_TITLE = pattern("\\b(?:stable|live branch|main branch)\\b");
@@ -31,7 +37,12 @@ public final class PatchClassifier {
     private static final Pattern TEST_ONLY_INTRO = pattern("(?:this|the) (?:update|patch).{0,70}(?:public test|test branch|beta branch).{0,30}only");
     private static final Pattern ANNOUNCEMENT = pattern("\\b(?:patch preview|update preview|preview of.{0,30}(?:patch|update)|upcoming (?:patch|update)|release date|pre[ -]?order|pre[ -]?purchase)\\b|패치 예고|업데이트 예고|사전 예약");
     private static final Pattern FUTURE_TITLE = pattern("\\b(?:coming|arrives?|launches?|releases?|enters|scheduled).{0,90}\\b(?:tomorrow|next|this (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|on \\d|on (?:january|february|march|april|may|june|july|august|september|october|november|december))\\b");
-    private static final Pattern FUTURE_DEPLOYMENT = pattern("\\b(?:patch|hotfix|update).{0,65}\\b(?:will (?:be released|be deployed|arrive)|scheduled for release|coming next week)\\b");
+    private static final Pattern FUTURE_DEPLOYMENT = pattern(
+            "\\bwill undergo (?:a |the )?(?:flash )?update\\b"
+            + "|\\bchanges (?:are )?coming (?:with|in) (?:the )?(?:new|next) (?:season|update)\\b"
+            + "|\\b(?:patch|hotfix|update|version|build).{0,65}\\b"
+            + "(?:will (?:be released|be deployed|arrive)|scheduled for release|"
+            + "(?:is )?(?:planned|scheduled) for|coming next week)\\b");
     private static final Pattern MAIN_GAME_UNAFFECTED = pattern("(?:main|base) game is not (?:impacted|affected)|본편.{0,20}(?:영향이 없|영향을 받지)");
     private static final Pattern MERCHANDISE = pattern("\\b(?:vinyl|soundtrack|statue|replicas?|lamp|ticket sales|pre[ -]?order|loyalty discount|popularity poll)\\b");
     private static final Pattern COMMUNITY_TITLE = pattern("^(?:community update|word from the devs|tell us your)|\\b(?:grand champions|team registration|invitations and qualifiers|community quests|behind the scenes|celebrating our community)\\b");
@@ -40,8 +51,28 @@ public final class PatchClassifier {
     private static final Pattern UPDATE_TITLE = pattern("\\bupdate\\b|업데이트");
     private static final Pattern LAUNCH_TITLE = pattern("\\b(?:official release|official launch|has arrived|launch trailer|launches on steam|DLC.{0,30}(?:available|out now))\\b|정식 출시");
     private static final Pattern DEPLOYED = pattern("\\b(?:patch|hotfix|update|fix).{0,100}\\b(?:now live|is live|out now|now available|available now|has been released|now rolling out|going live today|ready for you today|went live)\\b|(?:패치|업데이트).{0,40}(?:적용 완료|배포 완료)");
+    // A version alone is not evidence; it must accompany at least two concrete changes.
+    private static final Pattern VERSION_TITLE = pattern(
+            "^v?\\d+(?:\\.\\d+){1,3}(?:[-.]?[a-z]\\d*)?$");
+    private static final Pattern LIVE_HOTFIX = pattern(
+            "\\bwe(?:['’]re| are) live with (?:a|the) hotfix\\b");
+    private static final Pattern SCHEDULED_NOTICE_TITLE = pattern(
+            "\\bscheduled (?:update|maintenance)\\b|정기점검 사전 안내");
+    private static final Pattern CHANGE_CATEGORY_HEADING = pattern(
+            "^(?:added|changed|fixed|removed|new features|improvements|fixes|bug fixes):?$");
+    private static final Pattern COMPONENT_CHANGE_LINE = pattern(
+            "^[\\p{L}\\p{N}_/(). -]{1,70}:\\s+(?:fix|add|remove|improve|restore|prevent|check)\\b.{4,}");
+    // Verb-at-end lists are only evidence inside an explicit change category.
+    private static final Pattern CHANGE_SUFFIX = pattern(
+            "^.{4,160}\\b(?:added|removed|improved|adjusted|fixed)[.!]?$");
+    private static final Pattern CHANGE_SCOPE_PREFIX = pattern(
+            "^(?:\\[(?![^\\]]*\\b(?:planned|upcoming|preview|next)\\b)[^\\]]{1,50}\\]\\s*)+");
+    private static final Pattern CONDITIONAL_CHANGE_LINE = pattern("^(?:if|when|unless|once)\\b");
+    private static final Pattern PASSIVE_CHANGE_LINE = pattern(
+            "^.{1,100}\\b(?:was|were|has been|have been|is now|are now)\\s+"
+            + "(?:fixed|added|removed|adjusted|increased|decreased|improved|reworked|resolved|updated)\\b");
     private static final Pattern CHANGE_LINE = pattern("^(?:[-*•]\\s*)?(?:fixed|added|removed|adjusted|increased|decreased|improved|reworked|resolved|updated|修正|추가|수정|개선|삭제)\\b.{4,}");
-    private static final Pattern CHANGE_HEADING = pattern("^(?:patch notes.*|patch highlights|changelog.*|bug fixes|fixes(?:\\s*(?:&|and)\\s*improvements)?|balance adjustments|gameplay|new content|패치 노트.*|변경 사항.*):?$");
+    private static final Pattern CHANGE_HEADING = pattern("^(?:added|changed|fixed|removed|new features|improvements|patch notes.*|patch highlights|changelog.*|bug fixes|fixes(?:\\s*(?:&|and)\\s*improvements)?|balance adjustments|gameplay|new content|패치 노트.*|변경 사항.*):?$");
     private static final Pattern CHANGELOG_TITLE = pattern("\\bchangelog\\b|업데이트 내역");
     private static final Pattern NAMED_CHANGE_HEADING = pattern(
             "^(?:[\\p{L}\\p{N}][\\p{L}\\p{N} .:'’()\\-]{0,90}\\s+)?(?:changelog|patch notes)(?:\\s.*)?$");
@@ -110,13 +141,17 @@ public final class PatchClassifier {
         boolean tagged = tags != null && tags.stream().anyMatch(tag -> tag != null && "patchnotes".equalsIgnoreCase(tag.strip()));
         List<String> changes = new ArrayList<>();
         for (String line : lines) {
-            if (CHANGE_LINE.matcher(line).find()) {
+            if (isCompletedChange(line)) {
                 changes.add(line);
             }
         }
         String deployed = firstMatch(DEPLOYED, cleanTitle + "\n" + intro);
         if (deployed.isEmpty() && cleanTitle.toLowerCase(java.util.Locale.ROOT).contains("fixed")) {
             deployed = firstMatch(COMPLETED_SERVER_FIX, body);
+        }
+        // This narrowly names a live hotfix; vague slogans such as "is here" are not deployment evidence.
+        if (deployed.isEmpty() && !changes.isEmpty()) {
+            deployed = firstMatch(LIVE_HOTFIX, intro);
         }
         String securityFix = firstMatch(COMPLETED_SECURITY_FIX, intro);
         if (deployed.isEmpty() && !securityFix.isEmpty()) {
@@ -126,7 +161,8 @@ public final class PatchClassifier {
             scope = Scope.CLIENT;
         }
         String sectionEvidence = findChangeSection(lines);
-        if (sectionEvidence.isEmpty() && changes.size() >= 2 && CHANGELOG_TITLE.matcher(cleanTitle).find()) {
+        if (sectionEvidence.isEmpty() && changes.size() >= 2
+                && (CHANGELOG_TITLE.matcher(cleanTitle).find() || VERSION_TITLE.matcher(cleanTitle).matches())) {
             sectionEvidence = cleanTitle + "\n" + changes.get(0);
         }
         String narrativeEvidence = findNarrativeChanges(lines);
@@ -138,13 +174,17 @@ public final class PatchClassifier {
         String exclusion = firstMatch(MAIN_GAME_UNAFFECTED, intro);
         String exclusionReason = "MAIN_GAME_UNAFFECTED";
         if (exclusion.isEmpty() && (ANNOUNCEMENT.matcher(cleanTitle).find() || FUTURE_TITLE.matcher(cleanTitle).find()
-                || PREVIEW_OR_CANCELLED_TITLE.matcher(cleanTitle).find())) {
+                || PREVIEW_OR_CANCELLED_TITLE.matcher(cleanTitle).find()
+                || SCHEDULED_NOTICE_TITLE.matcher(cleanTitle).find())) {
             exclusion = cleanTitle;
             exclusionReason = "ANNOUNCEMENT_OR_PREVIEW";
         }
-        if (exclusion.isEmpty() && FUTURE_DEPLOYMENT.matcher(intro).find() && deployed.isEmpty()) {
-            exclusion = firstMatch(FUTURE_DEPLOYMENT, intro);
-            exclusionReason = "FUTURE_DEPLOYMENT";
+        if (exclusion.isEmpty() && deployed.isEmpty()) {
+            String futureDeployment = findFutureDeploymentBeforeChanges(lines);
+            if (!futureDeployment.isEmpty()) {
+                exclusion = futureDeployment;
+                exclusionReason = "FUTURE_DEPLOYMENT";
+            }
         }
         if (exclusion.isEmpty() && MERCHANDISE.matcher(cleanTitle).find() && !changeEvidence) {
             exclusion = cleanTitle;
@@ -251,6 +291,7 @@ public final class PatchClassifier {
     private static String findFollowingChanges(List<String> lines, int start, boolean allowNamedFeatures) {
         int count = 0;
         String firstChange = "";
+        boolean descriptiveChangeItems = CHANGE_CATEGORY_HEADING.matcher(lines.get(start)).matches();
         // Local windows allow subsection labels (Items, NPCs), without pairing a heading with the entire notice.
         int end = Math.min(lines.size(), start + (allowNamedFeatures ? 21 : 51));
         for (int index = start + 1; index < end; index++) {
@@ -259,7 +300,10 @@ public final class PatchClassifier {
             if (SECTION_STOP.matcher(normalized).find() || NON_CURRENT_CONTEXT.matcher(line).find()) {
                 break;
             }
-            if (CHANGE_LINE.matcher(line).find() || (allowNamedFeatures && NAMED_FEATURE.matcher(line).matches())) {
+            if (isCompletedChange(line)
+                    || (descriptiveChangeItems && !CONDITIONAL_CHANGE_LINE.matcher(normalized).find()
+                        && ((line.startsWith("- ") && line.length() >= 10) || CHANGE_SUFFIX.matcher(line).matches()))
+                    || (allowNamedFeatures && NAMED_FEATURE.matcher(line).matches())) {
                 if (count++ == 0) {
                     firstChange = line;
                 }
@@ -271,6 +315,36 @@ public final class PatchClassifier {
         return "";
     }
 
+    private static String findFutureDeploymentBeforeChanges(List<String> lines) {
+        // A long introduction can announce a future deployment beyond the short intro window.
+        // Stop at actual changes so a later plan does not cancel the current patch.
+        for (String line : lines) {
+            if (isCompletedChange(line)) {
+                break;
+            }
+            String futureDeployment = firstMatch(FUTURE_DEPLOYMENT, line);
+            if (!futureDeployment.isEmpty()) {
+                return futureDeployment;
+            }
+        }
+        return "";
+    }
+
+    private static boolean isCompletedChange(String line) {
+        // A future event can be the object of an already completed fix.
+        // Deployment timing is checked separately; do not reject "Improved upcoming event visibility".
+        String change = line.replaceFirst("^(?:[-*•]|\\d+[.)])\\s*", "");
+        String withoutScope = CHANGE_SCOPE_PREFIX.matcher(change).replaceFirst("");
+        change = change.replaceFirst("^\\[([^\\]]+)\\]\\s*", "$1 ");
+        if (CONDITIONAL_CHANGE_LINE.matcher(change).find()) {
+            return false;
+        }
+        return CHANGE_LINE.matcher(change).find()
+                || CHANGE_LINE.matcher(withoutScope).find()
+                || COMPONENT_CHANGE_LINE.matcher(change).find()
+                || PASSIVE_CHANGE_LINE.matcher(change).find();
+    }
+
     private static String firstMatch(Pattern pattern, String text) {
         Matcher matcher = pattern.matcher(text);
         return matcher.find() ? matcher.group() : "";
@@ -278,9 +352,12 @@ public final class PatchClassifier {
 
     static String plainText(String text) {
         // Remove formatting only; preserve headings, sentence order and change-list boundaries.
-        return text.replaceAll("(?is)\\[img[^\\]]*\\].*?\\[/img\\]", " ")
-                .replaceAll("(?i)\\[/?(?:h[1-6]|list|olist|\\*|p|tr)[^\\]]*\\]|<\\s*/?(?:p|br|li|h[1-6]|div)[^>]*>", "\n")
-                .replaceAll("(?i)\\[/?(?:url|b|i|u|quote|table|th|td|strike|spoiler)[^\\]]*\\]|<[^>]*>", " ")
+        return text.replaceAll("(?is)\\[img(?=[\\s=\\]])[^\\]]*\\].*?\\[/img\\]", " ")
+                .replaceAll("(?i)\\[\\*\\]", "\n- ")
+                .replaceAll("(?i)\\[/?(?:h[1-6]|list|olist|\\*|p|tr)(?=[\\s=\\]])[^\\]]*\\]"
+                        + "|<\\s*/?(?:p|br|li|h[1-6]|div)(?=[\\s/>])[^>]*>", "\n")
+                .replaceAll("(?i)\\[/?(?:url|b|i|u|quote|table|th|td|strike|spoiler)(?=[\\s=\\]])[^\\]]*\\]"
+                        + "|<[^>]*>", " ")
                 .replace("&nbsp;", " ").replace("&amp;", "&").replace("&#39;", "'").replace("&quot;", "\"")
                 .replaceAll("[\\t ]+", " ");
     }

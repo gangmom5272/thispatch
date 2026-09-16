@@ -1,0 +1,98 @@
+{
+  "input_rows": 95915,
+  "unique_gids": 95913,
+  "games": 390,
+  "sources": [
+    {
+      "corpus": "date-validation-large-20260915",
+      "rows": 40577,
+      "validation_collected_ts": 1789438492
+    },
+    {
+      "corpus": "date-validation-expanded-20260915",
+      "rows": 55338,
+      "validation_collected_ts": 1789440356
+    }
+  ],
+  "note": "Stored Steam notices mapped to NewsSchema.NEWS_RAW. collected_ts is a validation import timestamp based on each corpus completion, not an observed per-notice collector timestamp. No game names added. No live HDFS or DB access.",
+  "classified_rows": 95913,
+  "decisions_and_scopes": [
+    {
+      "decision": "NOT_PATCH",
+      "scope": "DEFAULT",
+      "count": 2422
+    },
+    {
+      "decision": "NOT_PATCH",
+      "scope": "TEST",
+      "count": 28
+    },
+    {
+      "decision": "PATCH",
+      "scope": "CLIENT",
+      "count": 1
+    },
+    {
+      "decision": "PATCH",
+      "scope": "DEFAULT",
+      "count": 21901
+    },
+    {
+      "decision": "PATCH",
+      "scope": "MIXED",
+      "count": 3
+    },
+    {
+      "decision": "PATCH",
+      "scope": "TEST",
+      "count": 890
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "scope": "DEFAULT",
+      "count": 69590
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "scope": "MIXED",
+      "count": 3
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "scope": "NON_STEAM",
+      "count": 93
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "scope": "OTHER_GAME",
+      "count": 20
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "scope": "TEST",
+      "count": 962
+    }
+  ],
+  "rule_version": "patch-rules-4",
+  "source_hashes": {
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassifier.java": "52d3e3bed53b49e4e49539e7bf2ec5a1998f57936a905b8a8c6edf04fe410b1e",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassificationProcessor.java": "e772071162fcdf73184a88d4635a77f51283061c300d7fbd3c71a3c5eea7ef05",
+    "spark/src/main/java/com/ssafy/thispatch/spark/PatchClassificationJob.java": "4db471e578d2c0121346d02e34b8f42bb4ccbf4b759b14b0581ccb5f9c3c0307"
+  },
+  "assessment": "Input-to-classifier integration and row coverage verified; decision counts are not accuracy scores.",
+  "parquet_sha256": {
+    "part-00000.parquet": "4f99b64e56d2bfb0c3e33166141a5f7e0c4d1caafcc502a161740ced2aac5dd2",
+    "part-00001.parquet": "49eff0a325f8e9676b2fc8bc1eb101b719aa64703e33aa0aef4a58fb00d968ef"
+  },
+  "decision_totals": {
+    "PATCH": 22795,
+    "NOT_PATCH": 2450,
+    "REVIEW_REQUIRED": 70668
+  },
+  "spark_tests": {
+    "tests": 169,
+    "failures": 0,
+    "errors": 0,
+    "new_connection_tests": 8
+  }
+}

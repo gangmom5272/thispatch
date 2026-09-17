@@ -18,6 +18,7 @@ import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrends
 import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
+import LandingPage from "@/pages/Landing/LandingPage"
 import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
@@ -38,7 +39,7 @@ export const router = createBrowserRouter([
       },
       {
         path: routeSegment(paths.landing),
-        element: <PlaceholderPage title="랜딩" />,
+        element: <LandingPage />,
       },
       {
         path: routeSegment(paths.gameDetailPattern),

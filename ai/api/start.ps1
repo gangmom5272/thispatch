@@ -1,4 +1,4 @@
-# This Patch AI 서버 기동 (Windows, 개발기). 사용자가 직접 실행한다 - 자동 기동 없음.
+﻿# This Patch AI 서버 기동 (Windows, 개발기). 사용자가 직접 실행한다 - 자동 기동 없음.
 #   .\start.ps1            포트 8100
 #   .\start.ps1 -Port 8200
 # 순서: Ollama 확인(없으면 띄움) → FastAPI 시작(모델 워밍업은 서버가 백그라운드로) → /health 가 ready 될 때까지 표시

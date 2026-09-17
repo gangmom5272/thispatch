@@ -11,11 +11,16 @@ export default function GameSummaryPopover({ summary }: { summary: GameSummary }
       <div className="flex flex-col gap-sb-2 p-sb-4">
         <p className="text-sb-lead font-medium">{summary.title}</p>
         <p className="text-sb-ink-mute">
-          <time className="font-sb-mono tabular-nums">{summary.releasedAt.slice(0, 10)}</time> 출시
-          · {summary.developer} · {summary.playModes.join(" · ")}
+          {summary.releasedOn && (
+            <>
+              <time className="font-sb-mono tabular-nums">{summary.releasedOn.slice(0, 10)}</time>{" "}
+              출시 ·{" "}
+            </>
+          )}
+          {summary.developer} · {summary.playModes.join(" · ")}
         </p>
         <hr className="border-sb-hairline" />
-        <p className="leading-relaxed">{summary.description}</p>
+        <p className="leading-relaxed">{summary.description ?? "게임 설명이 없습니다."}</p>
         <hr className="border-sb-hairline" />
         <p className="text-sb-ink-mute">사용자 태그</p>
         <ul className="flex flex-wrap gap-sb-1">
@@ -30,7 +35,9 @@ export default function GameSummaryPopover({ summary }: { summary: GameSummary }
           <div className="flex gap-sb-2">
             <dt className="text-sb-ink-mute">리뷰</dt>
             <dd className="font-sb-mono tabular-nums">
-              {summary.reviewCount.toLocaleString("ko-KR")}건
+              {summary.reviewCount === null
+                ? "집계 전"
+                : `${summary.reviewCount.toLocaleString("ko-KR")}건`}
             </dd>
           </div>
           <div className="flex gap-sb-2">

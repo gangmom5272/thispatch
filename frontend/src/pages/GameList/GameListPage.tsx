@@ -8,9 +8,9 @@ import {
   GAME_SORT_OPTIONS,
   isGameSort,
 } from "../../constants/games"
-import { useGameList } from "../../hooks/queries/gameQueries"
+import { useGameList, useMyGameList } from "../../hooks/queries/gameQueries"
 import { useGenreList } from "../../hooks/queries/genreQueries"
-import type { Game, GameFilterConditions } from "../../types"
+import type { Game, GameFilterConditions, MyGame } from "../../types"
 import GameCard from "./components/GameCard"
 import GameFilterDialog from "./components/GameFilterDialog"
 import GameSearchCombobox from "./components/GameSearchCombobox"
@@ -61,11 +61,13 @@ export default function GameListPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [searchValue, setSearchValue] = useState(applied.search)
 
-  const query = useGameList({
+  const filters = {
     search: applied.search || undefined,
     sort: applied.sort,
     genreIds: applied.genreIds.length > 0 ? applied.genreIds : undefined,
-  })
+  }
+  const query = useGameList(filters)
+  const myGames = useMyGameList(filters)
 
   const apply = (next: AppliedConditions) => {
     setPending({ sort: next.sort, genreIds: next.genreIds })
@@ -166,33 +168,45 @@ export default function GameListPage() {
           )}
         </form>
 
-        {query.isPending && <GameListSkeleton />}
-        {query.isError && (
-          <div role="alert" className={panelClass}>
-            <p>
-              {isApiError(query.error)
-                ? query.error.message
-                : "게임 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
-            </p>
-            <button
-              type="button"
-              onClick={() => query.refetch()}
-              disabled={query.isFetching}
-              className={secondaryButtonClass}
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-        {query.isSuccess && (
-          <GameSections
-            items={query.data.pages.flatMap((page) => page.items)}
-            hasNextPage={query.hasNextPage}
-            isFetchingNextPage={query.isFetchingNextPage}
-            isFetchNextPageError={query.isFetchNextPageError}
-            onLoadMore={() => query.fetchNextPage()}
-          />
-        )}
+        <MyGameSection
+          items={myGames.data ?? []}
+          isPending={myGames.isPending}
+          isError={myGames.isError}
+          error={myGames.error}
+          isFetching={myGames.isFetching}
+          onRetry={() => myGames.refetch()}
+        />
+
+        <section className="flex flex-col gap-sb-5">
+          <SectionLabel>전체 게임</SectionLabel>
+          {query.isPending && <GameGridSkeleton />}
+          {query.isError && (
+            <div role="alert" className={panelClass}>
+              <p>
+                {isApiError(query.error)
+                  ? query.error.message
+                  : "게임 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
+              </p>
+              <button
+                type="button"
+                onClick={() => query.refetch()}
+                disabled={query.isFetching}
+                className={secondaryButtonClass}
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+          {query.isSuccess && (
+            <AllGames
+              items={query.data.pages.flatMap((page) => page.items)}
+              hasNextPage={query.hasNextPage}
+              isFetchingNextPage={query.isFetchingNextPage}
+              isFetchNextPageError={query.isFetchNextPageError}
+              onLoadMore={() => query.fetchNextPage()}
+            />
+          )}
+        </section>
       </main>
 
       {isFilterOpen && (
@@ -215,19 +229,10 @@ function SectionLabel({ children }: { children: string }) {
   )
 }
 
-function GameGrid({ items }: { items: Game[] }) {
-  return (
-    <ul className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((game) => (
-        <li key={game.id}>
-          <GameCard game={game} />
-        </li>
-      ))}
-    </ul>
-  )
-}
+const cardSkeletonClass =
+  "h-72 animate-pulse rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface motion-reduce:animate-none"
 
-function GameListSkeleton() {
+function GameGridSkeleton() {
   return (
     <ul
       aria-label="게임 목록 불러오는 중"
@@ -235,16 +240,80 @@ function GameListSkeleton() {
       className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4"
     >
       {Array.from({ length: SKELETON_COUNT }, (_, index) => (
-        <li
-          key={index}
-          className="h-72 animate-pulse rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface motion-reduce:animate-none"
-        />
+        <li key={index} className={cardSkeletonClass} />
       ))}
     </ul>
   )
 }
 
-interface GameSectionsProps {
+interface MyGameSectionProps {
+  items: MyGame[]
+  isPending: boolean
+  isError: boolean
+  error: unknown
+  isFetching: boolean
+  onRetry: () => void
+}
+
+function MyGameSection({
+  items,
+  isPending,
+  isError,
+  error,
+  isFetching,
+  onRetry,
+}: MyGameSectionProps) {
+  if (!isPending && !isError && items.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-sb-5">
+      <SectionLabel>내 게임</SectionLabel>
+      {isPending && (
+        <ul
+          aria-label="내 게임 불러오는 중"
+          aria-busy="true"
+          className="flex gap-sb-5 overflow-x-auto pb-sb-2"
+        >
+          {Array.from({ length: SKELETON_COUNT }, (_, index) => (
+            <li key={index} className={`w-72 shrink-0 ${cardSkeletonClass}`} />
+          ))}
+        </ul>
+      )}
+      {isError && (
+        <div role="alert" className={panelClass}>
+          <p>
+            {isApiError(error)
+              ? error.message
+              : "내 게임을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={isFetching}
+            className={secondaryButtonClass}
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+      {items.length > 0 && (
+        <ul
+          tabIndex={0}
+          aria-label="내 게임"
+          className="flex gap-sb-5 overflow-x-auto pb-sb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+        >
+          {items.map((game) => (
+            <li key={game.id} className="w-72 shrink-0">
+              <GameCard game={game} isMine />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+interface AllGamesProps {
   items: Game[]
   hasNextPage: boolean
   isFetchingNextPage: boolean
@@ -252,13 +321,13 @@ interface GameSectionsProps {
   onLoadMore: () => void
 }
 
-function GameSections({
+function AllGames({
   items,
   hasNextPage,
   isFetchingNextPage,
   isFetchNextPageError,
   onLoadMore,
-}: GameSectionsProps) {
+}: AllGamesProps) {
   if (items.length === 0) {
     return (
       <div className={panelClass}>
@@ -268,23 +337,18 @@ function GameSections({
     )
   }
 
-  const mine = items.filter((game) => game.isMine)
-  const others = items.filter((game) => !game.isMine)
-
   return (
     <>
-      {mine.length > 0 && (
-        <section className="flex flex-col gap-sb-5">
-          <SectionLabel>내 게임</SectionLabel>
-          <GameGrid items={mine} />
-        </section>
-      )}
-      {others.length > 0 && (
-        <section className="flex flex-col gap-sb-5">
-          <SectionLabel>다른 게임</SectionLabel>
-          <GameGrid items={others} />
-        </section>
-      )}
+      <ul
+        aria-label="전체 게임"
+        className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {items.map((game) => (
+          <li key={game.id}>
+            <GameCard game={game} isMine={game.isMine} />
+          </li>
+        ))}
+      </ul>
       {isFetchNextPageError && (
         <div className="flex flex-col items-center gap-sb-2 py-sb-4">
           <p role="alert" className="text-sb-neg-text">

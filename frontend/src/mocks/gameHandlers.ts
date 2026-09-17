@@ -1,12 +1,14 @@
 import { delay, http, HttpResponse } from "msw"
 import { DEFAULT_GAME_SORT, isGameSort } from "../constants/games"
-import type { Game, GameDetail, GameSort } from "../types"
+import type { Game, GameDetail, GameSort, MyGame } from "../types"
 import { mockGames } from "./games"
 import { userFromAuthHeader } from "./lib/authStore"
 
 const baseURL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "")
 const registeredGames = new Set(mockGames.filter((game) => game.isMine).map((game) => game.id))
 const invalidFiltersMessage = "검색 조건 또는 페이지 커서가 올바르지 않습니다."
+
+type MockGame = (typeof mockGames)[number]
 
 function respond(status: number, message: string, data?: unknown) {
   return HttpResponse.json(
@@ -25,7 +27,7 @@ function isAuthorized(request: Request) {
   return userFromAuthHeader(request) !== null
 }
 
-function toGameDetail(game: (typeof mockGames)[number]): GameDetail {
+function toGameDetail(game: MockGame): GameDetail {
   return {
     id: game.id,
     capsuleImageUrl: game.capsuleImageUrl,
@@ -56,88 +58,100 @@ function readCursor(cursor: string, filterKey: string): number {
   return decoded.id
 }
 
+const comparators: Record<GameSort, (a: MockGame, b: MockGame) => number> = {
+  POSITIVE_RATE_ASC: (a, b) => a.positiveRate - b.positiveRate,
+  REVIEW_COUNT_DESC: (a, b) => b.reviewCount - a.reviewCount,
+  REACTION_CHANGE_DESC: (a, b) => b.reactionChange - a.reactionChange,
+  RELEASE_DATE_DESC: (a, b) => b.releasedAt.localeCompare(a.releasedAt),
+}
+
+/** 전체 게임과 내 게임이 같은 검색·정렬·커서 규칙을 쓰되 커서는 scope 별로 분리된다. */
+function listResponse(request: Request, scope: "all" | "mine", pool: MockGame[]) {
+  const params = new URL(request.url).searchParams
+  const search = params.get("search") ?? ""
+  const sort = params.get("sort") ?? DEFAULT_GAME_SORT
+  const rawLimit = params.get("limit") ?? "10"
+  const limit = Number(rawLimit)
+  const rawGenres = params.get("genreIds")
+  const genreIds = rawGenres === null ? [] : rawGenres.split(",").map(Number)
+  if (
+    search.length > 100 ||
+    !isGameSort(sort) ||
+    !/^\d+$/.test(rawLimit) ||
+    limit < 1 ||
+    limit > 100 ||
+    (rawGenres !== null && !/^\d+(,\d+)*$/.test(rawGenres)) ||
+    genreIds.some((id) => !Number.isSafeInteger(id) || id < 1)
+  ) {
+    return respond(400, invalidFiltersMessage)
+  }
+
+  const matches = pool
+    .filter(
+      (game) =>
+        game.title.toLowerCase().includes(search.trim().toLowerCase()) &&
+        (genreIds.length === 0 || game.tags.some((tag) => genreIds.includes(tag.id))),
+    )
+    .toSorted((a, b) => comparators[sort](a, b) || a.id - b.id)
+
+  const filterKey = encodeURIComponent(
+    JSON.stringify([scope, search, sort, genreIds.toSorted((a, b) => a - b)]),
+  )
+  let offset = 0
+  const cursor = params.get("cursor")
+  if (cursor !== null) {
+    try {
+      const id = readCursor(cursor, filterKey)
+      const index = matches.findIndex((game) => game.id === id)
+      if (index < 0) {
+        return respond(400, invalidFiltersMessage)
+      }
+      offset = index + 1
+    } catch {
+      return respond(400, invalidFiltersMessage)
+    }
+  }
+
+  const items: Array<Game | MyGame> = matches.slice(offset, offset + limit).map((game) => ({
+    id: game.id,
+    capsuleImageUrl: game.capsuleImageUrl,
+    title: game.title,
+    tags: game.tags,
+    positiveRate: game.positiveRate,
+    ...(scope === "all" ? { isMine: registeredGames.has(game.id) } : {}),
+    gameSummary: game.gameSummary,
+  }))
+  const hasNext = offset + items.length < matches.length
+  const lastItem = items.at(-1)
+  return respond(200, "성공했습니다.", {
+    items,
+    page: {
+      limit,
+      totalCount: matches.length,
+      hasNext,
+      nextCursor: hasNext && lastItem ? btoa(JSON.stringify({ id: lastItem.id, filterKey })) : null,
+    },
+  })
+}
+
 export const gameHandlers = [
   http.get(`${baseURL}/games`, async ({ request }) => {
     await delay(250)
     if (!isAuthorized(request)) {
       return respond(401, "인증이 필요합니다.")
     }
-
-    const params = new URL(request.url).searchParams
-    const search = params.get("search") ?? ""
-    const sort = params.get("sort") ?? DEFAULT_GAME_SORT
-    const rawLimit = params.get("limit") ?? "10"
-    const limit = Number(rawLimit)
-    const rawGenres = params.get("genreIds")
-    const genreIds = rawGenres === null ? [] : rawGenres.split(",").map(Number)
-    if (
-      search.length > 100 ||
-      !isGameSort(sort) ||
-      !/^\d+$/.test(rawLimit) ||
-      limit < 1 ||
-      limit > 100 ||
-      (rawGenres !== null && !/^\d+(,\d+)*$/.test(rawGenres)) ||
-      genreIds.some((id) => !Number.isSafeInteger(id) || id < 1)
-    ) {
-      return respond(400, invalidFiltersMessage)
+    return listResponse(request, "all", mockGames)
+  }),
+  http.get(`${baseURL}/members/me/games`, async ({ request }) => {
+    await delay(250)
+    if (!isAuthorized(request)) {
+      return respond(401, "인증이 필요합니다.")
     }
-
-    const comparators: Record<
-      GameSort,
-      (a: (typeof mockGames)[number], b: (typeof mockGames)[number]) => number
-    > = {
-      POSITIVE_RATE_ASC: (a, b) => a.positiveRate - b.positiveRate,
-      REVIEW_COUNT_DESC: (a, b) => b.reviewCount - a.reviewCount,
-      REACTION_CHANGE_DESC: (a, b) => b.reactionChange - a.reactionChange,
-      RELEASE_DATE_DESC: (a, b) => b.releasedAt.localeCompare(a.releasedAt),
-    }
-    const matches = mockGames
-      .filter(
-        (game) =>
-          game.title.toLowerCase().includes(search.trim().toLowerCase()) &&
-          (genreIds.length === 0 || game.tags.some((tag) => genreIds.includes(tag.id))),
-      )
-      .toSorted((a, b) => comparators[sort](a, b) || a.id - b.id)
-
-    const filterKey = encodeURIComponent(
-      JSON.stringify([search, sort, genreIds.toSorted((a, b) => a - b)]),
+    return listResponse(
+      request,
+      "mine",
+      mockGames.filter((game) => registeredGames.has(game.id)),
     )
-    let offset = 0
-    const cursor = params.get("cursor")
-    if (cursor !== null) {
-      try {
-        const id = readCursor(cursor, filterKey)
-        const index = matches.findIndex((game) => game.id === id)
-        if (index < 0) {
-          return respond(400, invalidFiltersMessage)
-        }
-        offset = index + 1
-      } catch {
-        return respond(400, invalidFiltersMessage)
-      }
-    }
-
-    const items: Game[] = matches.slice(offset, offset + limit).map((game) => ({
-      id: game.id,
-      capsuleImageUrl: game.capsuleImageUrl,
-      title: game.title,
-      tags: game.tags,
-      positiveRate: game.positiveRate,
-      isMine: registeredGames.has(game.id),
-      gameSummary: game.gameSummary,
-    }))
-    const hasNext = offset + items.length < matches.length
-    const lastItem = items.at(-1)
-    return respond(200, "성공했습니다.", {
-      items,
-      page: {
-        limit,
-        totalCount: matches.length,
-        hasNext,
-        nextCursor:
-          hasNext && lastItem ? btoa(JSON.stringify({ id: lastItem.id, filterKey })) : null,
-      },
-    })
   }),
   http.get(`${baseURL}/games/:gameId`, async ({ request, params }) => {
     await delay(250)

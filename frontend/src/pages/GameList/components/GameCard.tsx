@@ -3,7 +3,7 @@ import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
 import { useToggleMyGame } from "../../../hooks/queries/gameQueries"
 import { gameDetailPath } from "../../../router/paths"
-import type { Game } from "../../../types"
+import type { Game, MyGame } from "../../../types"
 import GameSummaryPopover from "./GameSummaryPopover"
 
 const POSITIVE_RATE_MIN = 80
@@ -69,7 +69,7 @@ function StarIcon({ filled }: { filled: boolean }) {
   )
 }
 
-export default function GameCard({ game }: { game: Game }) {
+export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine: boolean }) {
   const { mutate, isPending, error } = useToggleMyGame()
   const [preview, setPreview] = useState<PopoverPosition | null>(null)
   const tone = rateTone(game.positiveRate)
@@ -109,15 +109,15 @@ export default function GameCard({ game }: { game: Game }) {
             </h3>
             <button
               type="button"
-              aria-pressed={game.isMine}
+              aria-pressed={isMine}
               aria-label={
-                game.isMine ? `${game.title} 내 게임 등록 해제` : `${game.title} 내 게임으로 등록`
+                isMine ? `${game.title} 내 게임 등록 해제` : `${game.title} 내 게임으로 등록`
               }
               disabled={isPending}
-              onClick={() => mutate({ gameId: game.id, isMine: game.isMine })}
-              className={`relative z-10 shrink-0 cursor-pointer rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50 ${game.isMine ? "text-sb-amber-text hover:text-sb-ink-mute" : "text-sb-ink-mute hover:text-sb-ink"}`}
+              onClick={() => mutate({ gameId: game.id, isMine })}
+              className={`relative z-10 shrink-0 cursor-pointer rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50 ${isMine ? "text-sb-amber-text hover:text-sb-ink-mute" : "text-sb-ink-mute hover:text-sb-ink"}`}
             >
-              <StarIcon filled={game.isMine} />
+              <StarIcon filled={isMine} />
             </button>
           </div>
           {error && (

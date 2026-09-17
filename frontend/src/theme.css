@@ -88,6 +88,93 @@
   --radius-sb-card: 8px;
   --radius-sb-modal: 12px;
 
+  /* 랜딩 모션 — docs/landing-animation-plan.md 2절 공통 규칙 */
+  --ease-sb-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  /* 이동 거리는 --sb-marquee-distance, 주기는 animation-duration으로 트랙마다 주입한다. */
+  --animate-sb-marquee-ltr: sb-marquee-ltr 60s linear infinite;
+  --animate-sb-marquee-rtl: sb-marquee-rtl 60s linear infinite;
+
+  @keyframes sb-marquee-ltr {
+    from {
+      transform: translate3d(calc(var(--sb-marquee-distance) * -1), 0, 0);
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes sb-marquee-rtl {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(calc(var(--sb-marquee-distance) * -1), 0, 0);
+    }
+  }
+
+  /* 타이핑 커서 깜빡임. */
+  --animate-sb-caret-blink: sb-caret-blink 1s step-end infinite;
+
+  @keyframes sb-caret-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* Hero CTA 테두리를 도는 빛 (magicui shimmer-button 방식). */
+  --animate-sb-shimmer-slide: sb-shimmer-slide 3s ease-in-out infinite alternate;
+  --animate-sb-spin-around: sb-spin-around 6s linear infinite;
+
+  @keyframes sb-shimmer-slide {
+    to {
+      transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+
+  @keyframes sb-spin-around {
+    0% {
+      transform: translateZ(0) rotate(0);
+    }
+    15%,
+    35% {
+      transform: translateZ(0) rotate(90deg);
+    }
+    65%,
+    85% {
+      transform: translateZ(0) rotate(270deg);
+    }
+    100% {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+
+  /* 스크롤 안내 선. 위에서 아래로 자란 뒤 위쪽부터 빠져나간다. */
+  --animate-sb-scroll-hint: sb-scroll-hint 2s ease-in-out infinite;
+
+  @keyframes sb-scroll-hint {
+    0% {
+      transform: scaleY(0);
+      transform-origin: top;
+    }
+    45% {
+      transform: scaleY(1);
+      transform-origin: top;
+    }
+    45.1% {
+      transform: scaleY(1);
+      transform-origin: bottom;
+    }
+    90%,
+    100% {
+      transform: scaleY(0);
+      transform-origin: bottom;
+    }
+  }
+
   --shadow-sb-hero: 0 18px 48px -8px #00000099;
   --shadow-sb-modal: 0 16px 44px #00000080;
   --shadow-sb-popover: 0 12px 32px -4px #00000099;

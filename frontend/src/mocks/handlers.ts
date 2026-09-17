@@ -1,4 +1,5 @@
 import { gameHandlers } from "./gameHandlers"
+import { genreHandlers } from "./handlers/genreHandlers"
 import { authHandlers } from "./handlers/authHandlers"
 import { healthHandlers } from "./handlers/healthHandlers"
 import { languageAnalysisHandlers } from "./handlers/languageAnalysisHandlers"
@@ -13,6 +14,7 @@ export const handlers = [
   ...sessionHandlers,
   ...authHandlers,
   ...gameHandlers,
+  ...genreHandlers,
   ...reactionTrendsHandlers,
   ...playtimeTopicsHandlers,
   ...reviewHandlers,

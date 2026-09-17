@@ -3,6 +3,11 @@ export interface GameTag {
   name: string
 }
 
+/** GET /genres */
+export interface GenreList {
+  items: GameTag[]
+}
+
 export interface Game {
   id: number
   capsuleImageUrl: string

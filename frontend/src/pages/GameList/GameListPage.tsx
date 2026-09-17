@@ -5,11 +5,11 @@ import LoadMoreSentinel from "../../components/LoadMoreSentinel"
 import {
   DEFAULT_GAME_FILTER,
   DEFAULT_GAME_SORT,
-  GAME_GENRES,
   GAME_SORT_OPTIONS,
   isGameSort,
 } from "../../constants/games"
 import { useGameList } from "../../hooks/queries/gameQueries"
+import { useGenreList } from "../../hooks/queries/genreQueries"
 import type { Game, GameFilterConditions } from "../../types"
 import GameCard from "./components/GameCard"
 import GameFilterDialog from "./components/GameFilterDialog"
@@ -26,7 +26,7 @@ function readConditions(params: URLSearchParams): AppliedConditions {
   const genreIds = (params.get("genreIds") ?? "")
     .split(",")
     .map(Number)
-    .filter((id) => GAME_GENRES.some((genre) => genre.id === id))
+    .filter((id) => Number.isInteger(id) && id > 0)
   return {
     search: params.get("search") ?? "",
     sort: isGameSort(sort) ? sort : DEFAULT_GAME_SORT,
@@ -79,6 +79,9 @@ export default function GameListPage() {
     searchWith(searchValue)
   }
 
+  const genres = useGenreList().data ?? []
+  const genreName = (id: number) => genres.find((genre) => genre.id === id)?.name ?? `장르 ${id}`
+
   const sortLabel = GAME_SORT_OPTIONS.find((option) => option.value === applied.sort)?.label
   const hasAppliedConditions = applied.genreIds.length > 0 || applied.sort !== DEFAULT_GAME_SORT
   const pendingCount = pending.genreIds.length + (pending.sort !== DEFAULT_GAME_SORT ? 1 : 0)
@@ -114,7 +117,7 @@ export default function GameListPage() {
           {hasAppliedConditions ? (
             <ul aria-label="적용된 조건" className="flex flex-wrap items-center gap-sb-2">
               {applied.genreIds.map((id) => {
-                const name = GAME_GENRES.find((genre) => genre.id === id)?.name
+                const name = genreName(id)
                 return (
                   <li key={id}>
                     <button

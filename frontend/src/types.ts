@@ -73,11 +73,14 @@ export interface PlanEntity {
   editable: boolean
 }
 
+export type PatchChangeType = "ADD" | "REMOVE" | "MODIFY" | "FIX" | "DEPRECATE"
+
 export interface PlanSlot {
   id: number
   targetName: string
   targetRole: string
   attribute: string
+  changeType: PatchChangeType
   direction: string
   magnitude: string | null
   scope: string | null
@@ -115,8 +118,10 @@ export type CaseSearchSort = "REVIEW_COUNT_DESC"
 export type CaseOutcome = "NEGATIVE_SHIFT" | "NO_CHANGE" | "POSITIVE_SHIFT"
 
 export interface ConfirmedSlot {
+  magnitude: string | null
   target: { name: string; role: string }
   attribute: string
+  changeType: PatchChangeType
   direction: string
   scope: string | null
 }

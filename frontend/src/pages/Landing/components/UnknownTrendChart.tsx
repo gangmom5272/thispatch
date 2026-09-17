@@ -6,10 +6,10 @@ import {
   TREND_UNKNOWN_DAY_LABELS,
 } from "@/pages/Landing/demoData"
 
-/* 세로 치수와 색은 thispatch.pen `SB / 01 진단 · 반응 추세`의 일별 칸 구성을 그대로 옮긴 값이다. */
-const RATE_HEIGHT = 136
+/* 색과 칸 구성은 thispatch.pen `SB / 01 진단 · 반응 추세`를 따르되, 배경으로 쓰느라 세로만 늘렸다. */
+const RATE_HEIGHT = 216
 const BAND_GAP = 5
-const VOL_HEIGHT = 76
+const VOL_HEIGHT = 124
 const LABEL_HEIGHT = 21
 const HEIGHT = RATE_HEIGHT + BAND_GAP + VOL_HEIGHT + BAND_GAP + LABEL_HEIGHT
 const VOL_TOP = RATE_HEIGHT + BAND_GAP
@@ -21,10 +21,11 @@ const RIGHT_AXIS_WIDTH = 44
 const COLUMNS_X = Y_AXIS_WIDTH + AXIS_GAP
 const SIDE_WIDTH = COLUMNS_X + AXIS_GAP + RIGHT_AXIS_WIDTH
 
-/** Y축 눈금은 80%~40%를 5칸으로 나눈 pen 값과 같은 위치에 둔다. */
+/** Y축 눈금은 pen처럼 80%~40% 다섯 칸을 긍정률 영역에 고르게 배치한다. */
 const RATE_TICKS = [80, 70, 60, 50, 40]
-const RATE_TICK_TOP = 10.5
-const RATE_TICK_BOTTOM = 125.5
+const AXIS_LABEL_HEIGHT = 21
+const RATE_TICK_TOP = AXIS_LABEL_HEIGHT / 2
+const RATE_TICK_BOTTOM = RATE_HEIGHT - AXIS_LABEL_HEIGHT / 2
 const COUNT_TICKS = [40, 20, 0]
 const COUNT_MAX = 40
 

@@ -128,7 +128,7 @@ function QuestionSection() {
       <div
         className={cn(
           SECTION_CLASS,
-          "relative flex min-h-120 flex-col items-center justify-center gap-sb-6 text-center",
+          "relative flex min-h-140 flex-col items-center justify-center gap-sb-6 text-center",
         )}
       >
         <p className="text-sb-lead text-sb-ink-mute">

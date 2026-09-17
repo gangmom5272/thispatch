@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react"
+import { useRef, useState, type CSSProperties } from "react"
 import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
 import { GameImage } from "@/components/GameImage"
@@ -38,6 +38,7 @@ interface PopoverPosition {
 
 type PopoverStyle = CSSProperties & Record<"--popover-x" | "--popover-y", string>
 
+/** 카드 rect 기준으로 요약 팝오버 좌표를 계산한다. */
 function popoverPositionFor(card: DOMRect): PopoverPosition {
   const fitsRight = card.right + POPOVER_GAP + POPOVER_WIDTH <= window.innerWidth - VIEWPORT_MARGIN
   const x = fitsRight
@@ -71,39 +72,61 @@ function StarIcon({ filled }: { filled: boolean }) {
   )
 }
 
+/** 게임 목록 카드. 캡슐 이미지 호버 시에만 요약 팝오버를 연다. */
 export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine: boolean }) {
   const { mutate, isPending, error } = useToggleMyGame()
   const [preview, setPreview] = useState<PopoverPosition | null>(null)
+  // 팝오버 위치 계산용 카드 루트
+  const cardRef = useRef<HTMLElement>(null)
   const tone = rateTone(game.positiveRate)
+  const detailPath = gameDetailPath(game.id)
 
-  const openPreview = (target: HTMLElement) =>
-    setPreview(popoverPositionFor(target.getBoundingClientRect()))
+  /** 카드 rect 기준으로 요약 팝오버를 연다. */
+  const openPreview = () => {
+    const card = cardRef.current
+    if (!card) return
+    setPreview(popoverPositionFor(card.getBoundingClientRect()))
+  }
   const closePreview = () => setPreview(null)
   const popoverStyle: PopoverStyle | undefined = preview
     ? { "--popover-x": `${preview.x}px`, "--popover-y": `${preview.y}px` }
     : undefined
 
   return (
-    <div
-      className="h-full"
-      onMouseEnter={(event) => openPreview(event.currentTarget)}
-      onMouseLeave={closePreview}
-      onFocus={(event) => openPreview(event.currentTarget)}
-      onBlur={closePreview}
-    >
+    <div className="h-full">
       <article
+        ref={cardRef}
         className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${preview ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        <GameImage
-          src={game.capsuleImageUrl}
-          loading="lazy"
-          className="aspect-[460/215] w-full shrink-0"
-        />
+        {/* z-[1]: 제목 링크의 전체 클릭 영역(::after)보다 위에 두어 이미지 호버만 받는다 */}
+        <div
+          tabIndex={0}
+          className="relative z-[1] shrink-0 rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+          onMouseEnter={openPreview}
+          onMouseLeave={closePreview}
+          onFocus={openPreview}
+          onBlur={closePreview}
+        >
+          {/* 이미지 클릭도 상세로 이동(제목 스트레치 링크가 가려지므로) */}
+          <Link
+            to={detailPath}
+            draggable={false}
+            tabIndex={-1}
+            className="block"
+            aria-hidden="true"
+          >
+            <GameImage
+              src={game.capsuleImageUrl}
+              loading="lazy"
+              className="aspect-[460/215] w-full"
+            />
+          </Link>
+        </div>
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             <h3 className="truncate text-sb-title font-medium" title={game.title}>
               <Link
-                to={gameDetailPath(game.id)}
+                to={detailPath}
                 draggable={false}
                 className="rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               >

@@ -110,7 +110,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
                     onClick={() => setExcludedGenreIds([])}
                     disabled={excludedGenreIds.length === 0}
                   >
-                    전체 장르
+                    전체 선택
                   </Button>
                 )}
               </div>

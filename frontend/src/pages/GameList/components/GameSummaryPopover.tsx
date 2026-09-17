@@ -1,13 +1,11 @@
+import { GameImage } from "@/components/GameImage"
 import type { GameSummary } from "../../../types"
 
+/** 게임 카드 호버 시 Steam 요약 정보를 보여 준다. */
 export default function GameSummaryPopover({ summary }: { summary: GameSummary }) {
   return (
     <div className="w-96 overflow-hidden rounded-sb-card border border-sb-hairline-strong bg-sb-canvas shadow-sb-popover">
-      <img
-        src={summary.headerImageUrl}
-        alt=""
-        className="h-32 w-full bg-sb-canvas-soft object-cover"
-      />
+      <GameImage src={summary.headerImageUrl} className="h-32 w-full bg-sb-canvas-soft" />
       <div className="flex flex-col gap-sb-2 p-sb-4">
         <p className="text-sb-lead font-medium">{summary.title}</p>
         <p className="text-sb-ink-mute">

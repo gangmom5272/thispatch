@@ -33,7 +33,7 @@ export const gameListOptions = (filters: GameFilters) =>
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) => getGames(filters, pageParam, signal),
     getNextPageParam: (lastPage) =>
-      lastPage.page.hasNext ? (lastPage.page.nextCursor ?? undefined) : undefined,
+      lastPage?.page?.hasNext ? (lastPage.page.nextCursor ?? undefined) : undefined,
   })
 
 export function useGameList(filters: GameFilters) {

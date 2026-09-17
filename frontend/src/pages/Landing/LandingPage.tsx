@@ -65,9 +65,12 @@ function HeroSection() {
         </Reveal>
       </div>
 
-      <div className="relative flex flex-wrap items-center justify-center gap-sb-3 px-sb-4 pb-sb-6 font-sb-mono text-sb-caption text-sb-ink-mute-2 md:justify-between md:px-sb-landing-gutter">
-        <span aria-hidden className="hidden md:inline">
-          SCROLL TO EXPLORE ↓
+      <div className="relative flex justify-center px-sb-4 pb-sb-6 md:px-sb-landing-gutter">
+        <span aria-hidden className="hidden flex-col items-center gap-sb-2 md:flex">
+          <span className="font-sb-mono text-sb-caption tracking-[0.3em] text-sb-ink-mute-2">
+            SCROLL
+          </span>
+          <span className="block h-8 w-px animate-sb-scroll-hint bg-linear-to-b from-transparent to-sb-ink-mute motion-reduce:animate-none" />
         </span>
       </div>
     </section>

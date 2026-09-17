@@ -112,6 +112,29 @@
     }
   }
 
+  /* 스크롤 안내 선. 위에서 아래로 자란 뒤 위쪽부터 빠져나간다. */
+  --animate-sb-scroll-hint: sb-scroll-hint 2s ease-in-out infinite;
+
+  @keyframes sb-scroll-hint {
+    0% {
+      transform: scaleY(0);
+      transform-origin: top;
+    }
+    45% {
+      transform: scaleY(1);
+      transform-origin: top;
+    }
+    45.1% {
+      transform: scaleY(1);
+      transform-origin: bottom;
+    }
+    90%,
+    100% {
+      transform: scaleY(0);
+      transform-origin: bottom;
+    }
+  }
+
   --shadow-sb-hero: 0 18px 48px -8px #00000099;
   --shadow-sb-modal: 0 16px 44px #00000080;
   --shadow-sb-popover: 0 12px 32px -4px #00000099;

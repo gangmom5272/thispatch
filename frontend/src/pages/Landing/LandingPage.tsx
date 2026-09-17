@@ -2,7 +2,7 @@ import { Link } from "react-router"
 import { cn } from "@/lib/cn"
 import { TopicAiSummaryCard } from "@/pages/GameDetail/PlaytimeTopics/components/TopicAiSummaryCard"
 import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
-import { RepresentativeReviewCard } from "@/pages/GameDetail/Reviews/components/RepresentativeReviewCard"
+import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
 import { HeroMarquee } from "@/pages/Landing/components/HeroMarquee"
 import { OutcomeCaseCard } from "@/pages/Landing/components/OutcomeCaseCard"
 import { Reveal } from "@/pages/Landing/components/Reveal"
@@ -10,8 +10,6 @@ import {
   DIAGNOSIS_AI_SUMMARY,
   DIAGNOSIS_REVIEW_COUNT,
   DIAGNOSIS_TOPICS,
-  EVIDENCE_REVIEWS,
-  EVIDENCE_STEPS,
   OUTCOME_CASES,
 } from "@/pages/Landing/demoData"
 import { paths } from "@/router/paths"
@@ -24,8 +22,8 @@ const PRIMARY_ACTION_CLASS =
 
 const FOOTER_LINKS = ["데이터 출처", "한계와 범위", "시연 데이터 안내"]
 
-/** 단계 구분선은 120ms 간격으로 순차 강조한다 (plan 3절 05). */
-const STEP_DELAYS = [0, 120, 240, 360] as const
+/** 결과군 카드는 100ms 간격으로 순차 등장한다 (plan 3절 04). */
+const CASE_DELAYS = [0, 100, 200] as const
 
 function ActionArrow() {
   return (
@@ -165,7 +163,7 @@ function ComparisonSection() {
         <ul className="mt-sb-8 grid gap-sb-4 lg:grid-cols-3">
           {OUTCOME_CASES.map((item, index) => (
             <li key={item.gameName}>
-              <Reveal variant="group" delay={STEP_DELAYS[index]} className="h-full">
+              <Reveal variant="group" delay={CASE_DELAYS[index]} className="h-full">
                 <OutcomeCaseCard item={item} />
               </Reveal>
             </li>
@@ -189,40 +187,9 @@ function EvidenceSection() {
           </h2>
         </Reveal>
 
-        <ol className="mt-sb-8 grid gap-sb-4 md:grid-cols-4">
-          {EVIDENCE_STEPS.map((item, index) => {
-            const isLast = index === EVIDENCE_STEPS.length - 1
-            return (
-              <li key={item.step}>
-                <Reveal variant="line" delay={STEP_DELAYS[index]} className="origin-left">
-                  <span
-                    className={cn(
-                      "block h-0.5",
-                      isLast ? "bg-sb-primary" : "bg-sb-hairline-strong",
-                    )}
-                  />
-                </Reveal>
-                <p className="mt-sb-3 font-sb-mono text-sb-caption text-sb-ink-mute">{item.step}</p>
-                <p className={cn("text-sb-title", isLast ? "text-sb-primary" : "text-sb-ink")}>
-                  {item.name}
-                </p>
-              </li>
-            )
-          })}
-        </ol>
-
-        <Reveal variant="group" className="mt-sb-8">
-          <h3 className="border-b border-sb-hairline pb-sb-3 text-sb-body font-medium text-sb-ink">
-            최근 대표 리뷰
-          </h3>
-          <ul className="mt-sb-4 grid gap-sb-4 lg:grid-cols-2">
-            {EVIDENCE_REVIEWS.map((review) => (
-              <li key={review.id}>
-                <RepresentativeReviewCard review={review} />
-              </li>
-            ))}
-          </ul>
-        </Reveal>
+        <div className="mt-sb-8">
+          <EvidenceSteps />
+        </div>
       </div>
     </section>
   )

@@ -59,13 +59,14 @@ interface RevealProps {
   variant?: keyof typeof VARIANT
   delay?: keyof typeof DELAY_CLASS
   className?: string
+  id?: string
 }
 
 /**
  * 뷰포트 진입 시 1회 등장. 한 번 나타난 내용은 역스크롤해도 유지한다.
  * 모션 축소이거나 IntersectionObserver를 쓸 수 없으면 처음부터 최종 상태로 보여준다.
  */
-export function Reveal({ children, variant = "title", delay = 0, className }: RevealProps) {
+export function Reveal({ children, variant = "title", delay = 0, className, id }: RevealProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [shown, setShown] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -92,6 +93,7 @@ export function Reveal({ children, variant = "title", delay = 0, className }: Re
   return (
     <div
       ref={ref}
+      id={id}
       className={cn(
         "ease-sb-enter transition-[opacity,transform] motion-reduce:transition-none",
         VARIANT[variant].duration,

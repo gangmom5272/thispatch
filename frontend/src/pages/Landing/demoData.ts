@@ -256,11 +256,21 @@ export const OUTCOME_CASES: OutcomeCase[] = [
 
 /** 05 근거 섹션 — 분석에서 원문으로 이어지는 네 단계. */
 export const EVIDENCE_STEPS = [
-  { step: "01", name: "긍정률" },
-  { step: "02", name: "토픽 분석" },
-  { step: "03", name: "AI 요약" },
-  { step: "04", name: "리뷰 원문" },
+  { step: "01", name: "긍정률", hint: "패치 전후로 반응이 얼마나 움직였는지 먼저 봅니다." },
+  { step: "02", name: "토픽 분석", hint: "어떤 주제에서 이야기가 몰렸는지 좁혀 봅니다." },
+  { step: "03", name: "AI 요약", hint: "반복되는 반응을 한 번에 읽습니다." },
+  { step: "04", name: "리뷰 원문", hint: "마지막에는 유저가 쓴 문장을 그대로 확인합니다." },
 ] as const
+
+/** 05 근거 섹션 01단계 — 패치 전후 긍정률. */
+export const EVIDENCE_RATE = {
+  periodLabel: "v2.4.0 패치 전후 14일 · 수정일 기준 집계",
+  before: 78.4,
+  after: 60.6,
+  reviewCount: DIAGNOSIS_REVIEW_COUNT,
+  positiveCount: 40,
+  negativeCount: 26,
+}
 
 /** 05 근거 섹션 — 최근 대표 리뷰 원문. */
 export const EVIDENCE_REVIEWS: Review[] = [

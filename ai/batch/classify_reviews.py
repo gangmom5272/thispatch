@@ -5,10 +5,11 @@
 출력  {AI_WORK_DIR}/out/review_topic/dt=D/   (recommendationid, appid, topic_id, score) — 리뷰 하나에 여러 행
 실행  python classify_reviews.py --dt 2026-09-11 [--base] [--limit N]
 
-분류기: logreg-gemma512-v2.joblib (토픽별 {model, threshold}). 사람 라벨 490건(0908_return) + LLM 라벨 300건으로
-        학습 — train_topic_clf.py. 환경 변수 CLASSIFIER_PATH, 기본 ai/models/logreg-gemma512-v2.joblib (git 밖).
-        교차검증 micro-F1 0.58(영 0.57·한 0.58). v1(LLM 라벨만)은 사람 정답 기준 0.43 이었고 balance 를 2.4배 과다 부여했다.
-        ui(F1 0.33)·ops(0.50)는 아직 약하다 — 화면에서 참고 수준으로 다룬다.
+분류기: logreg-gemma512-v3.joblib (토픽별 {model, threshold}). 사람 라벨 686건(0908_return 490 + 0916_return 196)
+        + LLM 라벨 300건으로 학습 — train_topic_clf.py. 환경 변수 CLASSIFIER_PATH, 기본 ai/models/logreg-gemma512-v3.joblib (git 밖).
+        같은 무작위 표본 490건에서 잰 micro-F1: v1 0.43 → v2 0.54 → v3 0.56.
+        v3 파일에 적힌 0.65 는 2차 라벨(ui·ops 편중)이 섞인 정답지 기준이라 위 값들과 비교하면 안 된다.
+        ui(0.35)·ops(0.50)는 2차 보강 뒤에도 약하다 — 화면에서 참고 수준으로 다룬다.
 토픽 ID: balance=1, bug=2, ui=3, ops=4, bm=5  (topic 테이블 시드와 맞춰야 함 — CONTRACT.md 4절)
 벡터는 저장하지 않는다. 30바이트 이하 리뷰는 건너뛴다(노트북 08 규칙).
 언어: 기본 english,koreana (--languages). 한국어는 9/16 사람 라벨 180건으로 영어와 같은 수준을 확인했다.
@@ -30,7 +31,7 @@ from common import (EMBED_DIM, EMBED_MODEL_ID, REVIEW_TOPIC_SCHEMA, WORK, has_su
 
 TOPICS = ["balance", "bug", "ui", "ops", "bm"]
 TOPIC_ID = {t: i + 1 for i, t in enumerate(TOPICS)}
-CLF_PATH = Path(os.environ.get("CLASSIFIER_PATH", Path(__file__).parent.parent / "models" / "logreg-gemma512-v2.joblib"))
+CLF_PATH = Path(os.environ.get("CLASSIFIER_PATH", Path(__file__).parent.parent / "models" / "logreg-gemma512-v3.joblib"))
 MAX_CHARS = 1500
 MIN_BYTES = 30
 

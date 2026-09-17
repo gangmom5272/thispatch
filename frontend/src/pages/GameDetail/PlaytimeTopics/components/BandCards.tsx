@@ -102,7 +102,7 @@ interface BandCardProps {
 
 /** 개별 플레이타임 밴드 카드. */
 function BandCard({ band, selected, onSelect }: BandCardProps) {
-  const insufficient = !band.sampleSufficient
+  const insufficient = !band.isSufficientSample
   return (
     <button
       type="button"

@@ -53,7 +53,9 @@ export function cancelReservation(id: string): Promise<void> {
 }
 ```
 
-fetcher는 위치 인자가 아니라 **단일 객체 인자**를 받는다: `api.get<T>({ path, headers?, config? })`, `api.post<T>({ path, body?, headers?, config? })`. `headers`는 엔드포인트 전용 헤더가 필요할 때만 넘기고, `config`에는 `params`(쿼리스트링)·`signal`만 넘길 수 있다.
+fetcher는 위치 인자가 아니라 **단일 객체 인자**를 받는다: `api.get<T>({ path, headers?, config? })`, `api.post<T>({ path, body?, headers?, config? })`. `headers`는 엔드포인트 전용 헤더가 필요할 때만 넘기고, `config`에는 `params`(쿼리스트링)·`signal`·`timeout`을 넘길 수 있다.
+
+일반 조회 제한 시간은 10초다. AI 요약을 포함하는 반응 추세 요약·플레이타임 요약·언어별 상세 조회는 서버의 상태 확인과 30초 추론 대기를 고려해 해당 도메인 API 함수에서만 `timeout: 45_000`을 지정한다.
 
 - 함수명은 동사로 시작: `getXxx` / `createXxx` / `updateXxx` / `deleteXxx` / `toggleXxx`.
 - 파라미터는 axios config 모양(`params?: {...}`, `headers?: {...}`)이 아니라 **도메인 타입 인자**로 받는다. 그 값이 쿼리스트링(`params`)으로 가는지 body로 가는지는 함수 내부에서 매핑한다 — 호출부는 통신 세부사항을 몰라야 한다.

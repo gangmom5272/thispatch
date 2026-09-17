@@ -24,7 +24,7 @@ interface RefreshTokenData {
   accessToken: string
 }
 
-type FetcherConfig = Pick<AxiosRequestConfig, "params" | "signal">
+type FetcherConfig = Pick<AxiosRequestConfig, "params" | "signal" | "timeout">
 
 interface GetArgs {
   path: string

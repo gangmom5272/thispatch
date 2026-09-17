@@ -26,7 +26,7 @@ export function getReactionTrendsSummary(
 ): Promise<ReactionTrendsAiSummary> {
   return api.get<ReactionTrendsAiSummary>({
     path: `/games/${gameId}/summaries/reaction-trends`,
-    config: { params: { startDate, endDate }, signal },
+    config: { params: { startDate, endDate }, signal, timeout: 45_000 },
   })
 }
 
@@ -70,6 +70,6 @@ export function getPlaytimeTopicsSummary(
   const params = bandNo === null ? undefined : { bandNo }
   return api.get<PlaytimeTopicsAiSummary>({
     path: `/games/${gameId}/summaries/playtime-topics`,
-    config: { params, signal },
+    config: { params, signal, timeout: 45_000 },
   })
 }

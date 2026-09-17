@@ -136,11 +136,13 @@ services:
       # 두면 된다 — dev 프로파일도 DB 접속을 전부 환경변수로 받고,
       # .env 파일 읽기가 optional: 이라 없어도 안 죽는다.
       SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE:-prod}"
-      # AI 노트북이 서버1 Docker 호스트 주소에 여는 SSH 역터널.
+      TZ: "Asia/Seoul"
+
+      # AI 노트북 → 서버1의 Docker 호스트 주소로 연 SSH 역터널.
+      # 노트북 주소 대신 서버에 바인딩한 주소를 사용한다. 실제 접근은 컨테이너에서 확인한다.
       AI_BASE_URL: "${AI_BASE_URL:-http://172.17.0.1:8100}"
       AI_CONNECT_TIMEOUT: "${AI_CONNECT_TIMEOUT:-3s}"
       AI_READ_TIMEOUT: "${AI_READ_TIMEOUT:-30s}"
-      TZ: "Asia/Seoul"
 
       # ⚠ DB 는 컨테이너가 아니라 '호스트' 의 PostgreSQL 이다.
       #   서버1 에는 PostgreSQL 17.11 이 네이티브로 돌고 있다.

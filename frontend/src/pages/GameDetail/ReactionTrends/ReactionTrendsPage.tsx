@@ -150,7 +150,7 @@ export default function ReactionTrendsPage() {
   })
 
   const loadEarlier = useEffectEvent(() => {
-    if (!query.data || loadingMoreRef.current || query.isFetching) return
+    if (!query.data?.availablePeriod || loadingMoreRef.current || query.isFetching) return
     const availableStart = query.data.availablePeriod.startDate
     const currentStart = daily[0]?.date
     if (!currentStart || currentStart <= availableStart) return

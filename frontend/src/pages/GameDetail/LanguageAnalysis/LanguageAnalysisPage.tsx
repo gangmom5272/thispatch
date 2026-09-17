@@ -38,7 +38,7 @@ function PeriodBar({ data }: { data: LanguageAnalysis }) {
         리뷰 {formatCount(data.totalReviewCount)}
       </span>
       <span className="text-sb-ink-mute md:ml-auto">언어별 긍정률 · 절대값</span>
-      {data.sampleSufficient ? (
+      {data.isSufficientSample ? (
         <span className="rounded-sb-tag bg-sb-tint-green px-[10px] py-sb-1 font-medium text-sb-pos-text tabular-nums">
           ✓ 표본 충족 · {formatCount(data.totalReviewCount)}
         </span>

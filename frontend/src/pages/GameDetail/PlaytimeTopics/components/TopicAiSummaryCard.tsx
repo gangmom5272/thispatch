@@ -60,6 +60,12 @@ export function TopicAiSummaryCard({ data, isPending, isError }: TopicAiSummaryC
         </>
       ) : null}
 
+      {!isPending && !isError && data?.summary.status === "UNAVAILABLE" ? (
+        <p className="text-sb-body text-sb-ink-mute">
+          {data.summary.message ?? "AI 요약을 일시적으로 이용할 수 없습니다."}
+        </p>
+      ) : null}
+
       {!isPending && !isError && data?.summary.status === "COMPLETED" && !data.summary.text ? (
         <p className="text-sb-body text-sb-ink-mute">요약 본문이 비어 있습니다.</p>
       ) : null}

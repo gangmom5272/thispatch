@@ -281,7 +281,10 @@ export const reviewHandlers = [
     if (!mockGames.some((game) => game.id === gameId)) {
       return respond(404, "게임을 찾을 수 없습니다.")
     }
-    return respond(200, "OK", buildRepresentative(gameId))
+    return respond(200, "OK", {
+      meta: { ...buildListPayload(gameId, [], 0, 4).meta, dataStatus: "AVAILABLE" },
+      items: buildRepresentative(gameId),
+    })
   }),
 
   http.get(`${baseURL}/games/:gameId/reviews`, async ({ params, request }) => {

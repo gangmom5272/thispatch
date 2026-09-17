@@ -53,12 +53,12 @@ export interface ReactionTrendPeriodSummary {
 
 export interface ReactionTrends {
   meta: ReactionTrendsMeta
-  availablePeriod: StatPeriod
+  availablePeriod: StatPeriod | null
   summary: ReactionTrendPeriodSummary
   daily: ReactionTrendDaily[]
 }
 
-export type ReactionTrendsSummaryStatus = "COMPLETED" | "SKIPPED"
+export type ReactionTrendsSummaryStatus = "COMPLETED" | "SKIPPED" | "UNAVAILABLE"
 
 export interface ReactionTrendsAiSummary {
   meta: ReactionTrendsMeta
@@ -66,7 +66,8 @@ export interface ReactionTrendsAiSummary {
     status: ReactionTrendsSummaryStatus
     text: string | null
     targetPeriod: StatPeriod
-    reasonCode: "INSUFFICIENT_SAMPLE" | null
+    reasonCode: "INSUFFICIENT_SAMPLE" | "AI_UNAVAILABLE" | null
+    message?: string
   }
 }
 
@@ -109,7 +110,7 @@ export interface PlaytimeBandStats {
   positiveCount: number
   negativeCount: number
   positiveRate: number | null
-  sampleSufficient: boolean
+  isSufficientSample: boolean
 }
 
 export interface PlaytimeTopicHighestBand {
@@ -157,7 +158,7 @@ export interface PlaytimeTopics {
   meta: PlaytimeTopicsMeta
   selectedBand: PlaytimeBandId
   minimumSampleCount: number
-  sampleSufficient: boolean
+  isSufficientSample: boolean
   scale: PlaytimeScale
   overall: PlaytimeBandStats
   bands: PlaytimeBandStats[]
@@ -165,7 +166,7 @@ export interface PlaytimeTopics {
   fallback: PlaytimeTopicsFallback | null
 }
 
-export type PlaytimeTopicsSummaryStatus = "COMPLETED" | "SKIPPED"
+export type PlaytimeTopicsSummaryStatus = "COMPLETED" | "SKIPPED" | "UNAVAILABLE"
 
 /** AI 요약 근거로 노출하는 대표 리뷰 원문. */
 export interface PlaytimeEvidenceReview {
@@ -194,7 +195,8 @@ export interface PlaytimeTopicsAiSummary {
       limit: number
       description: string
     } | null
-    reasonCode: "INSUFFICIENT_SAMPLE" | null
+    reasonCode: "INSUFFICIENT_SAMPLE" | "AI_UNAVAILABLE" | null
+    message?: string
   }
   /** 요약 카드 아래 대표 리뷰 2건. 없으면 빈 배열. */
   evidenceReviews: PlaytimeEvidenceReview[]

@@ -2,6 +2,7 @@ import { Link } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import { GameHeaderSkeleton } from "@/components/GameHeaderSkeleton"
+import { GameImage } from "@/components/GameImage"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { gameDetailPath, paths } from "@/router/paths"
 import type { GameDetail } from "@/types"
@@ -61,9 +62,7 @@ function GameInfo({ game }: { game: GameDetail }) {
   return (
     <div className="flex flex-col gap-sb-4 border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-4 md:flex-row md:items-center md:gap-[18px] md:px-sb-12 md:pb-3.5 md:pt-sb-4">
       <div className="h-[86px] w-[184px] shrink-0 overflow-hidden rounded-sb-control border border-sb-hairline-cool bg-sb-canvas">
-        {game.capsuleImageUrl ? (
-          <img src={game.capsuleImageUrl} alt="" className="size-full object-cover" />
-        ) : null}
+        <GameImage src={game.capsuleImageUrl} className="size-full" loading="eager" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

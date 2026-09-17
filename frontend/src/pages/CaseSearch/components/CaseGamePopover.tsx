@@ -1,4 +1,5 @@
 import { isApiError } from "@/api/error"
+import { GameImage } from "@/components/GameImage"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
 
 interface CaseGamePopoverProps {
@@ -15,6 +16,7 @@ export default function CaseGamePopover({
   capsuleImageUrl,
 }: CaseGamePopoverProps) {
   const game = useGameDetail(gameId)
+  // imageUrl: 카드에 있는 캡슐 URL이 없으면 상세 조회로 보완
   const imageUrl = capsuleImageUrl ?? game.data?.capsuleImageUrl ?? null
 
   return (
@@ -23,11 +25,7 @@ export default function CaseGamePopover({
       role="tooltip"
       className="absolute top-full left-0 z-20 mt-sb-2 w-96 max-w-[calc(100vw-32px)] overflow-hidden rounded-sb-card border border-sb-hairline-strong bg-sb-canvas shadow-sb-popover"
     >
-      {imageUrl ? (
-        <img src={imageUrl} alt="" className="h-32 w-full bg-sb-canvas-soft object-cover" />
-      ) : (
-        <div aria-hidden="true" className="h-32 w-full bg-sb-canvas-soft" />
-      )}
+      <GameImage src={imageUrl} className="h-32 w-full bg-sb-canvas-soft" />
       <div className="flex flex-col gap-sb-2 p-sb-4">
         <p className="text-sb-lead font-medium">{title}</p>
         {game.isPending && <p className="text-sb-ink-mute">게임 정보를 불러오는 중…</p>}

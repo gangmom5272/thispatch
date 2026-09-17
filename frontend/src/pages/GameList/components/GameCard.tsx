@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react"
 import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
+import { GameImage } from "@/components/GameImage"
 import { useToggleMyGame } from "../../../hooks/queries/gameQueries"
 import { gameDetailPath } from "../../../router/paths"
 import type { Game, MyGame } from "../../../types"
@@ -91,12 +92,7 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
       <article
         className={`relative overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${preview ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        <img
-          src={game.capsuleImageUrl}
-          alt=""
-          loading="lazy"
-          className="aspect-[460/215] w-full bg-sb-canvas object-cover"
-        />
+        <GameImage src={game.capsuleImageUrl} loading="lazy" className="aspect-[460/215] w-full" />
         <div className="flex flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             <h3 className="truncate text-sb-title font-medium" title={game.title}>

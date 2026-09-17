@@ -10,7 +10,7 @@ export interface GenreList {
 
 export interface Game {
   id: number
-  capsuleImageUrl: string
+  capsuleImageUrl: string | null
   title: string
   tags: GameTag[]
   positiveRate: number
@@ -35,7 +35,7 @@ export interface GameDetail {
 export interface GameSummary {
   id: number
   title: string
-  headerImageUrl: string
+  headerImageUrl: string | null
   releasedOn: string | null
   developer: string
   playModes: string[]

@@ -7,23 +7,37 @@ import type { PlaytimeTopicRow, PlaytimeTopicsAiSummary } from "@/types/statisti
  */
 
 export interface MarqueeGame {
+  appId: number
   name: string
   genres: [string, string]
   positiveRate: number
+  capsuleImageUrl: string
 }
 
+/** 게임 목록 카드와 같은 Steam 상점 이미지 경로. */
+const steamCapsuleUrl = (appId: number) =>
+  `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`
+
 /** Hero 상단 트랙(왼→오)에 흐르는 게임 목록 카드. */
-export const MARQUEE_GAMES: MarqueeGame[] = [
-  { name: "Hollow Depths", genres: ["로그라이크", "덱빌딩"], positiveRate: 78.2 },
-  { name: "Neon Drift", genres: ["레이싱", "아케이드"], positiveRate: 91.4 },
-  { name: "Frostbound", genres: ["서바이벌", "크래프팅"], positiveRate: 64.8 },
-  { name: "Stellar Forge", genres: ["시뮬레이션", "경영"], positiveRate: 85.1 },
-  { name: "Ashen Crown", genres: ["액션 RPG", "소울라이크"], positiveRate: 72.6 },
-  { name: "Pixel Harbor", genres: ["캐주얼", "힐링"], positiveRate: 88.9 },
-  { name: "Void Protocol", genres: ["슈팅", "협동"], positiveRate: 59.3 },
-  { name: "Garden of Ember", genres: ["어드벤처", "내러티브"], positiveRate: 93.5 },
-  { name: "Tidal Reach", genres: ["오픈월드", "탐험"], positiveRate: 81.7 },
-]
+export const MARQUEE_GAMES: MarqueeGame[] = (
+  [
+    [646570, "Slay the Spire", ["로그라이크", "덱빌딩"], 97.2],
+    [553850, "HELLDIVERS 2", ["슈팅", "협동"], 75.4],
+    [1245620, "ELDEN RING", ["액션 RPG", "소울라이크"], 92.1],
+    [1517290, "Battlefield 2042", ["FPS", "멀티플레이어"], 44.3],
+    [413150, "Stardew Valley", ["캐주얼", "힐링"], 98.0],
+    [1716740, "Starfield", ["오픈월드", "RPG"], 58.6],
+    [892970, "Valheim", ["서바이벌", "크래프팅"], 94.2],
+    [427520, "Factorio", ["시뮬레이션", "자동화"], 98.4],
+    [1091500, "Cyberpunk 2077", ["액션", "RPG"], 83.5],
+  ] as Array<[number, string, [string, string], number]>
+).map(([appId, name, genres, positiveRate]) => ({
+  appId,
+  name,
+  genres,
+  positiveRate,
+  capsuleImageUrl: steamCapsuleUrl(appId),
+}))
 
 export interface MarqueeReview {
   id: number
@@ -101,6 +115,26 @@ export const MARQUEE_REVIEWS: MarqueeReview[] = [
     tags: ["서버", "안정성"],
   },
 ]
+
+export const TREND_PATCH_LABEL = "v1.4.0"
+export const TREND_PATCH_DAY_LABEL = "16"
+
+/**
+ * 02 질문 섹션 — 반응 추세 그래프에 그릴 값. thispatch.pen 의 일별 칸 구성을 따른다.
+ * 패치일과 그 이후는 값을 두지 않는다. 화면에서도 그 구간을 가려 알 수 없음을 나타낸다.
+ */
+export const TREND_KNOWN_DAYS = [
+  { label: "09", positiveRate: 79.1, firstWritten: 26, updated: 5 },
+  { label: "10", positiveRate: 78.6, firstWritten: 23, updated: 6 },
+  { label: "11", positiveRate: 79.4, firstWritten: 29, updated: 4 },
+  { label: "12", positiveRate: 78.2, firstWritten: 31, updated: 7 },
+  { label: "13", positiveRate: 78.4, firstWritten: 24, updated: 6 },
+  { label: "14", positiveRate: 77.6, firstWritten: 27, updated: 5 },
+  { label: "15", positiveRate: 78.9, firstWritten: 22, updated: 7 },
+]
+
+/** 패치 직후로 날짜만 이어지는 칸. 이 뒤로는 라벨 없이 어둠으로 이어진다. */
+export const TREND_UNKNOWN_DAY_LABELS = ["17", "18", "19", "20", "21", "22"]
 
 /** 03 진단 섹션 — 선택 구간 리뷰 수. */
 export const DIAGNOSIS_REVIEW_COUNT = 66

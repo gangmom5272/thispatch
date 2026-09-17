@@ -6,6 +6,8 @@ import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
 import { HeroMarquee } from "@/pages/Landing/components/HeroMarquee"
 import { OutcomeCaseCard } from "@/pages/Landing/components/OutcomeCaseCard"
 import { Reveal } from "@/pages/Landing/components/Reveal"
+import { TypingText } from "@/pages/Landing/components/TypingText"
+import { UnknownTrendChart } from "@/pages/Landing/components/UnknownTrendChart"
 import {
   DIAGNOSIS_AI_SUMMARY,
   DIAGNOSIS_REVIEW_COUNT,
@@ -36,6 +38,38 @@ function ActionArrow() {
   )
 }
 
+/**
+ * Hero CTA. magicui shimmer-button 구조를 따라 테두리를 따라 도는 빛을 얹는다.
+ * 빛은 뒤판(backdrop)이 가리고 남은 테두리 폭에서만 보인다.
+ */
+function HeroCtaLink() {
+  return (
+    <Link
+      to={paths.home}
+      className="group relative z-0 inline-flex h-13 transform-gpu cursor-pointer items-center justify-center gap-sb-3 overflow-hidden rounded-sb-control border border-sb-ink/10 bg-sb-primary px-sb-6 text-sb-body font-medium whitespace-nowrap text-sb-on-primary transition-transform duration-200 ease-in-out hover:bg-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary active:translate-y-px active:bg-sb-primary-deep motion-reduce:transition-none"
+    >
+      <span
+        aria-hidden
+        className="absolute inset-0 -z-30 overflow-visible blur-[1px] [container-type:size]"
+      >
+        <span className="absolute inset-0 aspect-square h-[100cqh] animate-sb-shimmer-slide motion-reduce:animate-none">
+          <span className="absolute -inset-full w-auto animate-sb-spin-around [background:conic-gradient(from_225deg,transparent_0,var(--color-sb-ink)_90deg,transparent_90deg)] motion-reduce:animate-none" />
+        </span>
+      </span>
+      게임 목록에서 시작
+      <ActionArrow />
+      <span
+        aria-hidden
+        className="absolute inset-0 size-full rounded-sb-control shadow-[inset_0_-8px_10px_#ffffff1f] transition-shadow duration-300 ease-in-out group-hover:shadow-[inset_0_-6px_10px_#ffffff3f] group-active:shadow-[inset_0_-10px_10px_#ffffff3f] motion-reduce:transition-none"
+      />
+      <span
+        aria-hidden
+        className="absolute inset-[2px] -z-20 rounded-sb-control bg-sb-primary group-hover:bg-sb-primary-soft group-active:bg-sb-primary-deep"
+      />
+    </Link>
+  )
+}
+
 function HeroSection() {
   return (
     <section className="relative isolate min-h-168 overflow-hidden bg-sb-canvas-night md:min-h-[calc(100svh-var(--spacing-sb-header))]">
@@ -58,10 +92,7 @@ function HeroSection() {
           </p>
         </Reveal>
         <Reveal variant="cta" delay={280}>
-          <Link to={paths.home} className={cn(PRIMARY_ACTION_CLASS, "h-13")}>
-            게임 목록에서 시작
-            <ActionArrow />
-          </Link>
+          <HeroCtaLink />
         </Reveal>
       </div>
 
@@ -79,16 +110,35 @@ function HeroSection() {
 
 function QuestionSection() {
   return (
-    <section className="border-t border-sb-hairline bg-sb-canvas-base">
-      <div className={SECTION_CLASS}>
-        <Reveal variant="eyebrow">
-          <p className="text-sb-lead text-sb-ink-mute">패치는 끝났습니다. 그런데,</p>
-        </Reveal>
-        <Reveal variant="title" delay={160} className="mt-sb-4">
-          <h2 className="text-sb-section font-medium text-sb-ink">유저의 마음도 달라졌을까요?</h2>
-        </Reveal>
-        <Reveal variant="lead" delay={300} className="mt-sb-8">
-          <ul className="flex flex-wrap gap-sb-6 text-sb-caption text-sb-ink-mute md:gap-sb-12">
+    <section className="relative isolate overflow-hidden bg-sb-canvas-base">
+      {/* 배경: 패치 이후가 가려진 반응 추세 그래프 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 flex items-center justify-center px-sb-4"
+      >
+        <div className="w-full opacity-60 md:opacity-75">
+          <UnknownTrendChart />
+        </div>
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-linear-to-b from-sb-canvas-base via-sb-canvas-base/70 to-sb-canvas-base"
+      />
+
+      <div
+        className={cn(
+          SECTION_CLASS,
+          "relative flex min-h-120 flex-col items-center justify-center gap-sb-6 text-center",
+        )}
+      >
+        <p className="text-sb-lead text-sb-ink-mute">
+          <TypingText text="패치는 끝났습니다. 그런데," speed={50} />
+        </p>
+        <h2 className="text-sb-section font-medium text-balance text-sb-ink">
+          <TypingText text="유저의 마음도 달라졌을까요?" speed={70} delay={800} />
+        </h2>
+        <Reveal variant="lead" delay={360}>
+          <ul className="flex flex-wrap justify-center gap-sb-6 text-sb-caption text-sb-ink-mute md:gap-sb-12">
             {["공개된 Steam 리뷰", "패치노트와 나란히", "요약에서 원문까지"].map((item) => (
               <li key={item} className="flex items-center gap-sb-2">
                 <span aria-hidden className="h-1 w-1 rounded-full bg-sb-primary" />
@@ -104,7 +154,7 @@ function QuestionSection() {
 
 function DiagnosisSection() {
   return (
-    <section className="border-t border-sb-hairline bg-sb-canvas-base">
+    <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
         <Reveal variant="eyebrow">
           <p className="font-sb-mono text-sb-caption text-sb-primary">01 — 반응을 읽다</p>
@@ -117,7 +167,7 @@ function DiagnosisSection() {
           </Reveal>
           <Reveal variant="lead" delay={140}>
             <p className="max-w-md text-sb-body text-pretty text-sb-ink-mute">
-              언제 반응이 달라졌는지, 누가 어떤 이야기를 하는지. 플레이타임과 토픽으로 좁혀보세요.
+              누가 어떤 이야기를 하는지. 플레이타임과 토픽으로 좁혀보세요.
             </p>
           </Reveal>
         </div>
@@ -141,7 +191,7 @@ function DiagnosisSection() {
 
 function ComparisonSection() {
   return (
-    <section className="border-t border-sb-hairline bg-sb-canvas-base">
+    <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
         <Reveal variant="eyebrow">
           <p className="font-sb-mono text-sb-caption text-sb-primary">02 — 다음 변화를 준비하다</p>
@@ -154,7 +204,7 @@ function ComparisonSection() {
           </Reveal>
           <Reveal variant="lead" delay={140} className="max-w-md">
             <p className="text-sb-body text-pretty text-sb-ink-mute">
-              변경안을 적으면 의미가 비슷한 과거 패치를 찾아줍니다. 공통점과 차이점을 살피며 판단의
+              기획안을 적으면 의미가 비슷한 과거 패치를 찾아줍니다. 공통점과 차이점을 살피며 판단의
               근거를 더하세요.
             </p>
             <p className="mt-sb-3 text-sb-caption text-sb-ink-mute">
@@ -179,7 +229,7 @@ function ComparisonSection() {
 
 function EvidenceSection() {
   return (
-    <section className="border-t border-sb-hairline bg-sb-canvas-base">
+    <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
         <Reveal variant="eyebrow">
           <p className="font-sb-mono text-sb-caption text-sb-primary">03 — 근거까지 확인하다</p>
@@ -200,7 +250,7 @@ function EvidenceSection() {
 
 function CtaSection() {
   return (
-    <section className="border-t border-sb-hairline bg-sb-canvas-night">
+    <section className="bg-sb-canvas-night">
       <div className={SECTION_CLASS}>
         <Reveal variant="title">
           <h2 className="max-w-2xl text-sb-section font-medium text-balance text-sb-ink">

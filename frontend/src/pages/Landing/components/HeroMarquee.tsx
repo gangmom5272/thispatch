@@ -47,10 +47,14 @@ function MarqueeGameCard({ game }: { game: MarqueeGame }) {
   const tone = rateTone(game.positiveRate)
   return (
     <article className="w-48 shrink-0 overflow-hidden rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface md:w-70">
-      <div className="flex h-20 items-center justify-center bg-linear-to-br from-sb-canvas-active to-sb-canvas-night md:h-23">
-        <span aria-hidden className="text-sb-title text-sb-ink-faint">
-          ▦
-        </span>
+      {/* 이미지를 불러오지 못하면 아래 그라데이션이 그대로 보인다. */}
+      <div className="aspect-[460/215] w-full bg-linear-to-br from-sb-canvas-active to-sb-canvas-night">
+        <img
+          src={game.capsuleImageUrl}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
       </div>
       <div className="flex flex-col gap-sb-2 p-sb-3">
         <p className="truncate text-sb-title text-sb-ink">{game.name}</p>
@@ -213,10 +217,10 @@ export function HeroMarquee() {
   return (
     <div ref={rootRef} aria-hidden className="absolute inset-0 overflow-hidden select-none">
       {/* 아래 여백은 Hero 하단 안내줄이 트랙과 겹치지 않도록 비워 둔다. */}
-      <div className="flex h-full flex-col justify-between pt-sb-6 pb-20 opacity-40 md:pt-sb-12 md:pb-24">
+      <div className="flex h-full flex-col justify-between pt-sb-6 pb-20 opacity-40 md:pb-24">
         <MarqueeTrack direction="ltr" speed={TRACK_SPEED.games} paused={paused}>
           {MARQUEE_GAMES.map((game) => (
-            <MarqueeGameCard key={game.name} game={game} />
+            <MarqueeGameCard key={game.appId} game={game} />
           ))}
         </MarqueeTrack>
         <MarqueeTrack direction="rtl" speed={TRACK_SPEED.reviews} paused={paused}>

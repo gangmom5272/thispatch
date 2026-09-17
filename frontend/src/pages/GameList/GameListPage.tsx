@@ -219,7 +219,10 @@ export default function GameListPage() {
       {isFilterOpen && (
         <GameFilterDialog
           initial={pending}
-          onApply={setPending}
+          onApply={(next) => {
+            // 필터 적용 시 URL·목록을 즉시 갱신(검색어는 현재 적용값 유지)
+            apply({ ...next, search: applied.search })
+          }}
           onClose={() => setIsFilterOpen(false)}
         />
       )}

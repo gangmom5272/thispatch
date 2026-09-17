@@ -1,6 +1,7 @@
 package com.ssafy.thispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -9,7 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class ThispatchApplicationTests {
 
@@ -43,16 +50,53 @@ class ThispatchApplicationTests {
 			.run();
 	}
 
+	@Test
+	void steamTagSeedUpdatesExistingTagsAndPreservesLinksAndOtherTags() {
+		try (var context = startApplication()) {
+			var jdbc = context.getBean(JdbcTemplate.class);
+			assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("thispatch_test");
+			new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+				status.setRollbackOnly();
+				// 같은 컬럼/PK의 임시 테이블로 기존 수집 데이터가 있는 상황을 재현한다.
+				// search_path의 임시 테이블을 사용하므로 public 데이터는 변경하지 않는다.
+				jdbc.execute("CREATE TEMP TABLE tag (LIKE public.tag INCLUDING ALL) ON COMMIT DROP");
+				jdbc.execute("CREATE TEMP TABLE game_tag (LIKE public.game_tag INCLUDING ALL) ON COMMIT DROP");
+				jdbc.execute("ALTER TABLE game_tag ADD FOREIGN KEY (tag_id) REFERENCES tag (tag_id)");
+				jdbc.update("INSERT INTO tag (tag_id, name_ko) VALUES (9, '예전 이름'), (2147483647, '기존 사용자 태그')");
+				jdbc.update("INSERT INTO game_tag (appid, tag_id, weight) VALUES (730, 9, 7)");
+
+				var script = new EncodedResource(new ClassPathResource("db/migration/V9__seed_steam_tags.sql"),
+					StandardCharsets.UTF_8);
+				for (int attempt = 0; attempt < 2; attempt++) {
+					jdbc.execute((ConnectionCallback<Void>) connection -> {
+						ScriptUtils.executeSqlScript(connection, script);
+						return null;
+					});
+					assertThat(jdbc.queryForObject("SELECT count(*) FROM tag", Integer.class)).isEqualTo(447);
+					assertThat(jdbc.queryForObject("""
+						SELECT count(*) FROM tag WHERE collected_at = TIMESTAMPTZ '2026-09-17T01:57:51Z'
+						""", Integer.class)).isEqualTo(446);
+					assertThat(jdbc.queryForObject("SELECT name_ko FROM tag WHERE tag_id = 9", String.class))
+						.isEqualTo("전략");
+					assertThat(jdbc.queryForObject("SELECT name_ko FROM tag WHERE tag_id = 2147483647", String.class))
+						.isEqualTo("기존 사용자 태그");
+					assertThat(jdbc.queryForList("SELECT appid, tag_id, weight FROM game_tag"))
+						.containsExactly(Map.of("appid", 730L, "tag_id", 9, "weight", 7));
+				}
+			});
+		}
+	}
+
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V8, each applied exactly once").hasSize(8);
+		assertThat(history).as("V1 through V9, each applied exactly once").hasSize(9);
 		assertThat(history).extracting(row -> row.get("version"))
-			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
 				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql",
-				"V8__add_game_play_modes.sql");
+				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -131,6 +175,10 @@ class ThispatchApplicationTests {
 		assertCodes(jdbc, "patch_change_target_type", List.of("player|플레이어", "enemy|적", "weapon|무기", "item|아이템",
 			"skill|스킬", "map|맵", "system|시스템", "other|기타", "unknown|알 수 없음"));
 		assertPlayModes(jdbc);
+		var tags = jdbc.queryForList("SELECT tag_id, name_ko FROM tag");
+		assertThat(tags).as("Steam tag snapshot and any existing tags").hasSizeGreaterThanOrEqualTo(446);
+		assertThat(tags).extracting(row -> row.get("tag_id") + "|" + row.get("name_ko"))
+			.contains("9|전략", "19|액션", "122|RPG", "1352486|카피바라");
 	}
 
 	/**

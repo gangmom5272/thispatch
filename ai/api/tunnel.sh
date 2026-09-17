@@ -10,14 +10,16 @@
 set -u
 SERVER_HOST="${SERVER_HOST:-j15a202.p.ssafy.io}"
 USER_NAME="${USER_NAME:-ubuntu}"
-KEY="${KEY:-$HOME/.ssh/J15A202T.pem}"
+KEY="${KEY:-$HOME/.ssh/thispatch-ai-tunnel}"
 PORT="${PORT:-8100}"
 BIND="${BIND:-172.17.0.1}"
 RETRY="${RETRY:-10}"
 
 if [ ! -f "$KEY" ]; then
   echo "SSH 키가 없습니다: $KEY"
-  echo "인프라 담당에게 받아 그 경로에 두거나 KEY=... 로 지정하세요."
+  echo "터널 전용 키를 만들고 공개키를 서버1 에 등록해야 합니다:"
+  echo "  ssh-keygen -t ed25519 -f ~/.ssh/thispatch-ai-tunnel -N '' -C thispatch-ai-tunnel@ai-node"
+  echo "  그 뒤 .pub 내용을 인프라 담당에게 전달 (docs/backend-connection.md 참고)"
   exit 1
 fi
 

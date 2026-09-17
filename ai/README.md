@@ -52,7 +52,7 @@ EC2 에서 교육장 노트북 대역으로 나가는 라우팅이 없어 포트
 백엔드는 `http://172.17.0.1:8100` 으로 부른다. 노트북 IP 가 바뀌어도 설정을 고칠 필요가 없다.
 도커 브리지 주소에 묶는 이유는 백엔드가 컨테이너 안에서 돌기 때문이고,
 그러려면 서버1 `sshd_config` 에 `GatewayPorts clientspecified` 가 있어야 한다(인프라 협의 중).
-확인은 서버1 에서 `curl http://172.17.0.1:8100/health`.
+확인은 서버1 에서 `curl http://172.17.0.1:8100/health`. 연동 절차는 [docs/backend-connection.md](docs/backend-connection.md).
 
 노트북이 꺼지거나 절전으로 들어가면 AI 기능이 멈춘다. 서버에 GPU 가 없어 생기는 구조적 제약이다.
 

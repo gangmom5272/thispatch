@@ -18,7 +18,7 @@
 param(
     [string]$ServerHost = "j15a202.p.ssafy.io",
     [string]$User = "ubuntu",
-    [string]$Key = "$env:USERPROFILE\.ssh\J15A202T.pem",
+    [string]$Key = "$env:USERPROFILE\.ssh\thispatch-ai-tunnel",
     [int]$Port = 8100,
     [string]$Bind = "172.17.0.1",
     [int]$RetrySeconds = 10
@@ -28,7 +28,9 @@ $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $Key)) {
     Write-Host "SSH 키가 없습니다: $Key" -ForegroundColor Red
-    Write-Host "인프라 담당에게 받아 그 경로에 두거나 -Key 로 위치를 지정하세요."
+    Write-Host "터널 전용 키를 만들고 공개키를 서버1 에 등록해야 합니다:"
+    Write-Host "  ssh-keygen -t ed25519 -f `$env:USERPROFILE\.ssh\thispatch-ai-tunnel -N '' -C thispatch-ai-tunnel@ai-node"
+    Write-Host "  그 뒤 .pub 내용을 인프라 담당에게 전달 (docs/backend-connection.md 참고)"
     exit 1
 }
 

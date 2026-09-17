@@ -8,6 +8,7 @@ import {
   GAME_SORT_OPTIONS,
   isGameSort,
 } from "../../constants/games"
+import { useDragScroll } from "../../hooks/useDragScroll"
 import { useGameList, useMyGameList } from "../../hooks/queries/gameQueries"
 import { useGenreList } from "../../hooks/queries/genreQueries"
 import type { Game, GameFilterConditions, MyGame } from "../../types"
@@ -272,6 +273,8 @@ function MyGameSection({
   isFetching,
   onRetry,
 }: MyGameSectionProps) {
+  const { setRef, dragProps } = useDragScroll()
+
   if (!isPending && !isError && items.length === 0) return null
 
   return (
@@ -303,9 +306,11 @@ function MyGameSection({
       )}
       {items.length > 0 && (
         <ul
+          ref={setRef}
           tabIndex={0}
           aria-label="내 게임"
-          className={`${railClass} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
+          {...dragProps}
+          className={`${railClass} ${dragProps.className} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
         >
           {items.map((game) => (
             <li key={game.id} className="w-72 shrink-0">

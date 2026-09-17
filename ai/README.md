@@ -14,8 +14,8 @@ GPU 노트북 1대(RTX 4070 8GB)에서 돈다. 클러스터 노드가 아니고 
 | `api/main.py`, `api/compare.py`, `api/summarize.py` | FastAPI. `POST /plan/structure`(기획안 구조화, Qwen 1회) · `POST /plan/restate`(수정 슬롯 → 재진술, 문장 틀) · `POST /embed/query`(질의 벡터) · `POST /cases/cards`(화면 04 카드 1줄 + 결과군 패턴, 문장 틀) · `POST /cases/compare`(화면 05 공통점·차이점, 문장 틀 + Qwen 옵션) · `POST /reviews/summarize`(화면 02 AI 대표 반응 요약: 제목·요약·반복 표현·근거 2건, Qwen 1회) · `POST /trends/summarize`(화면 01 반응 추세 요약: 일별 집계·패치 시점 → 수치 계산 + 문장, Qwen 옵션). 오류 응답은 백엔드 공통 형식. AI 서버는 DB 를 보지 않고 백엔드가 사례 데이터를 본문에 담아 보낸다 | 상시, 백엔드가 호출 |
 | `batch/chunking.py`, `rules.py`, `qwen_prompt.py` | 청크 분리(동료 steam_pipeline 이식), 규칙, 프롬프트·스키마 | 라이브러리 |
 | `batch/dev_make_*_input.py` | 개발용 입력 생성(PoC JSON → Parquet). HDFS 준비 후 불필요 | 개발 |
-| `batch/train_topic_clf.py` | 사람 라벨(0908_return) + LLM 라벨 → 토픽 분류기 학습·문턱값 선정 | 라벨 갱신 시 |
-| `models/` | 분류기 `logreg-gemma512-v2.joblib` (git 밖, `train_topic_clf.py` 산출) | |
+| `batch/train_topic_clf.py` | 사람 라벨(0908_return·0916_return) + LLM 라벨 → 토픽 분류기 학습·문턱값 선정 | 라벨 갱신 시 |
+| `models/` | 분류기 `logreg-gemma512-v3.joblib` (git 밖, `train_topic_clf.py` 산출) | |
 
 ## 패치 판정 입력
 
@@ -52,7 +52,7 @@ EC2 에서 교육장 노트북 대역으로 나가는 라우팅이 없어 포트
 백엔드는 `http://172.17.0.1:8100` 으로 부른다. 노트북 IP 가 바뀌어도 설정을 고칠 필요가 없다.
 도커 브리지 주소에 묶는 이유는 백엔드가 컨테이너 안에서 돌기 때문이고,
 그러려면 서버1 `sshd_config` 에 `GatewayPorts clientspecified` 가 있어야 한다(인프라 협의 중).
-확인은 서버1 에서 `curl http://172.17.0.1:8100/health`.
+확인은 서버1 에서 `curl http://172.17.0.1:8100/health`. 연동 절차는 [docs/backend-connection.md](docs/backend-connection.md).
 
 노트북이 꺼지거나 절전으로 들어가면 AI 기능이 멈춘다. 서버에 GPU 가 없어 생기는 구조적 제약이다.
 

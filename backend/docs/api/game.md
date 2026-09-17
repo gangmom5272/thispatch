@@ -53,7 +53,7 @@
 
 오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다.
 
-## 게임 목록 조회
+## 전체 게임 목록 조회
 
 ### `GET /games`
 
@@ -68,7 +68,7 @@
 | `search` | string | No | 게임 제목 부분 검색, 최대 100자 |
 | `sort` | string | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
 | `limit` | int | No | 기본 10, min 1, max 100 |
-| `cursor` | string | No | 다음 페이지 조회용 커서 |
+| `cursor` | string | No | 전체 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
 | `genreIds` | int[] | No | 콤마 구분, 생략 시 전체 |
 
 **Response 200**
@@ -149,11 +149,109 @@
 
 **Processing Rules / Notes — 프론트 사용**
 
+- 전체 게임을 조회하며 현재 사용자가 등록한 게임도 포함한다. `items[].isMine`으로 현재 사용자의 내 게임 등록 여부를 반환한다.
+- 검색·정렬·장르 필터는 전체 게임 집합에 적용한다.
+- 내 게임 목록은 `GET /members/me/games`로 별도 조회한다. 전체 게임 목록의 `items`를 `isMine`으로 나눈 결과를 내 게임 목록으로 사용하지 않는다.
+- 두 API의 커서와 페이지 상태(`limit`, `nextCursor`, `hasNext`, `totalCount`)는 독립적으로 관리한다.
+- `items[].gameSummary`는 목록 응답에 유지한다.
+
 자동완성도 별도 API 없이 다음처럼 재사용 가능하다.
 
 ```text
 GET /games?search=slay&limit=5
 ```
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다. 오류 응답에 `data`, `success`를 포함하지 않는다.
+
+## 내 게임 목록 조회
+
+### `GET /members/me/games`
+
+**Auth**
+
+- Required
+- `Authorization: Bearer {ACCESS_TOKEN}`으로 현재 로그인 사용자를 식별한다.
+
+**Path Variables / Request Body**: 없음
+
+**Query Parameters**
+
+| Name | Type | Required | Description |
+|---|---|---:|---|
+| `search` | string | No | 내 게임 중 게임 제목 부분 검색, 최대 100자 |
+| `sort` | string | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
+| `limit` | int | No | 기본 10, min 1, max 100 |
+| `cursor` | string | No | 내 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
+| `genreIds` | int[] | No | 내 게임에 적용할 장르 ID를 콤마로 구분. 생략 시 장르 제한 없음 |
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-17 09:39:00",
+  "data": {
+    "items": [
+      {
+        "id": 730,
+        "capsuleImageUrl": "https://example.com/images/game_1.jpg",
+        "title": "샘플 게임",
+        "tags": [
+          {
+            "id": 1,
+            "name": "로그라이크"
+          }
+        ],
+        "positiveRate": 70,
+        "gameSummary": {
+          "id": 730,
+          "title": "샘플 게임",
+          "headerImageUrl": "https://example.com/images/game_2.jpg",
+          "releasedOn": "2026-09-09",
+          "developer": "샘플 개발사",
+          "playModes": [
+            "EA Dice",
+            "멀티플레이"
+          ],
+          "description": "대규모 전장에서 차량과 분대 전투가 벌어지는 FPS입니다. 출시 초기 서버 안정성과 클래스 개편이 평가를 크게 흔들었습니다.",
+          "userTags": [
+            "FPS",
+            "멀티플레이어",
+            "전쟁",
+            "슈터"
+          ],
+          "reviewCount": 220000,
+          "latestPatch": "Update 7.4v"
+        }
+      }
+    ],
+    "page": {
+      "limit": 20,
+      "nextCursor": null,
+      "hasNext": false,
+      "totalCount": 1
+    }
+  },
+  "success": true
+}
+```
+
+**Processing Rules / Notes**
+
+- `items[].id`는 `long`이다.
+- 검증된 Access Token의 `MemberPrincipal.memberId`를 기준으로 현재 사용자가 `my_game`에 등록한 게임만 반환한다. 클라이언트가 전달한 회원 ID는 사용하지 않는다.
+- 검색·정렬·장르 필터는 현재 사용자의 `my_game`에 등록된 게임 집합에만 적용한다.
+- 내 게임 목록이므로 `items[].isMine` 필드는 반환하지 않는다.
+- `items[].gameSummary`는 전체 게임 목록과 동일하게 포함하며, 하위 필드의 타입과 의미도 전체 게임 목록의 Field rules를 따른다.
+- 이 API의 커서와 페이지 상태(`limit`, `nextCursor`, `hasNext`, `totalCount`)는 전체 게임 목록 조회 API와 독립적으로 관리한다.
+
+**Error Responses**
+
+- `400`: 검색 조건 또는 페이지 커서 오류
+- `401`: 인증 필요
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다. 오류 응답에 `data`, `success`를 포함하지 않는다.
 
 ## 현재 게임 정보
 

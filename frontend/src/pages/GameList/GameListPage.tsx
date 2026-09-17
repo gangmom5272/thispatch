@@ -200,10 +200,16 @@ export default function GameListPage() {
           {query.isSuccess && (
             <AllGames
               items={query.data.pages.flatMap((page) => page.items)}
+              search={applied.search}
+              hasFilters={hasAppliedConditions}
               hasNextPage={query.hasNextPage}
               isFetchingNextPage={query.isFetchingNextPage}
               isFetchNextPageError={query.isFetchNextPageError}
               onLoadMore={() => query.fetchNextPage()}
+              onResetConditions={() => {
+                setSearchValue("")
+                apply({ search: "", sort: DEFAULT_GAME_SORT, genreIds: [] })
+              }}
             />
           )}
         </section>
@@ -314,24 +320,44 @@ function MyGameSection({
 
 interface AllGamesProps {
   items: Game[]
+  /** 현재 적용된 검색어 — 빈 상태 안내에 표시 */
+  search: string
+  hasFilters: boolean
   hasNextPage: boolean
   isFetchingNextPage: boolean
   isFetchNextPageError: boolean
   onLoadMore: () => void
+  onResetConditions: () => void
 }
 
 function AllGames({
   items,
+  search,
+  hasFilters,
   hasNextPage,
   isFetchingNextPage,
   isFetchNextPageError,
   onLoadMore,
+  onResetConditions,
 }: AllGamesProps) {
   if (items.length === 0) {
     return (
-      <div className={panelClass}>
-        <p>조건에 맞는 게임이 없습니다.</p>
-        <p className="text-sb-ink-mute">검색어를 바꾸거나 필터 조건을 줄여서 다시 검색해 주세요.</p>
+      <div className={panelClass} role="status">
+        <p className="text-sb-title font-medium text-sb-ink">검색 결과가 없습니다</p>
+        {search ? (
+          <p className="text-sb-ink-mute">
+            &ldquo;{search}&rdquo;에 맞는 게임을 찾지 못했습니다. 다른 검색어를 입력해 보세요.
+          </p>
+        ) : (
+          <p className="text-sb-ink-mute">
+            조건에 맞는 게임이 없습니다. 필터를 줄이거나 검색어를 바꿔 다시 시도해 주세요.
+          </p>
+        )}
+        {(search || hasFilters) && (
+          <button type="button" onClick={onResetConditions} className={secondaryButtonClass}>
+            검색 조건 초기화
+          </button>
+        )}
       </div>
     )
   }

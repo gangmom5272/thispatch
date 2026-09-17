@@ -84,6 +84,14 @@ public final class ReviewStatsToPostgres {
     /** 한 번에 DB 로 보내는 행 수. NewsToPostgres 와 같다. */
     private static final int BATCH = 1_000;
 
+    /**
+     * 집계기 검증에 걸린 행을 빼고 진행할 수 있는 최대 비율(%). 넘으면 멈춘다.
+     *
+     * <p>몇 초 시계 어긋남 같은 것은 0.01% 도 안 될 것이다. 그보다 크면 수집이나 변환이
+     * 잘못된 것이라 빼고 넘어가면 화면 숫자가 조용히 틀린다. 실측 뒤 조정한다.
+     */
+    private static final double MAX_INVALID_PCT = 0.5;
+
     private ReviewStatsToPostgres() {
     }
 
@@ -125,11 +133,56 @@ public final class ReviewStatsToPostgres {
             System.out.println("읽는 곳   " + String.join(", ", paths));
 
             // 두 집계가 같은 입력을 두 번 훑는다. 22GB 를 두 번 읽지 않게 붙잡아 둔다.
+            //
+            // ⚠ 필요한 칼럼만, 디스크에만 붙잡는다.
+            //   처음엔 전체 칼럼(리뷰 본문 포함)을 MEMORY_AND_DISK 로 붙잡았다. 그러자 executor
+            //   힙을 캐시가 먹어 윈도우 정렬이 OutOfMemoryError 로 죽고, 죽은 executor 의 셔플
+            //   블록이 사라져 FetchFailed → 스테이지 재시도 → 5시간 40분 뒤 한도 소진
+            //   (2026-09-18 새벽, executor 64개 제거, 사유 'Exit status: 143' = OOM 자살).
+            //   집계에 쓰는 것은 아래 7칼럼뿐이다. 본문은 필요 없다.
             Dataset<Row> reviews = spark.read().parquet(paths.toArray(String[]::new))
-                    .persist(StorageLevel.MEMORY_AND_DISK());
+                    .select("appid", "recommendationid", "created_ts", "updated_ts", "collected_ts",
+                            "voted_up", "language_code")
+                    .persist(StorageLevel.DISK_ONLY());
             try {
                 long total = reviews.count();
                 System.out.println("리뷰 행   " + total + "건 (중복 포함 · 집계가 최신본만 고른다)");
+
+                // 집계기가 거부하는 행을 미리 갈라낸다.
+                //
+                // DailyStatAggregator.aggregate() 는 나쁜 행이 하나라도 있으면 전체를 거부한다
+                // ("지어내지 않는다"). 1.7억 행 전량에서는 실제로 걸렸다 — 2026-09-17 밤
+                // "Invalid required fields or timestamp order" 로 47분 읽고 통째로 실패.
+                //
+                // 행을 고치지 않는다. 뺀다. 그리고 몇 건을 왜 뺐는지 찍는다 — 조용히 버리지 않는다.
+                // 뺀 리뷰는 그 게임의 집계에서 그만큼 사라지므로, 건수가 크면 멈추고 사람이 본다.
+                Dataset<Row> invalid = DailyStatAggregator.selectInput(reviews)
+                        .filter(DailyStatAggregator.invalidInput());
+                long invalidRows = invalid.count();
+                if (invalidRows > 0) {
+                    double pct = 100.0 * invalidRows / Math.max(total, 1);
+                    System.out.printf("⚠ 집계기 검증에 걸리는 행  %d건 (%.6f%%) — 뺀다. 이유별:%n", invalidRows, pct);
+                    for (String[] why : new String[][] {
+                            {"필수 필드 null", "appid IS NULL OR recommendationid IS NULL OR created_ts IS NULL OR updated_ts IS NULL OR collected_ts IS NULL OR voted_up IS NULL"},
+                            {"appid·recommendationid <= 0", "appid <= 0 OR recommendationid <= 0"},
+                            {"created_ts < 0", "created_ts < 0"},
+                            {"updated_ts < created_ts", "updated_ts < created_ts"},
+                            {"collected_ts < updated_ts", "collected_ts < updated_ts"}}) {
+                        long c = invalid.filter(why[1]).count();
+                        if (c > 0) {
+                            System.out.printf("    %-28s %d건%n", why[0], c);
+                        }
+                    }
+                    invalid.limit(5).show(false);
+                    if (pct > MAX_INVALID_PCT) {
+                        throw new IllegalStateException(String.format(
+                                "검증에 걸린 행이 %.4f%% 로 한도(%.2f%%)를 넘는다. 데이터를 먼저 볼 것.", pct, MAX_INVALID_PCT));
+                    }
+                    reviews = reviews.join(invalid.select("recommendationid", "updated_ts", "collected_ts"),
+                                    new String[] {"recommendationid", "updated_ts", "collected_ts"}, "left_anti")
+                            .persist(StorageLevel.MEMORY_AND_DISK());
+                    System.out.println("집계 대상  " + reviews.count() + "건");
+                }
 
                 // game 에 있는 appid 만 넣을 수 있다 (fk_*_game).
                 //
@@ -234,6 +287,20 @@ public final class ReviewStatsToPostgres {
             // 표가 비어 있으면 한 줄도 못 넣는다. 조용히 0건 넣고 끝나는 것보다 멈추는 것이 낫다.
             throw new IllegalStateException(
                     "language 표가 비어 있다. FK 때문에 language_stat 을 넣을 수 없다 — V10 시드가 적용됐는지 볼 것.");
+        }
+        // LanguageStatAggregator 는 공통 검증에 language_code 검증을 하나 더 건다
+        // (null · 빈값 · 20자 초과 · 앞뒤 공백). 하나라도 있으면 전체를 거부하므로
+        // 위와 같이 미리 갈라내 세고 뺀다. 행을 고치지 않는다.
+        org.apache.spark.sql.Column badLang = col("language_code").isNull()
+                .or(org.apache.spark.sql.functions.length(org.apache.spark.sql.functions.trim(col("language_code"))).equalTo(0))
+                .or(org.apache.spark.sql.functions.length(col("language_code")).gt(20))
+                .or(col("language_code").notEqual(org.apache.spark.sql.functions.trim(col("language_code"))));
+        long badLangRows = reviews.filter(badLang).count();
+        if (badLangRows > 0) {
+            System.out.printf("⚠ language_code 가 비었거나 잘못된 행  %d건 — 뺀다%n", badLangRows);
+            reviews.filter(badLang).groupBy("language_code").count()
+                    .orderBy(col("count").desc()).show(10, false);
+            reviews = reviews.filter(badLang.equalTo(false));
         }
         Dataset<Row> stat;
         try {

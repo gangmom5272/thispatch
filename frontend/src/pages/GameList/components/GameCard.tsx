@@ -5,6 +5,7 @@ import { GameImage } from "@/components/GameImage"
 import { useToggleMyGame } from "../../../hooks/queries/gameQueries"
 import { gameDetailPath } from "../../../router/paths"
 import type { Game, MyGame } from "../../../types"
+import GenreTagClamp from "./GenreTagClamp"
 import GameSummaryPopover from "./GameSummaryPopover"
 
 const POSITIVE_RATE_MIN = 80
@@ -84,16 +85,21 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
 
   return (
     <div
+      className="h-full"
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onFocus={(event) => openPreview(event.currentTarget)}
       onBlur={closePreview}
     >
       <article
-        className={`relative overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${preview ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
+        className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${preview ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        <GameImage src={game.capsuleImageUrl} loading="lazy" className="aspect-[460/215] w-full" />
-        <div className="flex flex-col gap-sb-3 p-sb-4">
+        <GameImage
+          src={game.capsuleImageUrl}
+          loading="lazy"
+          className="aspect-[460/215] w-full shrink-0"
+        />
+        <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             <h3 className="truncate text-sb-title font-medium" title={game.title}>
               <Link
@@ -124,14 +130,8 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
                 : "내 게임 상태를 변경하지 못했습니다. 다시 시도해 주세요."}
             </p>
           )}
-          <ul className="flex flex-wrap gap-sb-1" aria-label="장르">
-            {game.tags.map((tag) => (
-              <li key={tag.id} className="rounded-sb-tag bg-sb-canvas-soft px-sb-2 py-sb-1">
-                {tag.name}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-sb-2">
+          <GenreTagClamp tags={game.tags} />
+          <div className="mt-auto flex flex-col gap-sb-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sb-lead text-sb-ink-mute">긍정률</span>
               <span className={`font-sb-mono text-sb-title tabular-nums ${tone.text}`}>
@@ -154,7 +154,7 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
           style={popoverStyle}
           className={`pointer-events-none fixed left-(--popover-x) z-20 hidden max-h-[calc(100vh-32px)] overflow-hidden rounded-sb-card lg:block ${preview.anchor === "top" ? "top-(--popover-y)" : "bottom-(--popover-y)"}`}
         >
-          <GameSummaryPopover summary={game.gameSummary} />
+          <GameSummaryPopover summary={game.gameSummary} genreTags={game.tags} />
         </div>
       )}
     </div>

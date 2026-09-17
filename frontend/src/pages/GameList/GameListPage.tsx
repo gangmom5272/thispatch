@@ -377,7 +377,7 @@ function AllGames({
         className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4"
       >
         {items.map((game) => (
-          <li key={game.id}>
+          <li key={game.id} className="h-full">
             <GameCard game={game} isMine={game.isMine} />
           </li>
         ))}

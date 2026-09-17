@@ -64,7 +64,10 @@ def read_news(dt=None, columns=None, patch_only=True):
     if "collected_ts" in df:
         df = df.sort_values(["gid", "collected_ts"], ascending=[True, False])
     df = df.drop_duplicates("gid", keep="first")
-    if patch_only and "is_patch" in df:
+    if patch_only:
+        if "is_patch" not in df:
+            # 칼럼이 없으면 전량이 통과해 비패치 공지까지 임베딩·Qwen 대상이 된다(9/16 김경민 지적). 조용히 돌지 않고 멈춘다.
+            raise SystemExit("news_raw 에 is_patch 칼럼이 없습니다. NewsToParquet(PatchClassifier) 산출물인지 확인하세요: " + str(root))
         df = df[df["is_patch"] == True]  # noqa: E712
     return df.reset_index(drop=True)
 

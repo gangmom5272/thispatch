@@ -3,7 +3,9 @@
 
 - 뉴스: ISteamNews/GetNewsForApp (키 불필요), 최근 24개월, 게임당 최대 500건
 - 리뷰: store.steampowered.com/appreviews (키 불필요), filter=recent, 게임당 N페이지×100건
-- 패치 판정: ai/docs/PatchJudge.java 와 같은 규칙(Python 판)
+- 패치 판정: PoC 규칙(9/7)의 Python 판. 개발용 입력 전용이다.
+  운영 판정은 Spark `PatchClassifier`(rule 버전 patch-rules-5, CONTRACT 부록 A) 하나뿐이고 규칙이 다르다.
+  이 함수의 결과를 운영 집계에 쓰지 않는다.
 출력 컬럼은 CONTRACT.md 2절(news 테이블 / ReviewSchema)과 같다.
 
 실행  python dev_collect_steam.py --apps apps.txt --dt 2026-09-14 --review-pages 3

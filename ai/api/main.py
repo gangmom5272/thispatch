@@ -8,6 +8,7 @@
   POST /cases/cards        화면 04  후보 카드 1줄 공통/차이 + 결과군 패턴 (문장 틀)
   POST /cases/compare      화면 05  공통점 3·차이점 3 (문장 틀 + Qwen 해석 옵션)
   POST /reviews/summarize  화면 02  구간·언어별 AI 대표 반응 요약 (Qwen 1회)
+  POST /trends/summarize   화면 01  반응 추세 통계 요약 — 일별 집계·패치 시점 (문장 틀 + Qwen 옵션)
 
 검색 자체(pgvector 상위 30 → 슬롯 필터)는 백엔드가 SQL 로 한다. 여기서는 호출하지 않는다.
 질의 벡터는 배치 임베딩(embed_chunks.py)과 같은 모델·같은 실행기·같은 입력 형식으로 만든다
@@ -24,7 +25,7 @@ from pathlib import Path
 import httpx
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "batch"))
 from chunking import build_input_text, split_sentences  # noqa: E402
@@ -423,3 +424,106 @@ def reviews_summarize(q: SummarizeIn):
                         summary=out.get("summary", ""), phrases=out.get("phrases", []), evidence_ids=out.get("evidence_ids", []),
                         review_count=len(q.reviews), model=MODEL, attempts=attempts, clean=clean,
                         elapsed_ms=int((time.time() - t0) * 1000))
+
+
+# ======================================================================
+# 화면 01 — 반응 추세 통계 요약 (일별 집계·패치 시점. 문장 틀 + Qwen 옵션)
+# ======================================================================
+from trends import TREND_VERSION, caveats, compute_facts, summarize_trend, template_summary  # noqa: E402
+
+
+class DayStat(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="집계 기준일(KST, 리뷰 수정일)")
+    reviews: int = Field(..., ge=0, description="그날 리뷰 수")
+    positive: int = Field(..., ge=0, description="그중 긍정 수")
+    first_reviews: int | None = Field(None, ge=0, description="첫 작성분(created == updated). 없으면 채널 문장 생략")
+    first_positive: int | None = Field(None, ge=0)
+    edited_reviews: int | None = Field(None, ge=0, description="수정분(created < updated)")
+    edited_positive: int | None = Field(None, ge=0)
+
+    @model_validator(mode="after")
+    def _check(self):
+        # 긍정이 전체보다 많으면 긍정률이 100% 를 넘는다. 조회 쿼리가 어긋난 것이므로 화면에 내보내지 않고 막는다.
+        for whole, part, name in ((self.reviews, self.positive, "positive"),
+                                  (self.first_reviews, self.first_positive, "first_positive"),
+                                  (self.edited_reviews, self.edited_positive, "edited_positive")):
+            if whole is not None and part is not None and part > whole:
+                raise ValueError(f"{self.date}: {name}({part}) 가 전체({whole}) 보다 큽니다")
+        return self
+
+
+class PatchPoint(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="패치 게시일(KST)")
+    title: str = ""
+    version: str | None = None
+    gid: str | None = None
+
+
+class TrendIn(BaseModel):
+    appid: int
+    game: str = ""
+    daily: list[DayStat] = Field(..., min_length=1, max_length=400, description="선택 기간의 일별 집계. 날짜 순서는 상관없다")
+    patches: list[PatchPoint] = Field(default=[], max_length=50, description="기간 안 패치 시점")
+    window_days: int = Field(7, ge=1, le=30, description="패치 전후 비교 창")
+    use_llm: bool = Field(True, description="false 면 문장 틀로만(밀리초)")
+
+
+class Fact(BaseModel):
+    key: str
+    label: str
+    value: str
+    detail: str | None = None
+    delta_pct: float | None = None
+
+
+class PatchEffect(BaseModel):
+    title: str
+    date: str
+    version: str | None = None
+    gid: str | None = None
+    before: dict
+    after: dict
+    delta_pct: float | None = None
+    window_days: int
+    note: str | None = None
+
+
+class TrendOut(BaseModel):
+    appid: int
+    title: str
+    summary: str
+    facts: list[Fact]
+    patch_effects: list[PatchEffect]
+    caveats: list[str]
+    day_count: int
+    used_llm: bool
+    model: str | None = None
+    rule_version: str = TREND_VERSION
+    attempts: int = 0
+    clean: bool = True
+    elapsed_ms: int
+
+
+@app.post("/trends/summarize", response_model=TrendOut)
+def trends_summarize(q: TrendIn):
+    """화면 01 반응 추세. 수치 계산은 여기서 하고 Qwen 은 문장만 쓴다.
+
+    Qwen 이 규칙(인과·조언 금지)을 못 지키거나 죽어 있으면 문장 틀 결과로 내려간다 — 화면이 비지 않게.
+    """
+    t0 = time.time()
+    daily = [d.model_dump() for d in q.daily]
+    facts, effects = compute_facts(daily, [p.model_dump() for p in q.patches], q.window_days)
+    title, summary = template_summary(facts, effects)
+    used_llm, attempts, clean, model = False, 0, True, None
+    if q.use_llm:
+        try:
+            # 검사(인과·조언·추측·지어낸 숫자·반말체)를 통과한 문장만 쓴다. 못 지키면 s 가 비어 문장 틀이 남는다.
+            t, s, attempts, clean = summarize_trend(q.game or str(q.appid), facts, effects)
+            if s:
+                title, summary, used_llm, model = (t or title), s, True, MODEL
+        except Exception:  # noqa: BLE001
+            used_llm, clean = False, False      # Qwen 미가동. 문장 틀로 응답하고 clean=false 로 알린다
+    has_channel = any(f["key"] == "channel" for f in facts)
+    return TrendOut(appid=q.appid, title=title, summary=summary, facts=facts, patch_effects=effects,
+                    caveats=caveats(effects, has_channel), day_count=len(daily), used_llm=used_llm,
+                    model=model, attempts=attempts, clean=clean, elapsed_ms=int((time.time() - t0) * 1000))

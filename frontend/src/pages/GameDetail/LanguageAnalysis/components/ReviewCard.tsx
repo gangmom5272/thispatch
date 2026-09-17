@@ -10,9 +10,12 @@ const sentimentTone: Record<ReviewSentiment, { label: string; chip: string }> = 
 }
 
 function formatReviewMeta(review: RepresentativeReview): string {
-  const hours = Math.round(review.playtimeMinutes / 60)
+  const playtime =
+    review.playtimeMinutes === null
+      ? "플레이타임 정보 없음"
+      : `${Math.round(review.playtimeMinutes / 60)}h`
   const monthDay = review.reviewDate.slice(5).replace("-", "/")
-  return `${hours}h · ${monthDay}`
+  return `${playtime} · ${monthDay}`
 }
 
 function SegmentButton({
@@ -84,11 +87,10 @@ function ClampedBody({ text, lang }: { text: string; lang?: string }) {
 }
 
 export default function ReviewCard({ review }: { review: RepresentativeReview }) {
-  const [view, setView] = useState<ReviewView>("translated")
+  const [view, setView] = useState<ReviewView>("original")
   const tone = sentimentTone[review.sentiment]
-  const showOriginal = view === "original" && review.originalBody !== null
-  const text =
-    view === "original" && review.originalBody !== null ? review.originalBody : review.body
+  const showOriginal = view === "original" || !review.translatedBody
+  const text = showOriginal ? review.body : (review.translatedBody ?? review.body)
 
   return (
     <article className="flex flex-col gap-sb-2 rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]">
@@ -104,15 +106,15 @@ export default function ReviewCard({ review }: { review: RepresentativeReview })
           aria-label="리뷰 표시 언어"
           className="ml-auto inline-flex overflow-hidden rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-soft"
         >
-          <SegmentButton active={!showOriginal} onClick={() => setView("translated")}>
+          <SegmentButton
+            active={!showOriginal}
+            disabled={!review.translatedBody}
+            onClick={() => setView("translated")}
+          >
             번역
           </SegmentButton>
           <span aria-hidden="true" className="w-px bg-sb-hairline-cool" />
-          <SegmentButton
-            active={showOriginal}
-            disabled={review.originalBody === null}
-            onClick={() => setView("original")}
-          >
+          <SegmentButton active={showOriginal} onClick={() => setView("original")}>
             원문
           </SegmentButton>
         </div>

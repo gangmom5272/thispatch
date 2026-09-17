@@ -16,6 +16,10 @@ spring:
     locations: classpath:db/migration
 
 app:
+  ai:
+    base-url: ${AI_BASE_URL:}
+    connect-timeout: ${AI_CONNECT_TIMEOUT:3s}
+    read-timeout: ${AI_READ_TIMEOUT:30s}
   frontend-base-url: ${FRONTEND_BASE_URL}
   backend-public-url: ${BACKEND_PUBLIC_URL}
   cors:

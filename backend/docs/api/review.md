@@ -2,6 +2,21 @@
 
 패키지: `com.ssafy.thispatch.domain.review` · [공통 규칙](conventions.md)
 
+## 응답 형식과 조회 기준
+
+- [리뷰 목록 원본 명세](https://splendid-snout-4a6.notion.site/d519f3f2785282da8db581071c91d8a4)와
+  [대표 리뷰 원본 명세](https://splendid-snout-4a6.notion.site/4f19f3f2785282e3aab381a845eab9a1)의 전체 성공 응답은
+  `code`, `message`, `responsedAt`, `data`, `success`다. 아래 목록의 JSON은 `data` 중심의 축약 예시다.
+- 두 API 모두 KST 기준 오늘을 포함한 최근 14일의 최신 리뷰를 조회한다. 기간 필터 전에 리뷰의 최신 수정 버전을 선택한다.
+- `lastCollectedAt`은 수집 시각 칼럼·적재 연결 전까지 `null`이다. 리뷰 수정일이나 게임 수집일을 대신 넣지 않는다.
+- 데이터 버전 기능은 보류하며 `dataVersion`은 반환하지 않는다.
+- 목록의 `meta`는 `period`, `timezone`, `aggregationBasis`, `lastCollectedAt`이다.
+- 대표 리뷰의 `data`는 `meta`와 `items`이고, `meta`에는 위 필드에 `dataStatus: "AVAILABLE"`이 추가된다.
+- `koreana`는 응답에서 `korean`으로 변환한다. `reviewDate`는 수정 시각의 KST 날짜다.
+- 커서는 게임·선택 토픽·조회 종료일과 도움됨 수·리뷰 ID를 포함한다. 다른 조건의 커서는 `400 INVALID_REQUEST`다.
+- 목록의 `totalCount`는 커서 뒤 건수가 아니라, 같은 기간·토픽 조건을 만족하는 전체 리뷰 수다.
+- 없는 게임은 `404 GAME_NOT_FOUND`, 잘못된 토픽·커서·limit는 `400 INVALID_REQUEST`다.
+
 ## 리뷰 목록 조회
 
 ### `GET /games/{gameId}/reviews`
@@ -63,6 +78,11 @@
 
 `items[].id`는 `long`.
 
+**Processing Rules / Notes — 정렬**
+
+- 도움됨 수(`votes_up`) 내림차순으로 반환한다.
+- 도움됨 수가 같으면 `review_id` 내림차순으로 순서를 고정한다.
+
 **Error Responses**
 
 - `400`: 토픽 ID 또는 페이지 커서 오류
@@ -103,8 +123,9 @@
 **Processing Rules / Notes — 현재 처리 규칙**
 
 - 최근 14일 리뷰 중 대표 리뷰 반환
-- 현재 명세: 최대 3건
-- 선정 기준은 서버 정책
+- 최대 4건을 반환한다. 대상 리뷰가 4건 미만이면 있는 만큼 반환한다.
+- 도움됨 수(`votes_up`) 내림차순으로 선정하고, 동률이면 `review_id` 내림차순으로 순서를 고정한다.
+- 2026-09-15 사용자 결정 반영: 기존 명세의 최대 3건을 4건으로 변경했다.
 
 **Error Responses**
 

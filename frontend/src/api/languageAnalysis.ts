@@ -18,6 +18,6 @@ export function getLanguageAnalysisDetail(
 ): Promise<LanguageAnalysisDetail> {
   return api.get<LanguageAnalysisDetail>({
     path: `/games/${gameId}/language-analysis/${encodeURIComponent(languageCode)}`,
-    config: { signal },
+    config: { signal, timeout: 45_000 },
   })
 }

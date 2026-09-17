@@ -7,7 +7,7 @@ import { formatPercent } from "@/lib/format"
 import type { LanguageAnalysisDetail, LanguageShare } from "@/types"
 import ReviewCard from "./ReviewCard"
 
-const REPRESENTATIVE_REVIEW_COUNT = 2
+const REPRESENTATIVE_REVIEW_COUNT = 4
 const RATE_GRIDLINES = [25, 50, 75]
 
 export const LANGUAGE_ROW_GRID =
@@ -59,7 +59,10 @@ function Bar({
 
 function summarySource(detail: LanguageAnalysisDetail): string {
   const { summary, languageCode } = detail
-  return `최근 ${summary.targetPeriod.dayCount}일 ${languageCode} 리뷰 · ${summary.selection.description} 기준`
+  const source = summary.selection
+    ? `${summary.selection.description} 기준`
+    : `${summary.targetReviewCount.toLocaleString("en-US")}건`
+  return `최근 ${summary.targetPeriod.dayCount}일 ${languageCode} 리뷰 · ${source}`
 }
 
 function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode: string }) {
@@ -100,10 +103,12 @@ function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode
 
   const { summary, representativeReviews } = query.data
   const reviews = representativeReviews.slice(0, REPRESENTATIVE_REVIEW_COUNT)
-  const summaryText =
-    summary.status === "COMPLETED" && summary.text
-      ? summary.text
-      : "요약이 아직 준비되지 않았습니다. 잠시 후 다시 확인해 주세요."
+  let summaryText = summary.text ?? "요약 본문이 비어 있습니다."
+  if (summary.status === "UNAVAILABLE") {
+    summaryText = summary.message ?? "AI 요약을 일시적으로 이용할 수 없습니다."
+  } else if (summary.status === "SKIPPED") {
+    summaryText = "표본이 부족해 AI 요약을 건너뛰었습니다."
+  }
 
   return (
     <div className="flex flex-col gap-[14px] pb-sb-5 pl-sb-4 pr-sb-4 pt-sb-4 md:pl-[42px] md:pr-[18px]">

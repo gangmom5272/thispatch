@@ -27,7 +27,7 @@ export default function PlaytimeTopicsPage() {
 
   const query = usePlaytimeTopics(gameId, selectedBandNo)
   // summaryEnabled: 표본 충분할 때만 AI 요청 (disabled 시 isPending 함정 회피)
-  const summaryEnabled = Boolean(query.data?.sampleSufficient)
+  const summaryEnabled = Boolean(query.data?.isSufficientSample)
   const summaryQuery = usePlaytimeTopicsSummary(gameId, selectedBandNo, summaryEnabled)
 
   if (gameId === null) {
@@ -99,7 +99,7 @@ export default function PlaytimeTopicsPage() {
         </div>
       </section>
 
-      {data.sampleSufficient ? (
+      {data.isSufficientSample ? (
         <div className="grid gap-sb-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <TopicBars
             topics={data.topics}

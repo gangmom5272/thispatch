@@ -27,8 +27,15 @@ export function AiSummaryCard({
           표본이 부족해 AI 요약을 건너뛰었습니다. 구간을 넓혀 보세요.
         </p>
       ) : null}
+      {!isPending && !isError && data?.summary.status === "UNAVAILABLE" ? (
+        <p className="text-sb-body text-sb-ink-mute">
+          {data.summary.message ?? "AI 요약을 일시적으로 이용할 수 없습니다."}
+        </p>
+      ) : null}
       {!isPending && !isError && data?.summary.status === "COMPLETED" && data.summary.text ? (
-        <p className="text-sb-body leading-relaxed text-sb-ink">{data.summary.text}</p>
+        <p className="whitespace-pre-line text-sb-body leading-relaxed text-sb-ink">
+          {data.summary.text}
+        </p>
       ) : null}
       {!isPending && !isError && data?.summary.status === "COMPLETED" && !data.summary.text ? (
         <p className="text-sb-body text-sb-ink-mute">요약 본문이 비어 있습니다.</p>

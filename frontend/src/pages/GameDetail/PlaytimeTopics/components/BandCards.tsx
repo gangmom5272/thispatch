@@ -73,7 +73,7 @@ function OverallCard({ overall, selected, onSelect }: OverallCardProps) {
     <button
       type="button"
       onClick={onSelect}
-      className={`rounded-sb-card border p-sb-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary ${
+      className={`cursor-pointer rounded-sb-card border p-sb-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary ${
         selected
           ? "border-sb-primary bg-sb-canvas-active"
           : "border-sb-hairline-cool bg-sb-canvas-surface hover:bg-sb-canvas-soft"
@@ -107,7 +107,7 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
     <button
       type="button"
       onClick={onSelect}
-      className={`rounded-sb-card border p-sb-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary ${
+      className={`cursor-pointer rounded-sb-card border p-sb-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary ${
         selected
           ? "border-sb-primary bg-sb-canvas-active"
           : "border-sb-hairline-cool bg-sb-canvas-surface hover:bg-sb-canvas-soft"

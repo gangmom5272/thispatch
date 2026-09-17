@@ -89,14 +89,14 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V9, each applied exactly once").hasSize(9);
+		assertThat(history).as("V1 through V10, each applied exactly once").hasSize(10);
 		assertThat(history).extracting(row -> row.get("version"))
-			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
 				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql",
-				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql");
+				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql", "V10__seed_language.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -175,6 +175,7 @@ class ThispatchApplicationTests {
 		assertCodes(jdbc, "patch_change_target_type", List.of("player|플레이어", "enemy|적", "weapon|무기", "item|아이템",
 			"skill|스킬", "map|맵", "system|시스템", "other|기타", "unknown|알 수 없음"));
 		assertPlayModes(jdbc);
+		assertLanguages(jdbc);
 		var tags = jdbc.queryForList("SELECT tag_id, name_ko FROM tag");
 		assertThat(tags).as("Steam tag snapshot and any existing tags").hasSizeGreaterThanOrEqualTo(446);
 		assertThat(tags).extracting(row -> row.get("tag_id") + "|" + row.get("name_ko"))
@@ -198,6 +199,26 @@ class ThispatchApplicationTests {
 			.containsExactlyInAnyOrder("1|멀티플레이어", "2|싱글 플레이어", "9|협동", "20|MMO",
 				"24|공유 및 분할 화면", "27|크로스 플랫폼 멀티플레이어", "36|온라인 PvP", "37|로컬 PvP",
 				"38|온라인 협동", "39|스크린 공유 및 분할 협동", "47|LAN PvP", "48|LAN 협동", "49|PvP");
+	}
+
+	/**
+	 * 스팀 리뷰 언어 코드 31종 (V10).
+	 *
+	 * <p>{@code language_stat.language_code} 가 이 표를 참조한다. 표가 비어 있던 2026-09-17 까지는
+	 * 집계 적재가 FK 에 막혀 한 줄도 못 들어갔다. 코드는 스팀이 정한 값이라 여기서 그대로 고정한다.
+	 * 리뷰에 새 코드가 나타나면 적재기가 건수를 찍고 빼므로, 그때 다음 마이그레이션으로 추가한다.
+	 */
+	private void assertLanguages(JdbcTemplate jdbc) {
+		var rows = jdbc.queryForList("SELECT language_code, name_ko FROM language");
+		assertThat(rows).as("language").hasSize(31);
+		assertThat(rows).extracting(row -> row.get("language_code") + "|" + row.get("name_ko"))
+			.containsExactlyInAnyOrder("english|영어", "schinese|중국어 간체", "tchinese|중국어 번체",
+				"russian|러시아어", "spanish|스페인어", "latam|스페인어(중남미)", "brazilian|포르투갈어(브라질)",
+				"portuguese|포르투갈어", "german|독일어", "french|프랑스어", "polish|폴란드어", "turkish|터키어",
+				"koreana|한국어", "japanese|일본어", "thai|태국어", "italian|이탈리아어", "ukrainian|우크라이나어",
+				"czech|체코어", "hungarian|헝가리어", "dutch|네덜란드어", "swedish|스웨덴어", "danish|덴마크어",
+				"finnish|핀란드어", "norwegian|노르웨이어", "romanian|루마니아어", "bulgarian|불가리아어",
+				"greek|그리스어", "vietnamese|베트남어", "indonesian|인도네시아어", "malay|말레이어", "arabic|아랍어");
 	}
 
 	private void assertCodes(JdbcTemplate jdbc, String table, List<String> expected) {

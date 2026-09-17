@@ -31,6 +31,28 @@ LAST="$STATE_DIR/pipeline-last"
 SPARK_SUBMIT=${SPARK_SUBMIT:-/opt/spark/bin/spark-submit}
 SPARK_JAR=${SPARK_JAR:-$(cd "$HERE/../.." && pwd)/spark/build/libs/thispatch-spark.jar}
 
+# 드라이버 메모리. spark-defaults.conf 의 4g 를 덮어쓴다.
+#
+# ⚠ 이 값이 작으면 변환이 시작도 못 하고 죽는다. 데이터가 아니라 '파일 목록'
+#   때문이다. recursiveFileLookup 으로 랜딩을 훑을 때 드라이버가 파일 수십만
+#   개의 경로·블록 정보를 통째로 들고 있는다.
+#
+#   2026-09-17 실측
+#     4g   dt=2026-09-16 (파일 585,992개)  →  2분 33초에
+#          Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+#     12g  같은 것                          →  통과. 드라이버가 6.9GB 를 썼다
+#
+#   ⚠ 파일이 적었던 날에는 4g 로도 됐다(dt=2026-09-15, 104만개). 평평한
+#     폴더였기 때문이다. 09-16 부터 dt=날짜/시(HH) 로 나뉘어서 중첩 폴더를
+#     훑게 되었고 드라이버 메모리가 크게 늘었다. 그 분할은 HDFS 디렉터리
+#     항목 한도(1,048,576) 때문에 넣은 것이라 되돌릴 수 없다.
+#     TimeRule.hourBucket 의 설명을 볼 것.
+#
+#   마스터는 메모리 31GB 다. 여유를 보고 올렸다.
+SPARK_DRIVER_MEMORY=${SPARK_DRIVER_MEMORY:-12g}
+# 드라이버가 결과를 받아 모으는 한도. 집계 잡이 커지면 여기서 막힌다.
+SPARK_MAX_RESULT_SIZE=${SPARK_MAX_RESULT_SIZE:-2g}
+
 # 배치 DB — collect 단계 앞의 안전장치가 본다. 23-collect-retry.sh 와 같은 값.
 BATCH_DB_HOST=${BATCH_DB_HOST:-127.0.0.1}
 BATCH_DB_NAME=${BATCH_DB_NAME:-thispatch_batch}
@@ -124,7 +146,10 @@ run_stage() {
 
 spark_job() {
   [ -f "$SPARK_JAR" ] || { echo "  jar 가 없다: $SPARK_JAR" >&2; return 1; }
-  "$SPARK_SUBMIT" --class "$1" --master yarn --deploy-mode client "$SPARK_JAR" "${@:2}"
+  "$SPARK_SUBMIT" --class "$1" --master yarn --deploy-mode client \
+      --driver-memory "$SPARK_DRIVER_MEMORY" \
+      --conf spark.driver.maxResultSize="$SPARK_MAX_RESULT_SIZE" \
+      "$SPARK_JAR" "${@:2}"
 }
 
 # ── 오늘 날짜 것도 변환한다 ──────────────────────────────────

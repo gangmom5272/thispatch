@@ -203,7 +203,7 @@ export const languageAnalysisHandlers = [
     const data: LanguageAnalysis = {
       meta,
       totalReviewCount: TOTAL_REVIEW_COUNT,
-      sampleSufficient: TOTAL_REVIEW_COUNT >= MINIMUM_SAMPLE_COUNT,
+      isSufficientSample: TOTAL_REVIEW_COUNT >= MINIMUM_SAMPLE_COUNT,
       minimumSampleCount: MINIMUM_SAMPLE_COUNT,
       languages,
     }

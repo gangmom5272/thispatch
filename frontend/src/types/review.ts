@@ -14,7 +14,7 @@ export interface Review {
   id: number
   sentiment: ReviewSentiment
   isUpdated: boolean
-  playtimeMinutes: number
+  playtimeMinutes: number | null
   languageCode: string
   helpfulCount: number
   tags: ReviewTag[]
@@ -24,7 +24,7 @@ export interface Review {
    * 한국어 번역 본문. 없으면 null.
    * 번역 API는 없고 응답에 필드가 올 때만 토글로 표시한다.
    */
-  translatedBody: string | null
+  translatedBody?: string | null
   reviewDate: string
 }
 

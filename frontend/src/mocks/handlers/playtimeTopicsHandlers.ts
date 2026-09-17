@@ -114,7 +114,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       positiveCount: 86,
       negativeCount: 34,
       positiveRate: 71.7,
-      sampleSufficient: true,
+      isSufficientSample: true,
     },
     {
       band: "B2",
@@ -124,7 +124,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       positiveCount: 129,
       negativeCount: 42,
       positiveRate: 75.4,
-      sampleSufficient: true,
+      isSufficientSample: true,
     },
     {
       band: "B3",
@@ -134,7 +134,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       positiveCount: 85,
       negativeCount: 44,
       positiveRate: 65.9,
-      sampleSufficient: true,
+      isSufficientSample: true,
     },
     {
       band: "B4",
@@ -145,7 +145,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       positiveCount: 3,
       negativeCount: 5,
       positiveRate: null,
-      sampleSufficient: false,
+      isSufficientSample: false,
     },
   ]
 }
@@ -163,7 +163,7 @@ function buildOverall(bands: PlaytimeBandStats[]): PlaytimeBandStats {
     positiveCount,
     negativeCount,
     positiveRate: reviewCount === 0 ? null : (positiveCount / reviewCount) * 100,
-    sampleSufficient: true,
+    isSufficientSample: true,
   }
 }
 
@@ -220,7 +220,7 @@ function buildInsufficientPayload(scale: PlaytimeScale): PlaytimeTopics {
     },
     selectedBand: "B4",
     minimumSampleCount: 30,
-    sampleSufficient: false,
+    isSufficientSample: false,
     scale,
     overall,
     bands,
@@ -328,7 +328,7 @@ function buildSufficientPayload(selected: PlaytimeBandId, scale: PlaytimeScale):
     },
     selectedBand: selected,
     minimumSampleCount: 30,
-    sampleSufficient: true,
+    isSufficientSample: true,
     scale,
     overall,
     bands,

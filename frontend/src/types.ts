@@ -10,7 +10,7 @@ export interface GenreList {
 
 export interface Game {
   id: number
-  capsuleImageUrl: string
+  capsuleImageUrl: string | null
   title: string
   tags: GameTag[]
   positiveRate: number
@@ -35,7 +35,7 @@ export interface GameDetail {
 export interface GameSummary {
   id: number
   title: string
-  headerImageUrl: string
+  headerImageUrl: string | null
   releasedOn: string | null
   developer: string
   playModes: string[]
@@ -85,11 +85,14 @@ export interface PlanEntity {
   editable: boolean
 }
 
+export type PatchChangeType = "ADD" | "REMOVE" | "MODIFY" | "FIX" | "DEPRECATE"
+
 export interface PlanSlot {
   id: number
   targetName: string
   targetRole: string
   attribute: string
+  changeType: PatchChangeType
   direction: string
   magnitude: string | null
   scope: string | null
@@ -127,8 +130,10 @@ export type CaseSearchSort = "REVIEW_COUNT_DESC"
 export type CaseOutcome = "NEGATIVE_SHIFT" | "NO_CHANGE" | "POSITIVE_SHIFT"
 
 export interface ConfirmedSlot {
+  magnitude: string | null
   target: { name: string; role: string }
   attribute: string
+  changeType: PatchChangeType
   direction: string
   scope: string | null
 }
@@ -232,7 +237,7 @@ export interface LanguageShare {
 export interface LanguageAnalysis {
   meta: AnalysisMeta
   totalReviewCount: number
-  sampleSufficient: boolean
+  isSufficientSample: boolean
   minimumSampleCount: number
   languages: LanguageShare[]
 }
@@ -243,28 +248,30 @@ export interface RepresentativeReview {
   id: number
   sentiment: ReviewSentiment
   isUpdated: boolean
-  playtimeMinutes: number
+  playtimeMinutes: number | null
   languageCode: string
   helpfulCount: number
   tags: GameTag[]
-  /** 번역문. 명세 예시의 body가 한국어라 번역문으로 간주한다. */
+  /** 리뷰 원문. */
   body: string
-  // ponytail: 원문 필드는 API 명세에 없어 가정한 이름이다. 백엔드 확정 시 이름만 맞춘다.
-  originalBody: string | null
+  originalBody?: string | null
+  translatedBody?: string | null
   reviewDate: string
 }
 
 export interface LanguageSummary {
-  status: string
+  status: "COMPLETED" | "SKIPPED" | "UNAVAILABLE"
   text: string | null
   targetPeriod: AnalysisPeriod
   targetReviewCount: number
-  usedReviewCount: number
+  usedReviewCount: number | null
   selection: {
     code: string
     limit: number
     description: string
-  }
+  } | null
+  reasonCode?: "INSUFFICIENT_SAMPLE" | "AI_UNAVAILABLE"
+  message?: string
 }
 
 /** GET /games/{gameId}/language-analysis/{languageCode} */

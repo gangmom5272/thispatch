@@ -1,5 +1,6 @@
 import { useId, useState } from "react"
 import { Link } from "react-router"
+import { GameImage } from "@/components/GameImage"
 import RateBar from "@/components/RateBar"
 import { GAME_GENRES } from "@/constants/games"
 import { formatDeltaPp, formatPercent } from "@/lib/format"
@@ -55,19 +56,11 @@ function GameInfoArea({ item, detailPath, detailState }: GameInfoAreaProps) {
         onKeyDown={(event) => event.key === "Escape" && hide()}
         className="relative z-10 block rounded-t-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
       >
-        {item.capsuleImageUrl ? (
-          <img
-            src={item.capsuleImageUrl}
-            alt=""
-            loading="lazy"
-            className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="aspect-[460/215] w-full rounded-t-sb-control bg-sb-canvas"
-          />
-        )}
+        <GameImage
+          src={item.capsuleImageUrl}
+          loading="lazy"
+          className="aspect-[460/215] w-full rounded-t-sb-control"
+        />
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-sb-2 px-sb-4 pt-sb-3">
         <h3 className="min-w-0 text-sb-title font-medium">{item.gameTitle}</h3>

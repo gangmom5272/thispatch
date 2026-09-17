@@ -34,6 +34,8 @@ function toConfirmedSlot(slot: PlanSlot): ConfirmedSlot {
   return {
     target: { name: slot.targetName, role: slot.targetRole },
     attribute: slot.attribute,
+    changeType: slot.changeType,
+    magnitude: slot.magnitude,
     direction: slot.direction,
     scope: slot.scope,
   }

@@ -1,7 +1,8 @@
 import type { PlaytimeBandStats } from "@/types/statistics"
 
 /** 분 단위 플레이타임을 한국어 라벨로 바꾼다. */
-export function formatPlaytimeMinutes(minutes: number): string {
+export function formatPlaytimeMinutes(minutes: number | null): string {
+  if (minutes === null) return "플레이타임 정보 없음"
   if (minutes < 60) return `${minutes}분`
   // hours: 60분 단위 환산값
   const hours = minutes / 60

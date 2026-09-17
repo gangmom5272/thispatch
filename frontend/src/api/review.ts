@@ -5,11 +5,15 @@ import type { Review, ReviewsListData, ReviewsListParams } from "@/types/review"
  * 최근 대표 리뷰(최대 4건)를 조회한다.
  * GET /games/{gameId}/reviews/representative
  */
-export function getRepresentativeReviews(gameId: number, signal?: AbortSignal): Promise<Review[]> {
-  return api.get<Review[]>({
+export async function getRepresentativeReviews(
+  gameId: number,
+  signal?: AbortSignal,
+): Promise<Review[]> {
+  const data = await api.get<{ items: Review[] }>({
     path: `/games/${gameId}/reviews/representative`,
     config: { signal },
   })
+  return data.items
 }
 
 /**

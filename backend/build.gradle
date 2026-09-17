@@ -40,3 +40,8 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
+
+tasks.named('test') {
+    // 테스트 컨텍스트마다 남는 DB 연결 풀이 누적되어 로컬 연결 한도를 넘지 않도록 한다.
+    systemProperty 'spring.test.context.cache.maxSize', '4'
+}

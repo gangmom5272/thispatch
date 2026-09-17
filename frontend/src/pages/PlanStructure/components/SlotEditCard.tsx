@@ -1,5 +1,17 @@
 import Input from "@/components/Input"
-import type { PlanSlot } from "@/types"
+import type { PatchChangeType, PlanSlot } from "@/types"
+
+const CHANGE_TYPES: Array<{ value: PatchChangeType; label: string }> = [
+  { value: "MODIFY", label: "변경" },
+  { value: "ADD", label: "추가" },
+  { value: "REMOVE", label: "삭제" },
+  { value: "FIX", label: "버그 수정" },
+  { value: "DEPRECATE", label: "지원 중단" },
+]
+
+const DIRECTIONS = ["INCREASE", "DECREASE", "NONE", "NOT_APPLICABLE", "UNKNOWN"]
+const selectClass =
+  "h-sb-control w-full rounded-sb-control border border-sb-hairline bg-sb-canvas px-sb-3 text-sb-ink focus-visible:outline-2 focus-visible:outline-sb-primary"
 
 interface SlotEditCardProps {
   index: number
@@ -50,12 +62,45 @@ export default function SlotEditCard({ index, slot, isEmpty, onChange }: SlotEdi
           placeholder="예: HP"
           onChange={(event) => update({ attribute: event.target.value })}
         />
-        <span className="text-sb-ink-mute">변경</span>
+        <span className="text-sb-ink-mute">변경 종류</span>
+        <select
+          aria-label={`${label} 변경 종류`}
+          className={selectClass}
+          value={slot.changeType}
+          onChange={(event) => {
+            const selected = CHANGE_TYPES.find((item) => item.value === event.target.value)
+            if (!selected) return
+            let direction = "NONE"
+            if (selected.value === "MODIFY") direction = "UNKNOWN"
+            if (selected.value === "FIX") direction = "NOT_APPLICABLE"
+            update({ changeType: selected.value, direction })
+          }}
+        >
+          {CHANGE_TYPES.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-sb-ink-mute">방향</span>
+        <select
+          aria-label={`${label} 변경 방향`}
+          className={selectClass}
+          value={slot.direction}
+          onChange={(event) => update({ direction: event.target.value })}
+        >
+          {DIRECTIONS.map((direction) => (
+            <option key={direction} value={direction}>
+              {direction}
+            </option>
+          ))}
+        </select>
+        <span className="text-sb-ink-mute">변경 폭</span>
         <Input
-          aria-label={`${label} 변경`}
-          value={slot.magnitude ? `${slot.direction} ${slot.magnitude}` : slot.direction}
-          placeholder="예: INCREASE +20%"
-          onChange={(event) => update({ direction: event.target.value, magnitude: null })}
+          aria-label={`${label} 변경 폭`}
+          value={slot.magnitude ?? ""}
+          placeholder="예: +20%"
+          onChange={(event) => update({ magnitude: event.target.value || null })}
         />
         <span className="text-sb-ink-mute">범위</span>
         <Input

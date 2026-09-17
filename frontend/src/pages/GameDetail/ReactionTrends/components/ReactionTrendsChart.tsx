@@ -12,9 +12,11 @@ import {
   YAxis,
 } from "recharts"
 import type { TooltipContentProps } from "recharts"
+import { useDragScroll } from "@/hooks/useDragScroll"
 import type { ChartRow } from "@/pages/GameDetail/ReactionTrends/lib/aggregate"
 import { CHART_COLORS } from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
 import { formatShortMd } from "@/lib/seoulDate"
+import { cn } from "@/lib/cn"
 
 const CHART_HEIGHT = 320
 const MARGIN_TOP = 12
@@ -111,12 +113,19 @@ export function ReactionTrendsChart({
   const pointerInsideRef = useRef(false)
   const pointerClientRef = useRef({ x: 0, y: 0 })
 
+  const unlockUserScroll = useCallback(() => {
+    allowUserScrollRef.current = true
+  }, [])
+
+  const { setRef: setDragRef, dragProps } = useDragScroll({ onDragStart: unlockUserScroll })
+
   const attachScrollEl = useCallback(
     (node: HTMLDivElement | null) => {
       scrollElRef.current = node
+      setDragRef(node)
       scrollRef?.(node)
     },
-    [scrollRef],
+    [scrollRef, setDragRef],
   )
 
   const onPointerEnter = () => {
@@ -144,6 +153,7 @@ export function ReactionTrendsChart({
     if (target instanceof Element && target.closest("svg")) {
       event.preventDefault()
     }
+    dragProps.onPointerDown(event)
   }
 
   const onWheel = () => {
@@ -174,12 +184,17 @@ export function ReactionTrendsChart({
           ref={attachScrollEl}
           tabIndex={-1}
           data-chart-scroll
-          className={`min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain ${chartShellClass}`}
-          style={{ height: CHART_HEIGHT }}
+          className={cn(
+            `min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain ${chartShellClass}`,
+            dragProps.className,
+          )}
+          style={{ height: CHART_HEIGHT, ...dragProps.style }}
           onPointerEnter={onPointerEnter}
           onPointerLeave={onPointerLeave}
           onPointerMove={onPointerMove}
           onPointerDown={onPointerDown}
+          onClickCapture={dragProps.onClickCapture}
+          onDragStartCapture={dragProps.onDragStartCapture}
           onWheel={onWheel}
           onScroll={onScroll}
         >

@@ -219,7 +219,10 @@ export default function GameListPage() {
       {isFilterOpen && (
         <GameFilterDialog
           initial={pending}
-          onApply={setPending}
+          onApply={(next) => {
+            // 필터 적용 시 URL·목록을 즉시 갱신(검색어는 현재 적용값 유지)
+            apply({ ...next, search: applied.search })
+          }}
           onClose={() => setIsFilterOpen(false)}
         />
       )}
@@ -377,7 +380,7 @@ function AllGames({
         className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4"
       >
         {items.map((game) => (
-          <li key={game.id}>
+          <li key={game.id} className="h-full">
             <GameCard game={game} isMine={game.isMine} />
           </li>
         ))}

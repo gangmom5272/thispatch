@@ -88,6 +88,30 @@
   --radius-sb-card: 8px;
   --radius-sb-modal: 12px;
 
+  /* 랜딩 모션 — docs/landing-animation-plan.md 2절 공통 규칙 */
+  --ease-sb-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  /* 이동 거리는 --sb-marquee-distance, 주기는 animation-duration으로 트랙마다 주입한다. */
+  --animate-sb-marquee-ltr: sb-marquee-ltr 60s linear infinite;
+  --animate-sb-marquee-rtl: sb-marquee-rtl 60s linear infinite;
+
+  @keyframes sb-marquee-ltr {
+    from {
+      transform: translate3d(calc(var(--sb-marquee-distance) * -1), 0, 0);
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes sb-marquee-rtl {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(calc(var(--sb-marquee-distance) * -1), 0, 0);
+    }
+  }
+
   --shadow-sb-hero: 0 18px 48px -8px #00000099;
   --shadow-sb-modal: 0 16px 44px #00000080;
   --shadow-sb-popover: 0 12px 32px -4px #00000099;

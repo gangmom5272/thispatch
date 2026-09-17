@@ -39,9 +39,10 @@ function emptySlot(id: number): PlanSlot {
   return {
     id,
     targetName: "",
-    targetRole: "",
+    targetRole: "UNKNOWN",
     attribute: "",
-    direction: "",
+    changeType: "MODIFY",
+    direction: "UNKNOWN",
     magnitude: null,
     scope: null,
     editable: true,
@@ -116,6 +117,7 @@ function SlotCard({ index, slot }: { index: number; slot: PlanSlot }) {
         rows={[
           ["대상", `${slot.targetName} · ${slot.targetRole}`],
           ["속성", slot.attribute],
+          ["변경 종류", slot.changeType],
           ["변경", slot.magnitude ? `${slot.direction} ${slot.magnitude}` : slot.direction],
           ["범위", slot.scope ?? "범위 미확인"],
         ]}
@@ -157,11 +159,7 @@ export default function PlanStructureResult({
 
   return (
     <form onSubmit={handleSave} className="grid grid-cols-1 gap-sb-4 lg:grid-cols-[5fr_9fr_6fr]">
-      <Panel
-        step={1}
-        title="고유명사 탐지"
-        subtitle="게임별 단어사전에서 변경 대상의 의미를 조회합니다"
-      >
+      <Panel step={1} title="고유명사 탐지" subtitle="AI가 기획안의 변경 대상과 종류를 판별합니다">
         {entities.length === 0 ? (
           <p className="text-sb-ink-mute">탐지된 고유명사가 없습니다.</p>
         ) : (
@@ -189,7 +187,7 @@ export default function PlanStructureResult({
         )}
         {hasUnknownEntity && (
           <p className="mt-auto text-sb-ink-mute">
-            UNKNOWN 항목은 폐기하지 않고 유지하되 검색 순위에서 낮게 반영됩니다.
+            UNKNOWN 항목은 유지됩니다. 검색 전에 변경 대상과 역할을 확인해주세요.
           </p>
         )}
       </Panel>
@@ -293,7 +291,17 @@ export default function PlanStructureResult({
                 <PencilIcon />
                 슬롯 직접 수정
               </Button>
-              <Button variant="primary" onClick={onSearchCases} className="w-full">
+              {slots.length > 20 && (
+                <p role="status" className="text-sb-amber-text">
+                  한 번에 최대 20개 슬롯을 검색할 수 있습니다. 기획안을 나누어 입력해주세요.
+                </p>
+              )}
+              <Button
+                variant="primary"
+                onClick={onSearchCases}
+                disabled={slots.length === 0 || slots.length > 20}
+                className="w-full"
+              >
                 유사 사례 검색
                 <span aria-hidden="true">→</span>
               </Button>

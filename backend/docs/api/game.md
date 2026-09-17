@@ -236,12 +236,12 @@ GET /games?search=slay&limit=5
         "gameSummary": {
           "id": 730,
           "title": "샘플 게임",
-          "headerImageUrl": "https://example.com/images/game_2.jpg",
+          "headerImageUrl": "https://example.com/images/game_1.jpg",
           "releasedOn": "2026-09-09",
           "developer": "샘플 개발사",
           "playModes": [
-            "싱글 플레이어",
-            "멀티플레이어"
+            "멀티플레이어",
+            "싱글 플레이어"
           ],
           "description": "대규모 전장에서 차량과 분대 전투가 벌어지는 FPS입니다. 출시 초기 서버 안정성과 클래스 개편이 평가를 크게 흔들었습니다.",
           "userTags": [

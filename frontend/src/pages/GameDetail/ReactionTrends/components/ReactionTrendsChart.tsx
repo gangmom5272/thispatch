@@ -142,7 +142,6 @@ export function ReactionTrendsChart({
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     pointerClientRef.current = { x: event.clientX, y: event.clientY }
-    dragProps.onPointerMove(event)
   }
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -194,9 +193,8 @@ export function ReactionTrendsChart({
           onPointerLeave={onPointerLeave}
           onPointerMove={onPointerMove}
           onPointerDown={onPointerDown}
-          onPointerUp={dragProps.onPointerUp}
-          onPointerCancel={dragProps.onPointerCancel}
           onClickCapture={dragProps.onClickCapture}
+          onDragStartCapture={dragProps.onDragStartCapture}
           onWheel={onWheel}
           onScroll={onScroll}
         >

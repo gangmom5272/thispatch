@@ -309,7 +309,10 @@ function MyGameSection({
           ref={setRef}
           tabIndex={0}
           aria-label="내 게임"
-          {...dragProps}
+          onPointerDown={dragProps.onPointerDown}
+          onClickCapture={dragProps.onClickCapture}
+          onDragStartCapture={dragProps.onDragStartCapture}
+          style={dragProps.style}
           className={`${railClass} ${dragProps.className} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
         >
           {items.map((game) => (

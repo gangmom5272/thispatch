@@ -98,6 +98,7 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
             <h3 className="truncate text-sb-title font-medium" title={game.title}>
               <Link
                 to={gameDetailPath(game.id)}
+                draggable={false}
                 className="rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               >
                 {game.title}

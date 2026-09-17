@@ -13,8 +13,7 @@ export default function GameSummaryPopover({ summary }: { summary: GameSummary }
         <p className="text-sb-ink-mute">
           {summary.releasedOn && (
             <>
-              <time className="font-sb-mono tabular-nums">{summary.releasedOn.slice(0, 10)}</time>{" "}
-              출시 ·{" "}
+              <time className="font-sb-mono tabular-nums">{summary.releasedOn} </time>출시 ·{" "}
             </>
           )}
           {summary.developer} · {summary.playModes.join(" · ")}

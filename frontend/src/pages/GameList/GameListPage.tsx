@@ -255,6 +255,9 @@ interface MyGameSectionProps {
   onRetry: () => void
 }
 
+const railClass =
+  "flex gap-sb-5 overflow-x-auto pb-sb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+
 function MyGameSection({
   items,
   isPending,
@@ -269,11 +272,7 @@ function MyGameSection({
     <section className="flex flex-col gap-sb-5">
       <SectionLabel>내 게임</SectionLabel>
       {isPending && (
-        <ul
-          aria-label="내 게임 불러오는 중"
-          aria-busy="true"
-          className="flex gap-sb-5 overflow-x-auto pb-sb-2"
-        >
+        <ul aria-label="내 게임 불러오는 중" aria-busy="true" className={railClass}>
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (
             <li key={index} className={`w-72 shrink-0 ${cardSkeletonClass}`} />
           ))}
@@ -300,7 +299,7 @@ function MyGameSection({
         <ul
           tabIndex={0}
           aria-label="내 게임"
-          className="flex gap-sb-5 overflow-x-auto pb-sb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+          className={`${railClass} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
         >
           {items.map((game) => (
             <li key={game.id} className="w-72 shrink-0">

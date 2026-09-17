@@ -208,13 +208,22 @@ const details: Record<number, [string, string[], string, string[], string]> = {
 const headerImageUrl = (id: number) =>
   `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${id}/header.jpg`
 
+/** 대체 이미지 확인용 — 캡슐·헤더 URL을 null로 둔 게임 id */
+const GAMES_WITHOUT_IMAGE = new Set([
+  1517290, // Battlefield 2042 (전체 목록)
+  1716740, // Starfield (전체 목록)
+  646570, // Slay the Spire (내 게임)
+])
+
 export const mockGames: MockGame[] = seeds.map(
   ([id, title, genres, positiveRate, reviewCount, reactionChange, releasedAt]) => {
     const [developer, playModes, description, userTags, latestPatch] = details[id]
+    // hasImage: false면 GameImage 플레이스홀더가 보이도록 null
+    const hasImage = !GAMES_WITHOUT_IMAGE.has(id)
     const gameSummary: GameSummary = {
       id,
       title,
-      headerImageUrl: headerImageUrl(id),
+      headerImageUrl: hasImage ? headerImageUrl(id) : null,
       releasedOn: releasedAt,
       developer,
       playModes,
@@ -226,7 +235,7 @@ export const mockGames: MockGame[] = seeds.map(
     return {
       id,
       title,
-      capsuleImageUrl: headerImageUrl(id),
+      capsuleImageUrl: hasImage ? headerImageUrl(id) : null,
       tags: GAME_GENRES.filter((genre) => genres.includes(genre.id)),
       positiveRate,
       isMine: id === 646570 || id === 1145360,

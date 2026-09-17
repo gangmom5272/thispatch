@@ -215,7 +215,7 @@ export const mockGames: MockGame[] = seeds.map(
       id,
       title,
       headerImageUrl: headerImageUrl(id),
-      releasedAt,
+      releasedOn: releasedAt,
       developer,
       playModes,
       description,

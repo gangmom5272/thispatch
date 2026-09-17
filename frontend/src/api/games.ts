@@ -1,5 +1,9 @@
-import type { GameDetail, GameFilters, GameList } from "../types"
+import type { GameDetail, GameFilters, GameList, MyGameList } from "../types"
 import { api } from "./client"
+
+function listParams(filters: GameFilters, cursor?: string) {
+  return { ...filters, genreIds: filters.genreIds?.join(",") || undefined, cursor }
+}
 
 export function getGames(
   filters: GameFilters,
@@ -8,10 +12,14 @@ export function getGames(
 ): Promise<GameList> {
   return api.get<GameList>({
     path: "/games",
-    config: {
-      params: { ...filters, genreIds: filters.genreIds?.join(",") || undefined, cursor },
-      signal,
-    },
+    config: { params: listParams(filters, cursor), signal },
+  })
+}
+
+export function getMyGames(filters: GameFilters, signal?: AbortSignal): Promise<MyGameList> {
+  return api.get<MyGameList>({
+    path: "/members/me/games",
+    config: { params: listParams(filters), signal },
   })
 }
 

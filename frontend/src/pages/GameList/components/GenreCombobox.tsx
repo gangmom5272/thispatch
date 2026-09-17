@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent } from "react"
-import { GAME_GENRES } from "../../../constants/games"
+import { useGenreList } from "../../../hooks/queries/genreQueries"
 import type { GameTag } from "../../../types"
 
 interface GenreComboboxProps {
@@ -27,15 +27,24 @@ export default function GenreCombobox({ selectedIds, onChange }: GenreComboboxPr
   const listboxId = useId()
 
   const trimmedQuery = query.trim()
-  const selected = GAME_GENRES.filter((genre) => selectedIds.includes(genre.id))
-  const available = GAME_GENRES.filter((genre) => !selectedIds.includes(genre.id))
+
+  const genreList = useGenreList()
+  const genres = genreList.data ?? []
+  const isLoading = genreList.isPending
+  const hasFailed = genreList.isError
+
+  const selected: GameTag[] = selectedIds.map(
+    (id) => genres.find((genre) => genre.id === id) ?? { id, name: `장르 ${id}` },
+  )
+  const available = genres.filter((genre) => !selectedIds.includes(genre.id))
   const matches = trimmedQuery
     ? available.filter((genre) => genre.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
     : available
-  const hasNoMatch = trimmedQuery.length > 0 && matches.length === 0
+  const hasNoMatch = !isLoading && !hasFailed && trimmedQuery.length > 0 && matches.length === 0
   const defaultActive = trimmedQuery && matches.length > 0 ? 0 : -1
   const active = activeIndex >= 0 && activeIndex < matches.length ? activeIndex : defaultActive
   const optionId = (index: number) => `${listboxId}-option-${index}`
+  const showList = isOpen && !hasNoMatch && !hasFailed
 
   const addGenre = (genre: GameTag) => {
     onChange([...selectedIds, genre.id])
@@ -71,9 +80,10 @@ export default function GenreCombobox({ selectedIds, onChange }: GenreComboboxPr
     }
   }
 
-  const fieldTone = hasNoMatch
-    ? "border-sb-line-red"
-    : "border-sb-hairline-cool focus-within:border-sb-primary"
+  const fieldTone =
+    hasNoMatch || hasFailed
+      ? "border-sb-line-red"
+      : "border-sb-hairline-cool focus-within:border-sb-primary"
 
   return (
     <div className="relative">
@@ -114,10 +124,11 @@ export default function GenreCombobox({ selectedIds, onChange }: GenreComboboxPr
           aria-label="장르 입력"
           autoComplete="off"
           aria-expanded={isOpen}
-          aria-controls={isOpen ? listboxId : undefined}
+          aria-controls={showList ? listboxId : undefined}
           aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? optionId(active) : undefined}
           aria-invalid={hasNoMatch || undefined}
+          aria-busy={isLoading || undefined}
           value={query}
           placeholder={selected.length > 0 ? "장르 추가" : "장르 입력"}
           onChange={(event) => {
@@ -152,6 +163,27 @@ export default function GenreCombobox({ selectedIds, onChange }: GenreComboboxPr
         </button>
       </div>
 
+      {hasFailed && (
+        <div
+          role="alert"
+          className="absolute inset-x-0 top-full z-10 mt-sb-1 flex items-center gap-sb-2 rounded-sb-control border border-sb-line-red bg-sb-canvas p-sb-3 text-sb-ink-mute shadow-sb-popover"
+        >
+          <span aria-hidden="true">ⓘ</span>
+          <span className="flex-1">
+            장르 목록을 불러오지 못했습니다 · 잠시 후 다시 시도해 주세요
+          </span>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void genreList.refetch()}
+            disabled={genreList.isFetching}
+            className="h-7 cursor-pointer rounded-sb-tag border border-sb-hairline-strong bg-sb-canvas-surface px-sb-2 text-sb-ink hover:border-sb-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+
       {isOpen && hasNoMatch && (
         <p
           role="status"
@@ -163,15 +195,17 @@ export default function GenreCombobox({ selectedIds, onChange }: GenreComboboxPr
         </p>
       )}
 
-      {isOpen && !hasNoMatch && (
+      {showList && (
         <div
           id={listboxId}
           className="absolute inset-x-0 top-full z-10 mt-sb-1 max-h-96 overflow-y-auto rounded-sb-control border border-sb-hairline-strong bg-sb-canvas py-sb-1 shadow-sb-popover"
         >
-          <p className="px-sb-3 py-sb-2 text-sb-ink-mute">
-            {trimmedQuery
-              ? `‘${trimmedQuery}’ 와(과) 일치하는 장르 ${matches.length}개`
-              : `선택할 수 있는 장르 ${matches.length}개`}
+          <p role="status" aria-live="polite" className="px-sb-3 py-sb-2 text-sb-ink-mute">
+            {isLoading
+              ? "장르 목록을 불러오는 중"
+              : trimmedQuery
+                ? `‘${trimmedQuery}’ 와(과) 일치하는 장르 ${matches.length}개`
+                : `선택할 수 있는 장르 ${matches.length}개`}
           </p>
           <ul role="listbox" aria-label="장르 목록">
             {matches.map((genre, index) => (

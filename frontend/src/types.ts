@@ -3,6 +3,11 @@ export interface GameTag {
   name: string
 }
 
+/** GET /genres */
+export interface GenreList {
+  items: GameTag[]
+}
+
 export interface Game {
   id: number
   capsuleImageUrl: string
@@ -31,12 +36,12 @@ export interface GameSummary {
   id: number
   title: string
   headerImageUrl: string
-  releasedAt: string
+  releasedOn: string | null
   developer: string
   playModes: string[]
-  description: string
+  description: string | null
   userTags: string[]
-  reviewCount: number
+  reviewCount: number | null
   latestPatch: string
 }
 
@@ -55,6 +60,9 @@ export interface GameFilters {
   genreIds?: number[]
 }
 
+/** GET /members/me/games — 내 게임 목록이므로 isMine을 포함하지 않는다. */
+export type MyGame = Omit<Game, "isMine">
+
 export interface GameList {
   items: Game[]
   page: {
@@ -63,6 +71,10 @@ export interface GameList {
     hasNext: boolean
     totalCount: number
   }
+}
+
+export interface MyGameList extends Omit<GameList, "items"> {
+  items: MyGame[]
 }
 
 export interface PlanEntity {

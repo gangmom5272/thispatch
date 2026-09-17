@@ -1,7 +1,8 @@
 /** App route absolute paths — single source for Link/`navigate` and router registration. */
 export const paths = {
   home: "/",
-  games: "/games",
+  landing: "/landing",
+  games: "/",
   gameDetailPattern: "/games/:gameId",
   gamePlanPattern: "/games/:gameId/plan",
   gameCasesPattern: "/games/:gameId/cases",

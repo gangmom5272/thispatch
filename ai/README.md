@@ -8,13 +8,14 @@ GPU 노트북 1대(RTX 4070 8GB)에서 돈다. 클러스터 노드가 아니고 
 | 경로 | 역할 | 실행 시점 |
 |---|---|---|
 | `batch/embed_chunks.py` | 공지 → 청크 분리 → 규칙 슬롯 → EmbeddingGemma 512 → `patch_chunk`·`patch_change` Parquet | 매일 |
-| `batch/classify_reviews.py` | 리뷰 → 임베딩 → 로지스틱 회귀 5개 → `review_topic` Parquet (다중 라벨) | 매일 (초기 1회 `--base`) |
+| `batch/classify_reviews.py` | 리뷰 → 임베딩 → 로지스틱 회귀 5개 → `review_topic` Parquet (다중 라벨). 영어·한국어 | 매일 (초기 1회 `--base`) |
 | `batch/qwen_backfill.py` | 변경 문장 청크 → Qwen3.5-9B → 대상·속성·조건으로 `patch_change` 덮어쓰기. 최근 공지 우선, 중복 문장 1회, 시간 예산 | 매일 남는 시간 + 백필 |
 | `batch/run_daily.sh` | WSL: `hdfs dfs -get` → 위 셋 → `hdfs dfs -put` | 매일 (Spark 뒤) |
-| `api/main.py`, `api/compare.py`, `api/summarize.py` | FastAPI. `POST /plan/structure`(기획안 구조화, Qwen 1회) · `POST /plan/restate`(수정 슬롯 → 재진술, 문장 틀) · `POST /embed/query`(질의 벡터) · `POST /cases/cards`(화면 04 카드 1줄 + 결과군 패턴, 문장 틀) · `POST /cases/compare`(화면 05 공통점·차이점, 문장 틀 + Qwen 옵션) · `POST /reviews/summarize`(화면 02 AI 대표 반응 요약: 제목·요약·반복 표현·근거 2건, Qwen 1회). 오류 응답은 백엔드 공통 형식. AI 서버는 DB 를 보지 않고 백엔드가 사례 데이터를 본문에 담아 보낸다 | 상시, 백엔드가 호출 |
+| `api/main.py`, `api/compare.py`, `api/summarize.py` | FastAPI. `POST /plan/structure`(기획안 구조화, Qwen 1회) · `POST /plan/restate`(수정 슬롯 → 재진술, 문장 틀) · `POST /embed/query`(질의 벡터) · `POST /cases/cards`(화면 04 카드 1줄 + 결과군 패턴, 문장 틀) · `POST /cases/compare`(화면 05 공통점·차이점, 문장 틀 + Qwen 옵션) · `POST /reviews/summarize`(화면 02 AI 대표 반응 요약: 제목·요약·반복 표현·근거 2건, Qwen 1회) · `POST /trends/summarize`(화면 01 반응 추세 요약: 일별 집계·패치 시점 → 수치 계산 + 문장, Qwen 옵션). 오류 응답은 백엔드 공통 형식. AI 서버는 DB 를 보지 않고 백엔드가 사례 데이터를 본문에 담아 보낸다 | 상시, 백엔드가 호출 |
 | `batch/chunking.py`, `rules.py`, `qwen_prompt.py` | 청크 분리(동료 steam_pipeline 이식), 규칙, 프롬프트·스키마 | 라이브러리 |
 | `batch/dev_make_*_input.py` | 개발용 입력 생성(PoC JSON → Parquet). HDFS 준비 후 불필요 | 개발 |
-| `models/` | 분류기 `logreg-gemma512-v1.joblib` (git 밖, 0905 노트북 08 산출) | |
+| `batch/train_topic_clf.py` | 사람 라벨(0908_return·0916_return) + LLM 라벨 → 토픽 분류기 학습·문턱값 선정 | 라벨 갱신 시 |
+| `models/` | 분류기 `logreg-gemma512-v3.joblib` (git 밖, `train_topic_clf.py` 산출) | |
 
 ## 패치 판정 입력
 
@@ -39,6 +40,22 @@ cd api && $PY -m uvicorn main:app --port 8100     # 또는 .\start.ps1 (Ollama �
 
 AI 서버는 **사용자가 직접 켠다**(자동 기동 없음). `api/start.ps1`(Windows) 또는 `bash api/start.sh`(WSL) 를 실행하면 Ollama 를 확인하고 서버를 띄운 뒤 `/health` 가 `ready:true` 가 될 때까지 진행을 보여 준다. 임베딩 모델(약 35초)·Qwen(약 10초)은 기동 시 백그라운드로 미리 올린다. 백엔드는 `GET /health` 의 `ready` 가 true 일 때부터 호출한다.
 
+### 백엔드가 호출하는 경로 — SSH 역터널
+
+EC2 에서 교육장 노트북 대역으로 나가는 라우팅이 없어 포트를 열어도 닿지 않는다(9/10 인프라 실측).
+반대 방향은 열려 있으므로 **노트북이 서버1 로 붙어 8100 을 거꾸로 넘긴다**.
+
+```bash
+.pi	unnel.ps1          # Windows. 또는 bash api/tunnel.sh (WSL)
+```
+
+백엔드는 `http://172.17.0.1:8100` 으로 부른다. 노트북 IP 가 바뀌어도 설정을 고칠 필요가 없다.
+도커 브리지 주소에 묶는 이유는 백엔드가 컨테이너 안에서 돌기 때문이고,
+그러려면 서버1 `sshd_config` 에 `GatewayPorts clientspecified` 가 있어야 한다(인프라 협의 중).
+확인은 서버1 에서 `curl http://172.17.0.1:8100/health`. 연동 절차는 [docs/backend-connection.md](docs/backend-connection.md).
+
+노트북이 꺼지거나 절전으로 들어가면 AI 기능이 멈춘다. 서버에 GPU 가 없어 생기는 구조적 제약이다.
+
 운영(WSL)은 `pip install -r requirements.txt`(torch 는 CUDA 빌드 별도) 후 `DT=… bash batch/run_daily.sh`.
 Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네트워크).
 
@@ -53,6 +70,7 @@ Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네
 | 사례 비교 API (`/cases/compare`) | 문장 틀 0ms, Qwen 해석 13초 | 사례 변경점 40개 입력 기준 |
 | 카드·재진술 API | 밀리초 | LLM 없음 |
 | 리뷰 요약 API (`/reviews/summarize`) | 8건(평균 7,200자) 10초 | 짧은 리뷰면 더 빠름. 검증 루프 1회 통과 |
+| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) | 수치 계산은 전부 서버에서. `use_llm=true` 면 Qwen 1회가 더 붙는다 |
 | 질의 임베딩 API | 밀리초 | |
 
 ## 아직 안 정해진 것

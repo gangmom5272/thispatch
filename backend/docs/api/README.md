@@ -17,7 +17,8 @@
 | member | [member.md](member.md) | `POST /auth/logout` | 로그아웃 |
 | member | [member.md](member.md) | `DELETE /members/me` | 회원탈퇴 |
 | game | [game.md](game.md) | `GET /genres` | 장르 필터 |
-| game | [game.md](game.md) | `GET /games` | 게임 목록/검색/자동완성 |
+| game | [game.md](game.md) | `GET /games` | 전체 게임 목록/검색/자동완성 |
+| game | [game.md](game.md) | `GET /members/me/games` | 내 게임 목록/검색 |
 | game | [game.md](game.md) | `GET /games/{gameId}` | 게임 정보/hover |
 | game | [game.md](game.md) | `POST /games/{gameId}/my-game` | 내 게임 등록 |
 | game | [game.md](game.md) | `DELETE /games/{gameId}/my-game` | 내 게임 등록 해제 |

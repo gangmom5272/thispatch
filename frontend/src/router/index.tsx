@@ -6,14 +6,19 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage"
 import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
+  GAME_DETAIL_TABS,
   GAME_DETAIL_MAIN_TABS,
   GAME_DETAIL_TAB_LABELS,
   paths,
   routeSegment,
 } from "@/router/paths"
 import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
+import PlaytimeTopicsPage from "@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"
+import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
+import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
+import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
 import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"
@@ -25,11 +30,15 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <PlaceholderPage title="홈" />,
+        element: <GameListPage />,
       },
       {
-        path: routeSegment(paths.games),
-        element: <GameListPage />,
+        path: "games",
+        element: <Navigate to={paths.home} replace />,
+      },
+      {
+        path: routeSegment(paths.landing),
+        element: <PlaceholderPage title="랜딩" />,
       },
       {
         path: routeSegment(paths.gameDetailPattern),
@@ -41,7 +50,18 @@ export const router = createBrowserRouter([
           },
           ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
             path: tab,
-            element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
+            element:
+              tab === GAME_DETAIL_TABS.reactionTrends ? (
+                <ReactionTrendsPage />
+              ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
+                <PlaytimeTopicsPage />
+              ) : tab === GAME_DETAIL_TABS.reviews ? (
+                <ReviewsPage />
+              ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
+                <LanguageAnalysisPage />
+              ) : (
+                <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
+              ),
           })),
         ],
       },

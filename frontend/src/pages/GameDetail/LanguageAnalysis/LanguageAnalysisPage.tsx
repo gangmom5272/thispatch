@@ -97,7 +97,8 @@ function LanguageAnalysisContent({ gameId, data }: { gameId: number; data: Langu
             언어별 반응 분포
           </h2>
           <p className="text-sb-ink-mute">
-            리뷰 비중 상위 {TOP_LANGUAGE_COUNT}개 · 행을 펼치면 대표 리뷰를 봅니다
+            언어 비중 상위 {TOP_LANGUAGE_COUNT}개 언어를 확인할 수 있습니다. 각 언어를 펼치면 대표
+            리뷰를 확인할 수 있습니다.
           </p>
         </div>
 

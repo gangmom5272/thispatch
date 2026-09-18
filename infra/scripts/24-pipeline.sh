@@ -4,7 +4,8 @@
 #   bash 24-pipeline.sh daily              전체를 순서대로
 #   bash 24-pipeline.sh daily --from convert   그 단계부터 다시
 #   bash 24-pipeline.sh daily --only news      그 단계만
-#   bash 24-pipeline.sh daily --only load      집계·적재만 (표 순서: news → recent_review → band → patch → daily → language)
+#   bash 24-pipeline.sh daily --only load      집계·적재만 (표 순서는 LOAD_JOBS — FK 순서)
+#   bash 24-pipeline.sh daily --only backup    서버2 백업만
 #   LOAD_FROM=band_stat bash 24-pipeline.sh daily --only load   그 표부터
 #   bash 24-pipeline.sh daily --dry-run        무엇을 할지만 보고 아무것도 안 함
 #   bash 24-pipeline.sh stages             단계 목록
@@ -55,6 +56,18 @@ SPARK_DRIVER_MEMORY=${SPARK_DRIVER_MEMORY:-12g}
 # 드라이버가 결과를 받아 모으는 한도. 집계 잡이 커지면 여기서 막힌다.
 SPARK_MAX_RESULT_SIZE=${SPARK_MAX_RESULT_SIZE:-2g}
 
+# 무선망 셔플 보강. 2026-09-18 compaction 실측 — 워커끼리 셔플 블록을 가져오다
+# ClosedChannelException 으로 FetchFailed 가 20분 사이 4번 났다(w103↔w76, w106→w103).
+# 실행기는 다 살아 있었다. 기본 재시도(3회·5초)가 무선 끊김보다 짧아서 단계 전체를
+# 다시 돌게 되고, 그게 반복되면 잡이 실패한다. 더 오래·더 천천히 다시 받게 한다.
+#   maxRetries 10 · retryWait 15s   블록 하나에 최대 150초 버틴다
+#   maxSizeInFlight 24m             한 번에 당기는 양을 절반으로 — AP 하나를 4대가 나눠 쓴다
+SPARK_NET_OPTS=(
+  --conf spark.shuffle.io.maxRetries=10
+  --conf spark.shuffle.io.retryWait=15s
+  --conf spark.reducer.maxSizeInFlight=24m
+)
+
 # 배치 DB — collect 단계 앞의 안전장치가 본다. 23-collect-retry.sh 와 같은 값.
 BATCH_DB_HOST=${BATCH_DB_HOST:-127.0.0.1}
 BATCH_DB_NAME=${BATCH_DB_NAME:-thispatch_batch}
@@ -74,10 +87,14 @@ mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR" 2>/dev/null || true
 #
 # 이름|설명|언제 도는가
 #   daily  매일
-#   fri    금요일만
+#   mon    월요일만
 #   todo   아직 만들지 않았다 — 자리만 잡아 둔다
 #
 # ⚠ 순서를 바꾸기 전에 위 「왜 필요한가」를 읽을 것.
+#
+# backup 이 맨 끝인 이유 — 새벽 타이머로 따로 두면 노트북이 꺼져 있어 안 돌고(04:30 은
+# 아무도 없다), 켜져 있어도 그날 수집·변환 결과가 아직 없을 때 돈다. 수집·변환·적재가
+# 끝난 직후 그 결과까지 서버2 에 담아야 백업이 하루치 단위로 맞는다. (2026-09-18 결정)
 STAGES=(
   "catalog|스팀 카탈로그 전량|daily"
   "collect|리뷰 증분 수집|daily"
@@ -85,10 +102,11 @@ STAGES=(
   "convert|리뷰 landing → delta|daily"
   "news|공지 수집|daily"
   "news-convert|공지 landing → news_raw|daily"
-  "compact|delta → base 병합|fri"
+  "compact|delta → base 병합|mon"
   "topics|토픽 분류|todo"
   "aggregate|Spark 집계 (load 가 함께 한다)|skip"
   "load|집계 → PostgreSQL 적재|daily"
+  "backup|HDFS → 서버2 백업|daily"
 )
 
 # ── load 단계가 도는 잡 ─────────────────────────────────────
@@ -99,9 +117,16 @@ STAGES=(
 #
 # ⚠ 순서가 곧 FK 순서다.
 #   news 가 먼저다 — patch_stat.gid 가 news 를 참조한다.
-#   recent_review 는 review_topic(S15P21A202-252)이 참조하므로, 토픽 적재가 생기면
-#   「토픽 비움 → recent_review → 토픽 다시 넣음」 순서가 여기 들어온다.
-#   band_stat 은 band_topic_stat 이 참조한다 — 같은 이야기.
+#   recent_review 는 review_topic 이 참조한다 — 그래서 「토픽 비움(--clear-only) →
+#   recent_review → … → 토픽 다시 넣음」 으로 감싼다. review_topic 적재기는 recent_review
+#   의 review_id 로 짝을 맞추므로 맨 끝에 온다.
+#   patch_chunk.gid 는 news 를, patch_change 는 patch_chunk 를 참조한다.
+#   band_stat 은 band_topic_stat 이 참조한다 — 그 적재기(S15P21A202-251)가 생기면 band_stat 뒤에 온다.
+#
+# ⚠ AI 산출물(patch_chunk · patch_change · review_topic)은 AI 노드가 HDFS 에 올린 것을 읽는다.
+#   그날 파티션(YESTERDAY)이 없으면 적재기가 「읽을 것이 없다」 하고 rc 0 으로 건너뛴다 —
+#   파이프라인은 멈추지 않고 표는 이전 값 그대로다. AI 배치가 며칠 것을 한 번에 올리면
+#   손으로 `--dt <날짜>` 를 주어 돌린다 (PatchChunkToPostgres 클래스 주석).
 #
 # ⚠ 잡 사이에 5분 쉰다. client 모드 드라이버는 spark.rpc.askTimeout(300초) 동안
 #   워커 응답을 기다리며 살아 있다. 바로 다음 잡을 띄우면 마스터 메모리가 모자라
@@ -111,11 +136,15 @@ STAGES=(
 # 어제(KST)다. 오늘 증분이 이 단계 앞(collect·convert)에서 끝났기 때문이다.
 LOAD_JOBS=(
   "news|com.ssafy.thispatch.spark.NewsToPostgres|light|"
+  "review_topic_clear|com.ssafy.thispatch.spark.ReviewTopicToPostgres|light|--clear-only"
   "recent_review|com.ssafy.thispatch.spark.RecentReviewToPostgres|light|"
+  "patch_chunk|com.ssafy.thispatch.spark.PatchChunkToPostgres|light|--dt YESTERDAY"
+  "patch_change|com.ssafy.thispatch.spark.PatchChangeToPostgres|light|--chunk-dt YESTERDAY --change-dt YESTERDAY"
   "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
   "patch_stat|com.ssafy.thispatch.spark.PatchStatToPostgres|heavy|--coverage-end YESTERDAY"
   "daily_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only daily"
   "language_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only language"
+  "review_topic|com.ssafy.thispatch.spark.ReviewTopicToPostgres|light|"
 )
 LOAD_GAP_SECONDS=${LOAD_GAP_SECONDS:-300}
 
@@ -176,6 +205,7 @@ run_stage() {
     news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet && convert_today com.ssafy.thispatch.spark.NewsToParquet /news_landing ;;
     compact)      spark_job com.ssafy.thispatch.spark.Compaction ;;
     load)         load_all ;;
+    backup)       bash "$HERE/25-hdfs-backup.sh" now ;;
     aggregate)    echo "  집계는 load 단계의 적재기가 함께 한다 (ReviewStatsToPostgres 등). 건너뛴다."; return 0 ;;
     topics)
       echo "  아직 만들지 않았다. 건너뛴다."
@@ -190,6 +220,7 @@ spark_job() {
   "$SPARK_SUBMIT" --class "$1" --master yarn --deploy-mode client \
       --driver-memory "$SPARK_DRIVER_MEMORY" \
       --conf spark.driver.maxResultSize="$SPARK_MAX_RESULT_SIZE" \
+      "${SPARK_NET_OPTS[@]}" \
       "$SPARK_JAR" "${@:2}"
 }
 
@@ -275,6 +306,7 @@ load_job() {
   "$SPARK_SUBMIT" --class "$cls" --master yarn --deploy-mode client \
       --driver-memory "$SPARK_DRIVER_MEMORY" \
       --conf spark.driver.maxResultSize="$SPARK_MAX_RESULT_SIZE" \
+      "${SPARK_NET_OPTS[@]}" \
       "${exec_opts[@]}" \
       "$SPARK_JAR" "$@" 2>&1 \
     | grep -vE '^\s*at |^[0-9/: ]+ (WARN|INFO) |Lambda\$|Unknown Source|^\s*\.\.\. [0-9]+ more|^\([0-9]+\) |^(Input|Output|Keys|Functions|Aggregate Attributes|Results|Arguments|Condition|\+-|:-) |FileScan'
@@ -383,8 +415,8 @@ guard_collect() {
 selected() {
   local today started=0
   # ⚠ %a 가 아니라 %u 를 쓴다. %a 는 로캘을 탄다 — 한국어 로캘이 깔린 노트북에서는
-  #   "금" 이 나와서 "Fri" 와 절대 같아지지 않고, compaction 이 영영 안 돈다.
-  #   %u 는 어느 로캘에서도 금요일이 5 다 (실측).
+  #   "월" 이 나와서 "Mon" 과 절대 같아지지 않고, compaction 이 영영 안 돈다.
+  #   %u 는 어느 로캘에서도 월요일이 1 이다 (실측).
   today=$(date +%u)   # 1=월 … 5=금 … 7=일
   for s in "${STAGES[@]}"; do
     local n w
@@ -396,10 +428,13 @@ selected() {
     if [ -n "$FROM" ] && [ "$started" = 0 ]; then
       [ "$n" = "$FROM" ] && started=1 || continue
     fi
-    # ⚠ compaction 은 금요일에만 돈다.
-    #   주말에는 노트북이 각자 집으로 흩어져 IP 가 바뀐다. 클러스터가 아예
-    #   구성되지 않으므로 토요일에 걸어 두면 영영 안 돈다. (2026-09-15 결정)
-    if [ "$w" = fri ] && [ "$today" != 5 ]; then
+    # ⚠ compaction 은 월요일에만 돈다.
+    #   주말·연휴에는 노트북이 각자 집으로 흩어져 IP 가 바뀌고 클러스터가 아예
+    #   구성되지 않는다. 처음엔 금요일로 두었는데(2026-09-15), 추석처럼 금요일이
+    #   연휴에 걸리면 그 주 실행이 통째로 없고 밀린 실행은 월요일에 도니까 또 건너뛴다.
+    #   월요일은 늘 출근해서 클러스터가 켜져 있는 날이다. (2026-09-18 결정)
+    #   Persistent= 로 밀린 실행이 도는 날도 월요일이라 자연히 맞물린다.
+    if [ "$w" = mon ] && [ "$today" != 1 ]; then
       continue
     fi
     echo "$s"

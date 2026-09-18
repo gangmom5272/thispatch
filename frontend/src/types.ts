@@ -48,12 +48,23 @@ export interface GameSummary {
 export type GameSort =
   "POSITIVE_RATE_ASC" | "REVIEW_COUNT_DESC" | "REACTION_CHANGE_DESC" | "RELEASE_DATE_DESC"
 
-export interface GameFilterConditions {
+/** 출시연도·리뷰 수·긍정률 범위와 개발사 필터. 생략한 값은 요청 파라미터에서 빠진다. */
+export interface GameRangeFilters {
+  releaseYearFrom?: number
+  releaseYearTo?: number
+  minReviewCount?: number
+  maxReviewCount?: number
+  minPositiveRate?: number
+  maxPositiveRate?: number
+  developer?: string
+}
+
+export interface GameFilterConditions extends GameRangeFilters {
   sort: GameSort
   genreIds: number[]
 }
 
-export interface GameFilters {
+export interface GameFilters extends GameRangeFilters {
   search?: string
   sort?: GameSort
   limit?: number

@@ -1,19 +1,12 @@
 import { Link } from "react-router"
 import { cn } from "@/lib/cn"
-import { TopicAiSummaryCard } from "@/pages/GameDetail/PlaytimeTopics/components/TopicAiSummaryCard"
-import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
 import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
 import { HeroMarquee } from "@/pages/Landing/components/HeroMarquee"
 import { OutcomeCaseCard } from "@/pages/Landing/components/OutcomeCaseCard"
 import { Reveal } from "@/pages/Landing/components/Reveal"
 import { TypingText } from "@/pages/Landing/components/TypingText"
 import { UnknownTrendChart } from "@/pages/Landing/components/UnknownTrendChart"
-import {
-  DIAGNOSIS_AI_SUMMARY,
-  DIAGNOSIS_REVIEW_COUNT,
-  DIAGNOSIS_TOPICS,
-  OUTCOME_CASES,
-} from "@/pages/Landing/demoData"
+import { OUTCOME_CASES, PLAN_DRAFT_SLOTS, PLAN_DRAFT_TEXT } from "@/pages/Landing/demoData"
 import { paths } from "@/router/paths"
 
 const SECTION_CLASS =
@@ -116,7 +109,7 @@ function QuestionSection() {
         aria-hidden
         className="pointer-events-none absolute inset-0 flex items-center justify-center px-sb-4"
       >
-        <div className="w-full opacity-60 md:opacity-75">
+        <div className="w-full opacity-70 md:opacity-85">
           <UnknownTrendChart />
         </div>
       </div>
@@ -128,7 +121,7 @@ function QuestionSection() {
       <div
         className={cn(
           SECTION_CLASS,
-          "relative flex min-h-140 flex-col items-center justify-center gap-sb-6 text-center",
+          "relative flex min-h-140 flex-col items-center justify-center gap-sb-6 text-center md:min-h-176",
         )}
       >
         <p className="text-sb-lead text-sb-ink-mute">
@@ -152,40 +145,79 @@ function QuestionSection() {
   )
 }
 
-function DiagnosisSection() {
+function EvidenceSection() {
   return (
     <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
         <Reveal variant="eyebrow">
-          <p className="font-sb-mono text-sb-caption text-sb-primary">01 — 반응을 읽다</p>
+          <p className="font-sb-mono text-sb-caption text-sb-primary">01 — 이 게임의 반응을 읽다</p>
         </Reveal>
-        <div className="mt-sb-4 flex flex-col gap-sb-6 lg:flex-row lg:items-end lg:justify-between">
-          <Reveal variant="title">
-            <h2 className="max-w-xl text-sb-section font-medium text-balance text-sb-ink">
-              평점 아래에 있는 진짜 이야기를 읽으세요.
-            </h2>
-          </Reveal>
-          <Reveal variant="lead" delay={140}>
-            <p className="max-w-md text-sb-body text-pretty text-sb-ink-mute">
-              누가 어떤 이야기를 하는지. 플레이타임과 토픽으로 좁혀보세요.
-            </p>
-          </Reveal>
-        </div>
+        <Reveal variant="title" delay={80} className="mt-sb-4">
+          <h2 className="max-w-2xl text-sb-section font-medium text-balance text-sb-ink">
+            평점 아래에 있는 진짜 이야기, 요약에서 원문까지.
+          </h2>
+        </Reveal>
+        <Reveal variant="lead" delay={140} className="mt-sb-3">
+          <p className="max-w-2xl text-sb-body text-pretty text-sb-ink-mute">
+            선택한 게임의 패치 전후 리뷰를 모아, 반응이 어디서 어떻게 움직였는지 봅니다.
+          </p>
+        </Reveal>
 
-        <div className="mt-sb-8 grid gap-sb-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Reveal variant="panel">
-            <TopicBars
-              topics={DIAGNOSIS_TOPICS}
-              reviewCount={DIAGNOSIS_REVIEW_COUNT}
-              isOverall={false}
-            />
-          </Reveal>
-          <Reveal variant="panel" delay={140}>
-            <TopicAiSummaryCard data={DIAGNOSIS_AI_SUMMARY} isPending={false} isError={false} />
-          </Reveal>
+        <div className="mt-sb-8">
+          <EvidenceSteps />
         </div>
       </div>
     </section>
+  )
+}
+
+/**
+ * 04 비교 섹션 — 기획안을 적고 유사 사례를 찾는 흐름.
+ * 기획안 화면의 입력 패널을 그대로 옮긴 표시용 화면이며 실제 입력을 받지 않는다.
+ */
+function PlanSearchFlow() {
+  return (
+    <div className="flex flex-col items-center">
+      <Reveal variant="panel" className="w-full">
+        <div className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface">
+          <div className="flex flex-wrap items-baseline gap-x-sb-2 gap-y-sb-1 border-b border-sb-hairline px-sb-4 py-sb-3">
+            <h3 className="text-sb-body font-medium text-sb-ink">다음 버전 기획안</h3>
+            <p className="text-sb-caption text-sb-ink-mute">
+              자연어로 변경안을 적으면 변경 대상의 의미부터 확인합니다
+            </p>
+          </div>
+          <div className="flex flex-col gap-sb-3 p-sb-4">
+            <p className="rounded-sb-control border border-sb-hairline-strong bg-sb-canvas-soft px-sb-3 py-sb-2 text-left text-sb-body text-sb-ink">
+              <TypingText text={PLAN_DRAFT_TEXT} speed={45} />
+            </p>
+            <ul className="flex flex-wrap gap-sb-2">
+              {PLAN_DRAFT_SLOTS.map((slot) => (
+                <li
+                  key={slot.label}
+                  className="flex items-center gap-sb-2 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas px-sb-2 py-0.5 text-sb-caption"
+                >
+                  <span className="text-sb-ink-mute">{slot.label}</span>
+                  <span className="text-sb-ink">{slot.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Reveal>
+
+      <Reveal variant="cta" delay={200} className="flex flex-col items-center">
+        <span
+          aria-hidden
+          className="block h-8 w-px bg-linear-to-b from-sb-hairline-strong to-sb-primary"
+        />
+        <span className="mt-sb-2 inline-flex h-sb-control items-center gap-sb-2 rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-body text-sb-ink">
+          유사 사례 검색
+          <span aria-hidden className="text-sb-primary">
+            ↓
+          </span>
+        </span>
+      </Reveal>
+    </div>
   )
 }
 
@@ -213,7 +245,17 @@ function ComparisonSection() {
           </Reveal>
         </div>
 
-        <ul className="mt-sb-8 grid gap-sb-4 lg:grid-cols-3">
+        <div className="mt-sb-8">
+          <PlanSearchFlow />
+        </div>
+
+        <Reveal variant="lead" delay={100} className="mt-sb-6">
+          <p className="text-center font-sb-mono text-sb-caption text-sb-ink-mute">
+            유사 사례 {OUTCOME_CASES.length}건 · 결과군별로 나눠 보여줍니다
+          </p>
+        </Reveal>
+
+        <ul className="mt-sb-4 grid gap-sb-4 lg:grid-cols-3">
           {OUTCOME_CASES.map((item, index) => (
             <li key={item.gameName}>
               <Reveal variant="group" delay={CASE_DELAYS[index]} className="h-full">
@@ -222,27 +264,6 @@ function ComparisonSection() {
             </li>
           ))}
         </ul>
-      </div>
-    </section>
-  )
-}
-
-function EvidenceSection() {
-  return (
-    <section className="bg-sb-canvas-base">
-      <div className={SECTION_CLASS}>
-        <Reveal variant="eyebrow">
-          <p className="font-sb-mono text-sb-caption text-sb-primary">03 — 근거까지 확인하다</p>
-        </Reveal>
-        <Reveal variant="title" delay={80} className="mt-sb-4">
-          <h2 className="max-w-2xl text-sb-section font-medium text-balance text-sb-ink">
-            요약은 시작일 뿐. 마지막에는, 유저의 목소리.
-          </h2>
-        </Reveal>
-
-        <div className="mt-sb-8">
-          <EvidenceSteps />
-        </div>
       </div>
     </section>
   )
@@ -314,9 +335,8 @@ export default function LandingPage() {
       <main className="break-keep">
         <HeroSection />
         <QuestionSection />
-        <DiagnosisSection />
-        <ComparisonSection />
         <EvidenceSection />
+        <ComparisonSection />
         <CtaSection />
       </main>
       <LandingFooter />

@@ -124,6 +124,13 @@ export const TREND_PATCH_DAY_LABEL = "16"
  * 패치일과 그 이후는 값을 두지 않는다. 화면에서도 그 구간을 가려 알 수 없음을 나타낸다.
  */
 export const TREND_KNOWN_DAYS = [
+  { label: "02", positiveRate: 77.8, firstWritten: 21, updated: 4 },
+  { label: "03", positiveRate: 78.3, firstWritten: 25, updated: 6 },
+  { label: "04", positiveRate: 79.6, firstWritten: 30, updated: 5 },
+  { label: "05", positiveRate: 78.9, firstWritten: 28, updated: 8 },
+  { label: "06", positiveRate: 77.4, firstWritten: 19, updated: 4 },
+  { label: "07", positiveRate: 78.1, firstWritten: 24, updated: 6 },
+  { label: "08", positiveRate: 79.8, firstWritten: 33, updated: 5 },
   { label: "09", positiveRate: 79.1, firstWritten: 26, updated: 5 },
   { label: "10", positiveRate: 78.6, firstWritten: 23, updated: 6 },
   { label: "11", positiveRate: 79.4, firstWritten: 29, updated: 4 },
@@ -218,6 +225,17 @@ export const DIAGNOSIS_AI_SUMMARY: PlaytimeTopicsAiSummary = {
   },
   evidenceReviews: [],
 }
+
+/** 04 비교 섹션 — 검색의 출발점이 되는 기획안 초안. PlanStructure 화면의 입력 예시와 같은 형식이다. */
+export const PLAN_DRAFT_TEXT =
+  "고통 4 이상 난이도에서 Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다."
+
+/** 04 비교 섹션 — 기획안에서 뽑아낸 변경 슬롯. 유사 사례 검색 조건이 된다. */
+export const PLAN_DRAFT_SLOTS = [
+  { label: "대상", value: "Axebot" },
+  { label: "변경", value: "체력 +20% · 공격력 +10%" },
+  { label: "범위", value: "고통 4 이상" },
+] as const
 
 export type OutcomeGroup = "negative" | "neutral" | "positive"
 

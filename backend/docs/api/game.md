@@ -66,10 +66,38 @@
 | Name | Type | Required | Description |
 |---|---|---:|---|
 | `search` | string | No | 게임 제목 부분 검색, 최대 100자 |
-| `sort` | string | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
+| `sort` | string (enum) | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
 | `limit` | int | No | 기본 10, min 1, max 100 |
 | `cursor` | string | No | 전체 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
 | `genreIds` | int[] | No | 콤마 구분, 생략 시 전체 |
+| `releaseYearFrom` | int | No | 출시연도 하한 포함, 1~9999 |
+| `releaseYearTo` | int | No | 출시연도 상한 포함, 1~9999 |
+| `minReviewCount` | int | No | 전체 리뷰 수 하한 포함, 0~2147483647 |
+| `maxReviewCount` | int | No | 전체 리뷰 수 상한 포함, 0~2147483647 |
+| `minPositiveRate` | int | No | 긍정률 하한 포함, 0~100 (%) |
+| `maxPositiveRate` | int | No | 긍정률 상한 포함, 0~100 (%) |
+| `developer` | string | No | 개발사명 부분 검색, 최대 500자 |
+
+**신규 필터 공통 규칙 — 전체 게임·내 게임**
+
+- 모든 신규 필터는 선택값이며, 생략한 경계는 제한하지 않는다. 검색·장르·출시연도·리뷰 수·긍정률·개발사는 AND로 결합하며 장르 여러 개 사이의 OR 조건은 유지한다.
+- 범위 양 끝을 포함한다. 특정 출시연도는 `releaseYearFrom`과 `releaseYearTo`에 같은 값을 전달한다.
+- 출시연도는 `game.release_ts`를 `Asia/Seoul` 기준으로 변환한 연도다. 리뷰 수는 `game.store_review_count`, 긍정률은 `game.store_positive_pct`의 저장된 전체 통계를 사용한다.
+- 개발사명은 원문 500자 제한을 검증한 뒤 앞뒤 공백을 제거하고 대소문자를 무시하는 부분 검색을 적용한다. 내부 공백을 유지하며 `%`, `_`, `!`과 쉼표를 문자 그대로 검색한다. 빈 문자열·공백만 입력하면 필터를 적용하지 않는다.
+- 필터를 지정한 항목의 DB 값이 null이면 제외한다. 필터를 생략한 항목은 null이라는 이유로 제외하지 않는다.
+- 백엔드에서 모든 필터를 적용한 뒤 기존 기준으로 정렬·페이지 처리한다. `totalCount`에도 동일한 필터를 적용하고 커서 이전 결과를 포함한다.
+- 숫자 필터의 빈 값·문자·소수·int 표현 범위 초과는 `400 INVALID_REQUEST`다. 조건 해제 시 빈 값을 전달하지 않고 파라미터를 생략한다.
+- 숫자 범위 위반, 개발사명 원문 500자 초과 및 하한이 상한보다 큰 경우는 `400 VALIDATION_FAILED`와 필드별 `errors`다. 범위 역전은 해당 상한 필드(`releaseYearTo`, `maxReviewCount`, `maxPositiveRate`)로 보고한다.
+- 신규 필터의 정규화된 값도 커서에 연결한다. 필터 추가·제거·변경 시 기존 커서를 버리고 첫 페이지를 조회한다. 개발사명의 대소문자·앞뒤 공백 차이는 같은 조건이다.
+- 신규 필터가 없는 기존 커서는 계속 사용할 수 있지만, 신규 필터가 지정된 요청에 재사용하면 `400 INVALID_REQUEST`다.
+- 기존 인증·정렬 종류·응답 필드는 유지한다. `sort`는 대소문자를 구분하는 enum이며 문자열 자체를 정렬값으로 비교하지 않는다.
+
+**Request Example**
+
+```http
+GET /games?releaseYearFrom=2020&releaseYearTo=2026&minReviewCount=1000&maxReviewCount=100000&minPositiveRate=70&maxPositiveRate=90&developer=Valve&sort=REVIEW_COUNT_DESC&limit=20
+Authorization: Bearer {ACCESS_TOKEN}
+```
 
 **Response 200**
 
@@ -146,8 +174,8 @@
 
 | HTTP 상태 | code | message | 적용 상황 |
 |---|---|---|---|
-| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | 검색 길이·limit 범위 검증 실패 (필드별 errors 포함) |
-| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | sort·limit 타입, 장르 입력, 커서 형식·조건 오류 |
+| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | 검색·개발사 길이, limit·필터 범위 및 하한/상한 검증 실패 (필드별 errors 포함) |
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | sort·limit 타입, 신규 숫자 필터 형식, 장르 입력, 커서 형식·조건 오류 |
 | `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
 | `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회·트랜잭션 장애 및 예상하지 못한 서버 오류 |
 
@@ -159,10 +187,10 @@
 - `POSITIVE_RATE_ASC`는 `game.store_positive_pct` 오름차순, `REVIEW_COUNT_DESC`는 `game.store_review_count` 내림차순, `RELEASE_DATE_DESC`는 `release_ts`를 KST 날짜로 변환한 출시일 내림차순이다. 모든 정렬은 null을 마지막에 두며, 동률은 `appid` 오름차순이다.
 - `REACTION_CHANGE_DESC`는 각 게임의 최신 패치에 연결된 `patch_stat.delta_pct`의 절댓값 내림차순이다. 최신 패치는 `news.is_patch = true` 중 `published_ts` 내림차순, 동률이면 `gid` 문자열 내림차순으로 하나를 선택한다. 최신 패치에 통계가 없거나 `delta_pct`가 null이면 정렬값도 null이다. 이전 패치 통계로 대체하지 않는다.
 - 기존 패치 집계의 비교 기간은 패치 게시일 D(KST) 기준 이전 `[D-7일, D)`, 이후 `[D, D+7일)`이다. 각 구간의 리뷰 수정 시각 기준 최종 관측으로 계산한 긍정률의 차이(이후 - 이전, %p)를 사용하며 목록 API에서 다시 계산하지 않는다.
-- 커서는 버전, 전체 목록 구분, 정규화한 검색·장르·정렬 조건, 마지막 정렬값과 게임 ID를 담는 Base64URL JSON이다. 클라이언트는 응답 커서를 그대로 전달한다. 잘못된 형식·내용, 조건이 다른 커서, 내 게임 목록 커서는 `400 INVALID_REQUEST`다. `limit` 변경은 허용하며 장르 순서·중복과 검색 대소문자·앞뒤 공백 차이는 같은 조건이다.
+- 커서는 버전, 전체 목록 구분, 정규화한 검색·모든 필터·정렬 조건, 마지막 정렬값과 게임 ID를 담는 Base64URL JSON이다. 클라이언트는 응답 커서를 그대로 전달한다. 잘못된 형식·내용, 조건이 다른 커서, 내 게임 목록 커서는 `400 INVALID_REQUEST`다. `limit` 변경은 허용하며 장르 순서·중복과 검색·개발사 대소문자·앞뒤 공백 차이는 같은 조건이다.
 - 마지막 정렬값·ID 다음부터 조회하는 keyset 페이지네이션을 사용한다. 커서의 게임이 삭제되어도 저장된 경계값으로 계속 조회한다.
 - 각 요청 안에서는 전체 건수와 목록·부가 정보를 동일한 읽기 스냅샷에서 조회한다. 페이지 간에는 최신 DB를 조회하며 결과를 고정해 저장하지 않는다. 페이지 사이 데이터 삽입·삭제·정렬값 갱신으로 게임이 중복되거나 누락될 수 있다. 조건 변경 시 커서를 버리고 첫 페이지부터 조회한다.
-- `page.limit`는 실제 요청값(생략 시 10), `page.totalCount`는 커서 이전도 포함하여 검색·장르 필터에 맞는 전체 게임 수(long)다. 등록 게임도 포함하며 `my_game`으로 개수를 제한하지 않는다.
+- `page.limit`는 실제 요청값(생략 시 10), `page.totalCount`는 커서 이전도 포함하여 검색·모든 필터에 맞는 전체 게임 수(long)다. 등록 게임도 포함하며 `my_game`으로 개수를 제한하지 않는다.
 - 빈 결과는 `200`, `items: []`, `hasNext: false`, `nextCursor: null`이다. 마지막 페이지도 `hasNext: false`, `nextCursor: null`이다. 다음 페이지가 있을 때만 마지막 반환 게임을 기준으로 커서를 발급한다.
 
 **Processing Rules / Notes — 목록·요약 필드 매핑**
@@ -179,7 +207,7 @@
 **Processing Rules / Notes — 프론트 사용**
 
 - 전체 게임을 조회하며 현재 사용자가 등록한 게임도 포함한다. `items[].isMine`으로 현재 사용자의 내 게임 등록 여부를 반환한다.
-- 검색·정렬·장르 필터는 전체 게임 집합에 적용한다.
+- 검색·정렬·장르·출시연도·리뷰 수·긍정률·개발사 필터는 전체 게임 집합에 적용한다.
 - 내 게임 목록은 `GET /members/me/games`로 별도 조회한다. 전체 게임 목록의 `items`를 `isMine`으로 나눈 결과를 내 게임 목록으로 사용하지 않는다.
 - 두 API의 커서와 페이지 상태(`limit`, `nextCursor`, `hasNext`, `totalCount`)는 독립적으로 관리한다.
 - `items[].gameSummary`는 목록 응답에 유지한다.
@@ -208,10 +236,26 @@ GET /games?search=slay&limit=5
 | Name | Type | Required | Description |
 |---|---|---:|---|
 | `search` | string | No | 내 게임 중 게임 제목 부분 검색, 최대 100자 |
-| `sort` | string | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
+| `sort` | string (enum) | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
 | `limit` | int | No | 기본 10, min 1, max 100 |
 | `cursor` | string | No | 내 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
 | `genreIds` | int[] | No | 내 게임에 적용할 장르 ID를 콤마로 구분. 생략 시 장르 제한 없음 |
+| `releaseYearFrom` | int | No | 출시연도 하한 포함, 1~9999 |
+| `releaseYearTo` | int | No | 출시연도 상한 포함, 1~9999 |
+| `minReviewCount` | int | No | 전체 리뷰 수 하한 포함, 0~2147483647 |
+| `maxReviewCount` | int | No | 전체 리뷰 수 상한 포함, 0~2147483647 |
+| `minPositiveRate` | int | No | 긍정률 하한 포함, 0~100 (%) |
+| `maxPositiveRate` | int | No | 긍정률 상한 포함, 0~100 (%) |
+| `developer` | string | No | 개발사명 부분 검색, 최대 500자 |
+
+신규 필터의 범위·검색·검증·커서 규칙은 위 **신규 필터 공통 규칙 — 전체 게임·내 게임**을 동일하게 적용한다. 조회와 개수 집계 대상은 현재 회원의 등록 게임으로 제한한다.
+
+**Request Example**
+
+```http
+GET /members/me/games?releaseYearFrom=2020&minReviewCount=1000&minPositiveRate=70&developer=Valve&sort=REVIEW_COUNT_DESC&limit=20
+Authorization: Bearer {ACCESS_TOKEN}
+```
 
 **Response 200**
 
@@ -270,24 +314,24 @@ GET /games?search=slay&limit=5
 
 - `items[].id`는 `long`이다.
 - 검증된 Access Token의 `MemberPrincipal.memberId`를 기준으로 현재 사용자가 `my_game`에 등록한 게임만 반환한다. 클라이언트가 전달한 회원 ID는 사용하지 않는다.
-- 검색·정렬·장르 필터는 현재 사용자의 `my_game`에 등록된 게임 집합에만 적용한다.
+- 검색·정렬·장르·출시연도·리뷰 수·긍정률·개발사 필터는 현재 사용자의 `my_game`에 등록된 게임 집합에만 적용한다.
 - 각 요청은 그 요청의 조회 시점에 커밋된 내 게임 등록 상태를 사용한다. 페이지 사이에 등록·해제한 내용은 다음 조회부터 반영하며, 첫 페이지의 게임 집합을 이후 페이지까지 고정하지 않는다.
 - 한 응답의 `items`와 `totalCount`는 동일한 DB 스냅샷을 기준으로 조회한다. 조회가 시작된 뒤 커밋된 등록·해제는 다음 요청에 반영될 수 있다.
 - 페이지 이동 중 새 게임이 이미 지나간 정렬 위치에 등록되면 첫 페이지를 새로 조회해야 확인할 수 있다. 이전 커서의 기준 게임을 등록 해제해도 저장된 정렬 경계로 다음 페이지를 조회한다.
-- 등록한 게임이 없거나 검색·필터·커서 이후의 결과가 없으면 `200`, `items: []`, `nextCursor: null`, `hasNext: false`를 반환한다. `totalCount`는 현재 회원의 검색·장르 필터에 맞는 전체 등록 게임 수이며 커서 이전의 게임도 포함한다.
+- 등록한 게임이 없거나 검색·필터·커서 이후의 결과가 없으면 `200`, `items: []`, `nextCursor: null`, `hasNext: false`를 반환한다. `totalCount`는 현재 회원의 검색·모든 필터에 맞는 전체 등록 게임 수이며 커서 이전의 게임도 포함한다.
 - 내 게임 목록이므로 `items[].isMine` 필드는 반환하지 않는다.
 - `items[].gameSummary`는 전체 게임 목록과 동일하게 포함하며, 하위 필드의 타입과 의미도 전체 게임 목록의 Field rules를 따른다.
 - 이 API의 커서와 페이지 상태(`limit`, `nextCursor`, `hasNext`, `totalCount`)는 전체 게임 목록 조회 API와 독립적으로 관리한다.
-- 검색 정규화·장르 OR 필터·정렬 동률/null 순서·최신 패치 선택·반응 변화 계산·목록과 요약 필드 매핑은 전체 게임 목록의 확정된 규칙을 동일하게 적용한다. 단, 조회 대상과 `totalCount`는 현재 회원의 등록 게임으로 제한하고 `isMine`은 생략한다.
-- 커서는 내 게임 목록 종류와 인증된 회원 ID에 연결한다. 전체 게임 목록의 커서나 다른 회원의 커서, 검색·장르·정렬 조건이 다른 커서는 `400 INVALID_REQUEST`다. `limit` 변경은 허용한다.
+- 검색·개발사 정규화·장르 OR 필터·숫자 범위 필터·정렬 동률/null 순서·최신 패치 선택·반응 변화 계산·목록과 요약 필드 매핑은 전체 게임 목록의 확정된 규칙을 동일하게 적용한다. 단, 조회 대상과 `totalCount`는 현재 회원의 등록 게임으로 제한하고 `isMine`은 생략한다.
+- 커서는 내 게임 목록 종류와 인증된 회원 ID에 연결한다. 전체 게임 목록의 커서나 다른 회원의 커서, 검색·모든 필터·정렬 조건이 다른 커서는 `400 INVALID_REQUEST`다. `limit` 변경은 허용한다.
 - 프론트에서는 내 게임 카드의 등록 상태를 명시적으로 설정해야 한다. 두 목록의 로딩·페이지 상태를 독립적으로 관리하고 등록·해제 후 각각 새로 조회한다. 프론트 구현 변경은 이 API 작업에 포함하지 않는다.
 
 **Error Responses**
 
 | HTTP 상태 | code | message | 적용 상황 |
 |---|---|---|---|
-| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | 검색 길이·limit 범위 검증 실패 (필드별 errors 포함) |
-| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | sort·limit 타입, 장르 입력, 커서 형식·목록·회원·조건 오류 |
+| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | 검색·개발사 길이, limit·필터 범위 및 하한/상한 검증 실패 (필드별 errors 포함) |
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | sort·limit 타입, 신규 숫자 필터 형식, 장르 입력, 커서 형식·목록·회원·조건 오류 |
 | `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
 | `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회·트랜잭션 장애 및 예상하지 못한 서버 오류 |
 

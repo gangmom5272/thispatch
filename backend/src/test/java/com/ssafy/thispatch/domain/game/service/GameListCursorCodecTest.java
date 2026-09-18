@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.thispatch.domain.game.dto.request.GameListQuery;
+import com.ssafy.thispatch.domain.game.dto.request.GameListFilters;
 import com.ssafy.thispatch.domain.game.dto.request.GameListScope;
 import com.ssafy.thispatch.domain.game.dto.request.GameListSort;
 import com.ssafy.thispatch.domain.game.service.GameListCursorCodec.Boundary;
@@ -94,6 +95,31 @@ class GameListCursorCodecTest {
 		assertThatThrownBy(() -> codec.decode(cursor, request, scope, memberId))
 			.isInstanceOfSatisfying(BusinessException.class,
 				exception -> assertThat(exception.getErrorCode().getCode()).isEqualTo("INVALID_REQUEST"));
+	}
+
+	@ParameterizedTest
+	@EnumSource(GameListScope.class)
+	void includesEveryNewFilterInCursorAndNormalizesDeveloper(GameListScope scope) throws Exception {
+		var filters = GameListFilters.of("2020", "2026", "100", "1000", "70", "90", "  VaLvE ");
+		var request = GameListQuery.of(null, query.sort(), 1, null, filters);
+		var boundary = new Boundary(4, "70");
+		String cursor = codec.encode(request, scope, 1, boundary);
+		var equivalent = GameListQuery.of(null, query.sort(), 100, null,
+			GameListFilters.of("2020", "2026", "100", "1000", "70", "90", "valve"));
+		assertThat(codec.decode(cursor, equivalent, scope, 1)).isEqualTo(boundary);
+		for (var changed : List.of(
+			new GameListFilters(2021, 2026, 100, 1000, 70, 90, "valve"),
+			new GameListFilters(2020, 2025, 100, 1000, 70, 90, "valve"),
+			new GameListFilters(2020, 2026, 101, 1000, 70, 90, "valve"),
+			new GameListFilters(2020, 2026, 100, 999, 70, 90, "valve"),
+			new GameListFilters(2020, 2026, 100, 1000, 71, 90, "valve"),
+			new GameListFilters(2020, 2026, 100, 1000, 70, 89, "valve"),
+			new GameListFilters(2020, 2026, 100, 1000, 70, 90, "other"),
+			GameListFilters.NONE)) {
+			invalid(cursor, GameListQuery.of(null, query.sort(), 1, null, changed), scope, 1);
+		}
+		var unfiltered = GameListQuery.of(null, query.sort(), 1, null);
+		invalid(codec.encode(unfiltered, scope, 1, boundary), request, scope, 1);
 	}
 
 	private String encoded(String text) {

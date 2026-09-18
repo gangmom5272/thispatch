@@ -1,11 +1,13 @@
 package com.ssafy.thispatch.domain.game.controller;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.thispatch.domain.game.dto.request.GameListQuery;
+import com.ssafy.thispatch.domain.game.dto.request.GameListFilters;
 import com.ssafy.thispatch.domain.game.dto.request.GameListScope;
 import com.ssafy.thispatch.domain.game.dto.request.GameListSort;
 import com.ssafy.thispatch.domain.game.dto.response.GameListResponse;
@@ -31,8 +33,17 @@ public class GameListController {
 		@Min(value = 1, message = "limit는 1 이상이어야 합니다.")
 		@Max(value = 100, message = "limit는 100 이하여야 합니다.") int limit,
 		@RequestParam(name = "cursor", required = false) String cursor,
-		@RequestParam(name = "genreIds", required = false) String genreIds) {
-		return gameListService.getGames(principal.memberId(), GameListQuery.of(search, sort, limit, genreIds),
+		@RequestParam(name = "genreIds", required = false) String genreIds,
+		@RequestParam(name = "releaseYearFrom", required = false) String releaseYearFrom,
+		@RequestParam(name = "releaseYearTo", required = false) String releaseYearTo,
+		@RequestParam(name = "minReviewCount", required = false) String minReviewCount,
+		@RequestParam(name = "maxReviewCount", required = false) String maxReviewCount,
+		@RequestParam(name = "minPositiveRate", required = false) String minPositiveRate,
+		@RequestParam(name = "maxPositiveRate", required = false) String maxPositiveRate,
+		@RequestParam(name = "developer", required = false) String developer) throws BindException {
+		var filters = GameListFilters.of(releaseYearFrom, releaseYearTo, minReviewCount, maxReviewCount,
+			minPositiveRate, maxPositiveRate, developer);
+		return gameListService.getGames(principal.memberId(), GameListQuery.of(search, sort, limit, genreIds, filters),
 			cursor, GameListScope.ALL);
 	}
 }

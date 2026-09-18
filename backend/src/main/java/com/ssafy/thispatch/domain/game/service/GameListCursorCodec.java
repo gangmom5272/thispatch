@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.thispatch.domain.game.dto.request.GameListQuery;
+import com.ssafy.thispatch.domain.game.dto.request.GameListFilters;
 import com.ssafy.thispatch.domain.game.dto.request.GameListScope;
 import com.ssafy.thispatch.global.exception.BusinessException;
 
@@ -36,6 +37,9 @@ public class GameListCursorCodec {
 		node.put("search", query.search());
 		node.put("sort", query.sort().name());
 		node.set("genreIds", mapper.valueToTree(query.genreIds()));
+		if (!query.filters().equals(GameListFilters.NONE)) {
+			node.set("filters", mapper.valueToTree(query.filters()));
+		}
 		node.put("id", boundary.id());
 		node.put("value", boundary.value());
 		try {
@@ -54,13 +58,14 @@ public class GameListCursorCodec {
 				.with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
 				.with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
 				.readTree(Base64.getUrlDecoder().decode(cursor));
-			if (node == null || !node.isObject() || node.size() != 8
+			if (node == null || !node.isObject() || node.size() != (node.has("filters") ? 9 : 8)
 				|| !node.path("version").isIntegralNumber() || !node.path("version").canConvertToInt()
 				|| node.path("version").intValue() != 1
 				|| !node.path("scope").isTextual() || !scope.name().equals(node.path("scope").textValue())
 				|| !node.path("search").isTextual() || !query.search().equals(node.path("search").textValue())
 				|| !node.path("sort").isTextual() || !query.sort().name().equals(node.path("sort").textValue())
 				|| !mapper.valueToTree(query.genreIds()).equals(node.path("genreIds"))
+				|| !matchesFilters(node, query.filters())
 				|| !node.path("id").isIntegralNumber() || !node.path("id").canConvertToLong()
 				|| !(node.path("value").isNull() || node.path("value").isTextual())) {
 				throw new BusinessException(INVALID_REQUEST);
@@ -80,5 +85,13 @@ public class GameListCursorCodec {
 	}
 
 	public record Boundary(long id, String value) {
+	}
+
+	private boolean matchesFilters(JsonNode node, GameListFilters filters) {
+		// 신규 조건이 없는 기존 커서는 유지하되, 필터를 추가한 요청에는 재사용하지 못하게 한다.
+		if (!node.has("filters")) {
+			return filters.equals(GameListFilters.NONE);
+		}
+		return mapper.valueToTree(filters).equals(node.get("filters"));
 	}
 }

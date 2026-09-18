@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.BindException;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,6 +24,12 @@ import com.ssafy.thispatch.global.exception.ErrorResponse.FieldErrorDetail;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+	@ExceptionHandler(BindException.class)
+	public ResponseEntity<Object> handleBindingException(BindException exception) {
+		var errors = exception.getBindingResult().getFieldErrors().stream().map(this::fieldError).toList();
+		return ResponseEntity.badRequest().body(ErrorResponse.validation(errors));
+	}
 
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<Object> handleBusinessException(BusinessException exception) {

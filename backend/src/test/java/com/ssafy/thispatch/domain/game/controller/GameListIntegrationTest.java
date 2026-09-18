@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -265,6 +267,106 @@ class GameListIntegrationTest {
 				values (?, ?, '새 일반 공지', '', ?, false, now())
 				""", Long.toString(firstId * 10 + i) + "c", firstId + i, OffsetDateTime.parse("2026-02-01T00:00:00Z"));
 		}
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void combinesNewFiltersWithSearchGenresAndPaginationForEverySort(String path) throws Exception {
+		register(memberId, 2);
+		preparePatches();
+		jdbc.update("update game set developer = 'Valve Studio' where appid between ? and ?", firstId, firstId + 5);
+		var expectedIds = path.equals("/games")
+			? List.of(firstId, firstId + 1, firstId + 2) : List.of(firstId, firstId + 2);
+		for (var sort : GameListSort.values()) {
+			String cursor = null;
+			List<Long> actual = new ArrayList<>();
+			for (int page = 0; page < 4; page++) {
+				var request = filterRequest(path).param("releaseYearFrom", "2026").param("releaseYearTo", "2026")
+					.param("minReviewCount", "50").param("maxReviewCount", "100")
+					.param("minPositiveRate", "0").param("maxPositiveRate", "70")
+					.param("developer", "  vALve  ").param("genreIds", firstTag + "," + (firstTag + 1))
+					.param("sort", sort.name()).param("limit", "1");
+				if (cursor != null) {
+					request.param("cursor", cursor);
+				}
+				var data = filterData(request);
+				assertThat(data.at("/page/totalCount").intValue()).isEqualTo(expectedIds.size());
+				actual.addAll(ids(data));
+				if (!data.at("/page/hasNext").asBoolean()) {
+					assertThat(data.at("/page/nextCursor").isNull()).isTrue();
+					break;
+				}
+				cursor = data.at("/page/nextCursor").asText();
+			}
+			assertThat(actual).doesNotHaveDuplicates().containsExactlyInAnyOrderElementsOf(expectedIds);
+		}
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void releaseYearsUseSeoulYearBoundaries(String path) throws Exception {
+		register(memberId, 2);
+		jdbc.update("update game set release_ts = ? where appid = ?",
+			OffsetDateTime.parse("2025-12-31T15:00:00Z"), firstId);
+		jdbc.update("update game set release_ts = ? where appid = ?",
+			OffsetDateTime.parse("2025-12-31T14:59:59Z"), firstId + 2);
+		var year2025 = filterData(filterRequest(path).param("releaseYearFrom", "2025").param("releaseYearTo", "2025"));
+		assertThat(ids(year2025)).containsExactly(firstId + 2);
+		var year2026 = filterData(filterRequest(path).param("releaseYearFrom", "2026").param("releaseYearTo", "2026"));
+		assertThat(ids(year2026)).contains(firstId).doesNotContain(firstId + 2, firstId + 4, firstId + 5);
+		assertThat(ids(filterData(filterRequest(path).param("releaseYearFrom", "1").param("releaseYearTo", "9999"))))
+			.contains(firstId, firstId + 2);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void oneSidedBoundsExcludeNullsAndPreserveInclusiveZeros(String path) throws Exception {
+		for (int offset : List.of(2, 3, 4, 5)) {
+			register(memberId, offset);
+		}
+		var conditions = List.of(
+			new FilterCase("releaseYearFrom", "2026", List.of(0, 1, 2, 3)),
+			new FilterCase("releaseYearTo", "2026", List.of(0, 1, 2, 3)),
+			new FilterCase("minReviewCount", "100", List.of(0, 2)),
+			new FilterCase("maxReviewCount", "0", List.of(3)),
+			new FilterCase("minPositiveRate", "70", List.of(0, 2, 3)),
+			new FilterCase("maxPositiveRate", "0", List.of(1)));
+		for (var condition : conditions) {
+			var expected = condition.offsets().stream()
+				.filter(offset -> path.equals("/games") || offset != 1).map(offset -> firstId + offset).toList();
+			var data = filterData(filterRequest(path).param(condition.field(), condition.value()));
+			assertThat(ids(data)).containsExactlyInAnyOrderElementsOf(expected);
+			assertThat(data.at("/page/totalCount").intValue()).isEqualTo(expected.size());
+		}
+		var unfiltered = filterData(filterRequest(path));
+		assertThat(ids(unfiltered)).contains(firstId + 4, firstId + 5);
+		assertEmpty(filterData(filterRequest(path).param("minReviewCount", "101")), 0);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void developerSearchTreatsWildcardsAndCommasLiterallyAndBlankAsOmitted(String path) throws Exception {
+		register(memberId, 2);
+		jdbc.update("update game set developer = ? where appid = ?", "Studio 100%_!, Valve", firstId);
+		jdbc.update("update game set developer = ? where appid = ?", "Studio 100xx!, Valve", firstId + 2);
+		var literal = filterData(filterRequest(path).param("developer", "  100%_!, vALve  "));
+		assertThat(ids(literal)).containsExactly(firstId);
+		assertThat(literal.at("/page/totalCount").intValue()).isEqualTo(1);
+		var blank = filterData(filterRequest(path).param("developer", "  "));
+		assertThat(ids(blank)).containsExactlyElementsOf(ids(filterData(filterRequest(path))));
+		assertEmpty(filterData(filterRequest(path).param("developer", "missing-developer")), 0);
+	}
+
+	private MockHttpServletRequestBuilder filterRequest(String path) {
+		return get(path).param("search", prefix).header(HttpHeaders.AUTHORIZATION, auth(memberId));
+	}
+
+	private JsonNode filterData(MockHttpServletRequestBuilder request) throws Exception {
+		return mapper.readTree(mvc.perform(request).andExpect(status().isOk()).andReturn()
+			.getResponse().getContentAsByteArray()).get("data");
+	}
+
+	private record FilterCase(String field, String value, List<Integer> offsets) {
 	}
 
 	private JsonNode request(long member, GameListSort sort, int limit, String cursor, String search, String genres) throws Exception {

@@ -8,13 +8,19 @@ import java.util.Locale;
 
 import com.ssafy.thispatch.global.exception.BusinessException;
 
-public record GameListQuery(String search, GameListSort sort, int limit, List<Integer> genreIds) {
+public record GameListQuery(String search, GameListSort sort, int limit, List<Integer> genreIds,
+	GameListFilters filters) {
 
 	public GameListQuery {
 		genreIds = List.copyOf(genreIds);
 	}
 
 	public static GameListQuery of(String search, GameListSort sort, int limit, String genreIds) {
+		return of(search, sort, limit, genreIds, GameListFilters.NONE);
+	}
+
+	public static GameListQuery of(String search, GameListSort sort, int limit, String genreIds,
+		GameListFilters filters) {
 		List<Integer> ids = List.of();
 		if (genreIds != null) {
 			if (Arrays.stream(genreIds.split(",", -1)).anyMatch(id -> !id.matches("[0-9]+"))) {
@@ -29,7 +35,7 @@ public record GameListQuery(String search, GameListSort sort, int limit, List<In
 				throw new BusinessException(INVALID_REQUEST);
 			}
 		}
-		return new GameListQuery(search == null ? "" : search.strip().toLowerCase(Locale.ROOT), sort, limit, ids);
+		return new GameListQuery(search == null ? "" : search.strip().toLowerCase(Locale.ROOT), sort, limit, ids, filters);
 	}
 
 	public String searchPattern() {

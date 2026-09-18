@@ -1,5 +1,6 @@
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import RateBar from "@/components/RateBar"
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
 import { cn } from "@/lib/cn"
 import { formatDeltaPp, formatPercent } from "@/lib/format"
 import { TopicAiSummaryCard } from "@/pages/GameDetail/PlaytimeTopics/components/TopicAiSummaryCard"
@@ -18,8 +19,8 @@ import {
 /** 단계 구분선은 120ms 간격으로 순차 강조한다 (plan 3절 05). */
 const STEP_DELAYS = [0, 120, 240, 360] as const
 
-/** 처음에는 마지막 단계인 리뷰 원문을 보여준다. */
-const DEFAULT_STEP = EVIDENCE_STEPS.length - 1
+/** 뷰포트 한가운데를 지나는 스크롤 구간이 현재 단계가 된다. */
+const SLOT_ROOT_MARGIN = "-50% 0px -50% 0px"
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -111,57 +112,98 @@ function StepPanel({ index }: { index: number }) {
 
 /**
  * 근거의 네 단계 선택기.
- * 단계에 마우스를 올리거나 포커스하면 그 단계가 강조되고 아래 패널이 해당 화면으로 바뀐다.
+ * 데스크톱에서는 화면이 고정된 채 스크롤이 한 구간 내려갈 때마다 다음 단계 화면으로 넘어가고,
+ * 스크롤 구간을 두지 않는 좁은 화면에서는 단계를 눌러 바꾼다.
  */
 export function EvidenceSteps() {
   const panelId = useId()
-  const [activeStep, setActiveStep] = useState(DEFAULT_STEP)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const [activeStep, setActiveStep] = useState(0)
+  const slotRefs = useRef<Array<HTMLDivElement | null>>([])
+
+  useEffect(() => {
+    const slots = slotRefs.current.filter((slot) => slot !== null)
+    if (slots.length === 0 || typeof IntersectionObserver === "undefined") return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActiveStep(Number(entry.target.getAttribute("data-step")))
+        }
+      },
+      { rootMargin: SLOT_ROOT_MARGIN },
+    )
+    slots.forEach((slot) => observer.observe(slot))
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <>
-      <ol className="grid gap-sb-4 md:grid-cols-4">
-        {EVIDENCE_STEPS.map((item, index) => {
-          const isActive = index === activeStep
-          const select = () => setActiveStep(index)
-          return (
-            <li key={item.step}>
-              <Reveal variant="line" delay={STEP_DELAYS[index]} className="origin-left">
-                <span
-                  className={cn(
-                    "block h-0.5 transition-colors duration-200 motion-reduce:transition-none",
-                    isActive ? "bg-sb-primary" : "bg-sb-hairline-strong",
-                  )}
-                />
-              </Reveal>
-              <button
-                type="button"
-                aria-controls={panelId}
-                onMouseEnter={select}
-                onFocus={select}
-                onClick={select}
-                className="mt-sb-3 w-full cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-              >
-                <span className="block font-sb-mono text-sb-caption text-sb-ink-mute">
-                  {item.step}
-                </span>
-                <span
-                  className={cn(
-                    "block text-sb-title transition-colors duration-200 motion-reduce:transition-none",
-                    isActive ? "text-sb-primary" : "text-sb-ink",
-                  )}
-                >
-                  {item.name}
-                </span>
-                <span className="mt-sb-1 block text-sb-caption text-sb-ink-mute">{item.hint}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ol>
+    /* 트랙 높이는 단계 수 × 한 단계에 쓰는 스크롤 거리(100vh)다. */
+    <div className="relative md:h-[400vh]">
+      <div aria-hidden className="pointer-events-none absolute inset-0 hidden flex-col md:flex">
+        {EVIDENCE_STEPS.map((item, index) => (
+          <div
+            key={item.step}
+            data-step={index}
+            ref={(node) => {
+              slotRefs.current[index] = node
+            }}
+            className="flex-1"
+          />
+        ))}
+      </div>
 
-      <Reveal variant="group" id={panelId} className="mt-sb-8 md:min-h-112">
-        <StepPanel index={activeStep} />
-      </Reveal>
-    </>
+      <div className="md:sticky md:top-sb-12">
+        <ol className="grid gap-sb-4 md:grid-cols-4">
+          {EVIDENCE_STEPS.map((item, index) => {
+            const isActive = index === activeStep
+            const select = () => {
+              setActiveStep(index)
+              slotRefs.current[index]?.scrollIntoView({
+                block: "center",
+                behavior: prefersReducedMotion ? "auto" : "smooth",
+              })
+            }
+            return (
+              <li key={item.step}>
+                <Reveal variant="line" delay={STEP_DELAYS[index]} className="origin-left">
+                  <span
+                    className={cn(
+                      "block h-0.5 transition-colors duration-200 motion-reduce:transition-none",
+                      isActive ? "bg-sb-primary" : "bg-sb-hairline-strong",
+                    )}
+                  />
+                </Reveal>
+                <button
+                  type="button"
+                  aria-controls={panelId}
+                  onFocus={select}
+                  onClick={select}
+                  className="mt-sb-3 w-full cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+                >
+                  <span className="block font-sb-mono text-sb-caption text-sb-ink-mute">
+                    {item.step}
+                  </span>
+                  <span
+                    className={cn(
+                      "block text-sb-title transition-colors duration-200 motion-reduce:transition-none",
+                      isActive ? "text-sb-primary" : "text-sb-ink",
+                    )}
+                  >
+                    {item.name}
+                  </span>
+                  <span className="mt-sb-1 block text-sb-caption text-sb-ink-mute">
+                    {item.hint}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+
+        <Reveal variant="group" id={panelId} className="mt-sb-8 md:min-h-112">
+          <StepPanel index={activeStep} />
+        </Reveal>
+      </div>
+    </div>
   )
 }

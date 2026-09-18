@@ -357,6 +357,71 @@ patchedOn    <- news.published_ts의 KST 날짜 (공지 게시일)
 
 패치 원문의 Steam BBCode 서식은 일반 텍스트로 변환합니다. 문단·목록·알 수 없는 대괄호 표현과 코드 예시는 보존합니다. `publishedAt`은 UTC 시각, `patchedOn`은 같은 시각의 한국 날짜입니다.
 
+## 패치노트 번역
+
+### `GET /patches/{patchId}/translation`
+
+[패치노트 번역 원본 명세](https://app.notion.com/p/3df776ebfd688156a926cbd844f44389)
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `patchId` | string | 패치 ID (`news.gid`) |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-18 13:20:00",
+  "data": {
+    "patchId": "1234567890",
+    "translatedTitle": "밸런스 업데이트",
+    "translatedBody": "무기 공격력이 20% 감소하고 적의 체력이 조정되었습니다."
+  },
+  "success": true
+}
+```
+
+`data.patchId`, `data.translatedTitle`, `data.translatedBody`는 모두 `string`이다.
+
+**Processing Rules / Notes — Rules**
+
+- `patchId`는 `news.gid` 문자열을 그대로 사용하며, `is_patch = true`인 공지의 제목과 본문을 조회한다. 일반 공지 또는 없는 ID는 `404 PATCH_NOT_FOUND`다.
+- 번역 대상 언어는 한국어로 고정하며, 외부 번역 API는 DeepL을 사용한다.
+- 클라이언트에서 번역할 패치노트 원문을 직접 전달하지 않는다.
+- 번역한 제목은 `translatedTitle`, 번역한 본문은 `translatedBody`로 반환한다.
+- 본문은 기존 패치 상세의 `PatchPlainText`로 Steam BBCode를 일반 텍스트로 변환한 후 번역한다. 제목은 저장된 문자열을 사용한다.
+- 제목 또는 변환된 본문이 빈 문자열·공백뿐이면 해당 값은 DeepL을 호출하지 않고 그대로 반환한다. 본문 변환 과정에서 앞뒤 공백과 서식만 있는 본문은 빈 문자열이 될 수 있다.
+- `news`에는 원문 언어 컬럼이 없으므로 한국어를 포함한 비어 있지 않은 값은 DeepL의 언어 자동 감지로 한국어(`KO`) 번역을 요청한다. 별도 언어 추정으로 호출을 생략하지 않는다.
+- 제목과 본문은 각각 공통 DeepL 클라이언트로 번역한다. 각 JSON 요청 본문의 UTF-8 크기가 128 KiB를 초과하면 해당 외부 호출 없이 `502 TRANSLATION_UNAVAILABLE`로 처리한다. 원문을 자르거나 분할하지 않고 자동 재시도하지 않는다.
+- DeepL 키 미설정·인증 오류, 미지원 언어, 입력 한도 초과, 할당량 초과, 연결 실패·시간 초과 및 잘못된 응답은 `502 TRANSLATION_UNAVAILABLE`로 처리한다.
+- 제목 또는 본문 중 하나라도 번역에 실패하면 전체 요청을 `502`로 응답한다. 부분 번역이나 원문을 성공 응답으로 대신 반환하지 않는다.
+- 번역 결과를 캐시하거나 DB에 저장하지 않는다. 각 요청에서 조회한 원문을 사용하며 외부 호출 중 DB 트랜잭션을 유지하지 않는다.
+
+**Error Responses**
+
+- `401 UNAUTHORIZED`: 인증이 필요합니다.
+- `404 PATCH_NOT_FOUND`: 패치를 찾을 수 없습니다.
+- `502 TRANSLATION_UNAVAILABLE`: 번역 서비스를 이용할 수 없습니다.
+- `500 INTERNAL_SERVER_ERROR`: 서버 내부 오류가 발생했습니다.
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`을
+사용하며, 원본 명세의 `success: false`는 포함하지 않는다. DB 등 일반 서버 오류는 DeepL 오류로 변환하지 않는다.
+
+위 처리 정책은 S15P21A202-260 구현 시 사용자 확인으로 확정했다.
+DeepL 입력 크기·언어 감지 기준: [공식 번역 API 문서](https://developers.deepl.com/api-reference/translate/request-translation).
+
 ## AI 장애 응답 (2026-09-16 사용자 결정)
 
 기획안 구조화·유사 사례 검색처럼 AI가 필요한 작업에서 서버 미준비·연결 실패·시간 초과·사용할 수 없는

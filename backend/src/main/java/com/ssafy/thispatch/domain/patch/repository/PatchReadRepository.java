@@ -31,6 +31,16 @@ public class PatchReadRepository {
 			gameId, patchId).stream().findFirst();
 	}
 
+	public Optional<TranslationSource> findTranslationSource(String patchId) {
+		return jdbcTemplate.query("""
+			SELECT title, contents FROM news WHERE gid = ? AND is_patch = true
+			""", (row, index) -> new TranslationSource(row.getString("title"), row.getString("contents")),
+			patchId).stream().findFirst();
+	}
+
+	public record TranslationSource(String title, String contents) {
+	}
+
 	public record PatchRow(String patchId, long gameId, String title, Instant publishedAt,
 		String contents, String url) {
 	}

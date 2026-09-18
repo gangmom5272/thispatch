@@ -4,6 +4,8 @@
 #   bash 24-pipeline.sh daily              전체를 순서대로
 #   bash 24-pipeline.sh daily --from convert   그 단계부터 다시
 #   bash 24-pipeline.sh daily --only news      그 단계만
+#   bash 24-pipeline.sh daily --only load      집계·적재만 (표 순서: news → recent_review → band → patch → daily → language)
+#   LOAD_FROM=band_stat bash 24-pipeline.sh daily --only load   그 표부터
 #   bash 24-pipeline.sh daily --dry-run        무엇을 할지만 보고 아무것도 안 함
 #   bash 24-pipeline.sh stages             단계 목록
 #   bash 24-pipeline.sh install            타이머 등록 (매일 09:05 KST)
@@ -85,9 +87,46 @@ STAGES=(
   "news-convert|공지 landing → news_raw|daily"
   "compact|delta → base 병합|fri"
   "topics|토픽 분류|todo"
-  "aggregate|Spark 집계|todo"
-  "load|PostgreSQL 적재|todo"
+  "aggregate|Spark 집계 (load 가 함께 한다)|skip"
+  "load|집계 → PostgreSQL 적재|daily"
 )
+
+# ── load 단계가 도는 잡 ─────────────────────────────────────
+#
+# 이름|클래스|무게|인자
+#   무게  heavy  1.7억 행 전량을 훑는 집계 (윈도우·셔플)     executor 6g·2코어×8
+#         light  창 안 몇백만 행 또는 공지                     executor 4g·2코어×6
+#
+# ⚠ 순서가 곧 FK 순서다.
+#   news 가 먼저다 — patch_stat.gid 가 news 를 참조한다.
+#   recent_review 는 review_topic(S15P21A202-252)이 참조하므로, 토픽 적재가 생기면
+#   「토픽 비움 → recent_review → 토픽 다시 넣음」 순서가 여기 들어온다.
+#   band_stat 은 band_topic_stat 이 참조한다 — 같은 이야기.
+#
+# ⚠ 잡 사이에 5분 쉰다. client 모드 드라이버는 spark.rpc.askTimeout(300초) 동안
+#   워커 응답을 기다리며 살아 있다. 바로 다음 잡을 띄우면 마스터 메모리가 모자라
+#   OOM 이 났다 (2026-09-17 실측). LOAD_GAP_SECONDS 로 조정한다.
+#
+# patch 의 --coverage-end 는 「리뷰 이력이 완전한 마지막 날」 — 파이프라인에서는
+# 어제(KST)다. 오늘 증분이 이 단계 앞(collect·convert)에서 끝났기 때문이다.
+LOAD_JOBS=(
+  "news|com.ssafy.thispatch.spark.NewsToPostgres|light|"
+  "recent_review|com.ssafy.thispatch.spark.RecentReviewToPostgres|light|"
+  "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
+  "patch_stat|com.ssafy.thispatch.spark.PatchStatToPostgres|heavy|--coverage-end YESTERDAY"
+  "daily_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only daily"
+  "language_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only language"
+)
+LOAD_GAP_SECONDS=${LOAD_GAP_SECONDS:-300}
+
+# 서비스 DB (서버1) — 마스터에서 SSH 터널로만 닿는다. 2026-09-17 실측: executor 는 못 닿으므로
+# 적재기들이 전부 드라이버에서만 연결을 연다. 여기서 터널을 열고 환경변수로 넘긴다.
+SERVICE_DB_HOST=${SERVICE_DB_HOST:-j15a202.p.ssafy.io}
+SERVICE_DB_SSH_KEY=${SERVICE_DB_SSH_KEY:-$HOME/.ssh/J15A202T.pem}
+SERVICE_DB_TUNNEL_PORT=${SERVICE_DB_TUNNEL_PORT:-15432}
+SERVICE_DB_USER=${SERVICE_DB_USER:-thispatch}
+SERVICE_DB_NAME=${SERVICE_DB_NAME:-thispatch}
+SERVICE_DB_PASSWORD_FILE=${SERVICE_DB_PASSWORD_FILE:-$STATE_DIR/service-db-password}
 
 CMD=${1:-status}; shift || true
 FROM=""; ONLY=""; DRY=0
@@ -136,7 +175,9 @@ run_stage() {
     news)         ensure_workers && bash "$HERE/12-deploy-collector.sh" run-news ;;
     news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet && convert_today com.ssafy.thispatch.spark.NewsToParquet /news_landing ;;
     compact)      spark_job com.ssafy.thispatch.spark.Compaction ;;
-    topics|aggregate|load)
+    load)         load_all ;;
+    aggregate)    echo "  집계는 load 단계의 적재기가 함께 한다 (ReviewStatsToPostgres 등). 건너뛴다."; return 0 ;;
+    topics)
       echo "  아직 만들지 않았다. 건너뛴다."
       return 0
       ;;
@@ -181,6 +222,78 @@ convert_today() {
   fi
   echo "  오늘($dt) 것도 변환한다 (이 단계에서는 수집이 이미 끝났다)."
   spark_job "$cls" "$dt"
+}
+
+# ── load 단계 ───────────────────────────────────────────────
+#
+# 표마다 적재기 하나. 전부 「드라이버가 DB 를 연다 · 사전 검증 걸린 행은 세고 뺀다 ·
+# 비우고 넣기를 한 트랜잭션」 규칙이다 (ReviewStatsToPostgres 클래스 주석).
+# 실행 옵션은 2026-09-18 실측값 — daily 52분 · language 31분 · recent 14분 · news 29분.
+#
+# ⚠ 잡이 실패하면 여기서 멈춘다. 이미 넣은 표는 남고(각 잡이 한 트랜잭션), 실패한 표는
+#   이전 값 그대로다. 고친 뒤 `--only load` 로 처음부터, 또는 LOAD_FROM=<이름> 으로 그 잡부터.
+load_all() {
+  local started=0 n cls weight jobargs
+  for j in "${LOAD_JOBS[@]}"; do
+    IFS='|' read -r n cls weight jobargs <<<"$j"
+    if [ -n "${LOAD_FROM:-}" ] && [ "$started" = 0 ]; then
+      [ "$n" = "$LOAD_FROM" ] && started=1 || { echo "  · $n 건너뜀 (LOAD_FROM=$LOAD_FROM)"; continue; }
+    fi
+    started=1
+    jobargs=${jobargs//YESTERDAY/$(TZ=Asia/Seoul date -d yesterday +%F)}
+    echo "  ── $n ($cls) ──"
+    load_job "$cls" "$weight" $jobargs || { echo "  ✖ $n 적재 실패" >&2; return 1; }
+    echo "  드라이버 잔여 대기 ${LOAD_GAP_SECONDS}초"
+    sleep "$LOAD_GAP_SECONDS"
+  done
+}
+
+# 서비스 DB 터널을 열고 환경변수를 채운 채 spark-submit 한다. 끝나면 터널을 닫는다.
+load_job() {
+  local cls="$1" weight="$2"; shift 2
+  [ -f "$SPARK_JAR" ] || { echo "  jar 가 없다: $SPARK_JAR" >&2; return 1; }
+  [ -f "$SERVICE_DB_PASSWORD_FILE" ] || { echo "  서비스 DB 비밀번호 파일이 없다: $SERVICE_DB_PASSWORD_FILE" >&2; return 1; }
+  [ -f "$SERVICE_DB_SSH_KEY" ] || { echo "  서버1 SSH 키가 없다: $SERVICE_DB_SSH_KEY" >&2; return 1; }
+
+  local -a exec_opts
+  case "$weight" in
+    heavy) exec_opts=(--executor-memory 6g --executor-cores 2 --num-executors 8
+                      --conf spark.executor.memoryOverhead=1536m
+                      --conf spark.sql.shuffle.partitions=240
+                      --conf spark.sql.adaptive.coalescePartitions.enabled=false) ;;
+    light) exec_opts=(--executor-memory 4g --executor-cores 2 --num-executors 6
+                      --conf spark.executor.memoryOverhead=1024m
+                      --conf spark.sql.shuffle.partitions=120) ;;
+    *) echo "  모르는 무게: $weight" >&2; return 1 ;;
+  esac
+
+  service_db_tunnel_open || return 1
+  local rc
+  DB_URL="jdbc:postgresql://127.0.0.1:$SERVICE_DB_TUNNEL_PORT/$SERVICE_DB_NAME" \
+  DB_USER="$SERVICE_DB_USER" \
+  DB_PASSWORD="$(tr -d '\r\n' < "$SERVICE_DB_PASSWORD_FILE")" \
+  "$SPARK_SUBMIT" --class "$cls" --master yarn --deploy-mode client \
+      --driver-memory "$SPARK_DRIVER_MEMORY" \
+      --conf spark.driver.maxResultSize="$SPARK_MAX_RESULT_SIZE" \
+      "${exec_opts[@]}" \
+      "$SPARK_JAR" "$@" 2>&1 \
+    | grep -vE '^\s*at |^[0-9/: ]+ (WARN|INFO) |Lambda\$|Unknown Source|^\s*\.\.\. [0-9]+ more|^\([0-9]+\) |^(Input|Output|Keys|Functions|Aggregate Attributes|Results|Arguments|Condition|\+-|:-) |FileScan'
+  rc=${PIPESTATUS[0]}
+  service_db_tunnel_close
+  return "$rc"
+}
+
+service_db_tunnel_open() {
+  service_db_tunnel_close
+  ssh -f -N -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      -o ExitOnForwardFailure=yes -L "$SERVICE_DB_TUNNEL_PORT":127.0.0.1:5432 \
+      -i "$SERVICE_DB_SSH_KEY" "ubuntu@$SERVICE_DB_HOST" 2>/dev/null \
+    || { echo "  서비스 DB 터널을 못 열었다 ($SERVICE_DB_HOST → 127.0.0.1:$SERVICE_DB_TUNNEL_PORT)" >&2; return 1; }
+  sleep 2
+}
+
+service_db_tunnel_close() {
+  pkill -f "ssh -f -N.*-L $SERVICE_DB_TUNNEL_PORT:127.0.0.1:5432" 2>/dev/null || true
 }
 
 # ⚠ 워커가 떠 있지 않으면 매니저가 조각을 뿌려 놓고 영원히 기다린다. 에러도 안 난다.

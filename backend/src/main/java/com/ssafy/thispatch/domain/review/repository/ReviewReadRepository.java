@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -33,6 +34,17 @@ public class ReviewReadRepository {
 		""";
 
 	private final NamedParameterJdbcTemplate jdbcTemplate;
+
+	public Optional<TranslationSource> findTranslationSource(long reviewId) {
+		return jdbcTemplate.query("""
+			SELECT review_text, language_code FROM recent_review WHERE review_id = :reviewId
+			""", new MapSqlParameterSource("reviewId", reviewId),
+			(row, index) -> new TranslationSource(row.getString("review_text"), row.getString("language_code")))
+			.stream().findFirst();
+	}
+
+	public record TranslationSource(String text, String languageCode) {
+	}
 
 	public List<ReviewRow> findRepresentatives(long gameId, ReviewPeriod period) {
 		return findHelpfulReviews(gameId, period, Set.of(), null, REPRESENTATIVE_REVIEW_LIMIT);

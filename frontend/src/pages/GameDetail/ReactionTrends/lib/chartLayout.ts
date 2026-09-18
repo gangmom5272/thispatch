@@ -55,6 +55,29 @@ export function visibleSlice(
   return { startIndex, endIndex }
 }
 
+/**
+ * 스크롤 idle 후 가장자리 일자 가시 비율에 맞춰 day 경계로 scrollLeft를 보정한다.
+ * 왼쪽 일자가 반 이상 보이면 그 일자 시작으로, 미만이면 다음 일자로 스냅.
+ */
+export function snapScrollLeft(
+  scrollLeft: number,
+  clientWidth: number,
+  dayWidth: number,
+  scrollWidth: number,
+): number {
+  if (dayWidth <= 0 || clientWidth <= 0) return scrollLeft
+  const maxLeft = Math.max(0, scrollWidth - clientWidth)
+  // 뷰포트 왼쪽이 걸친 일자 인덱스와 그 일자 안에서의 오프셋
+  const leftIdx = Math.floor(scrollLeft / dayWidth + Number.EPSILON)
+  const offset = scrollLeft - leftIdx * dayWidth
+  if (offset < 1) return Math.min(maxLeft, Math.max(0, scrollLeft))
+
+  // offset/dayWidth ≤ 0.5 → 왼쪽 일자 가시 ≥ 50% → 뒤로 스냅
+  const snapped =
+    offset / dayWidth <= 1 - VISIBLE_RATIO_MIN ? leftIdx * dayWidth : (leftIdx + 1) * dayWidth
+  return Math.min(maxLeft, Math.max(0, snapped))
+}
+
 export const CHART_COLORS = {
   rate: "#4ade80",
   firstWritten: "#3ecf8e",

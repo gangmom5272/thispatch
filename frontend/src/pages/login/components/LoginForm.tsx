@@ -16,7 +16,7 @@ export function LoginForm() {
 
       try {
         await mutateAsync({ email, password })
-        void navigate(paths.home)
+        void navigate(paths.games)
         return null
       } catch (e) {
         return isApiError(e) ? e.message : "로그인에 실패했습니다."

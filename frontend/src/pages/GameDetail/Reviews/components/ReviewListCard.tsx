@@ -108,8 +108,6 @@ export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps
             <dd className="font-sb-mono text-sb-ink">
               {formatPlaytimeMinutes(review.playtimeMinutes)}
             </dd>
-            <dt className="text-sb-ink-mute">작성 채널</dt>
-            <dd className="text-sb-ink">{channelLabel}</dd>
             <dt className="text-sb-ink-mute">언어</dt>
             <dd className="font-sb-mono text-sb-ink">{review.languageCode}</dd>
           </dl>

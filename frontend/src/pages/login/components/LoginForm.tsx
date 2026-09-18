@@ -1,5 +1,5 @@
 import { useActionState } from "react"
-import { useNavigate } from "react-router"
+import { useLocation, useNavigate } from "react-router"
 import { isApiError } from "@/api/error"
 import Input from "@/components/Input"
 import { useLogin } from "@/hooks/queries/authQueries"
@@ -7,7 +7,11 @@ import { paths } from "@/router/paths"
 
 export function LoginForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { mutateAsync } = useLogin()
+  // 보호된 페이지에서 넘어온 경우 로그인 후 원래 페이지로 돌아간다.
+  const from: unknown = location.state?.from
+  const returnTo = typeof from === "string" ? from : paths.games
 
   const [error, formAction, isPending] = useActionState(
     async (_prev: string | null, formData: FormData) => {
@@ -16,7 +20,7 @@ export function LoginForm() {
 
       try {
         await mutateAsync({ email, password })
-        void navigate(paths.home)
+        void navigate(returnTo, { replace: true })
         return null
       } catch (e) {
         return isApiError(e) ? e.message : "로그인에 실패했습니다."

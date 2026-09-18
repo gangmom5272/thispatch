@@ -40,13 +40,14 @@ Tailwind 4 토큰은 `src/theme.css`에서 관리하고 `src/index.css`에서 �
 
 | 역할                              | 토큰                                                      | 값                                |
 | --------------------------------- | --------------------------------------------------------- | --------------------------------- |
-| 페이지 / 패널                     | `sb-canvas-base` / `sb-canvas-surface`                    | `#0e141b` / `#16202d`             |
+| 페이지 / 패널                     | `sb-canvas-base` / `sb-canvas-surface`                    | `#0e141b` / `#172433`             |
 | 올라온 면 / 입력 배경 / 선택 배경 | `sb-canvas` / `sb-canvas-soft` / `sb-canvas-active`       | `#1b2838` / `#22303e` / `#24384d` |
 | 헤더 / 랜딩의 어두운 섹션         | `sb-canvas-header` / `sb-canvas-night`                    | `#171a21` / `#0b1118`             |
-| 기본 / 강조 / 차가운 경계선       | `sb-hairline` / `sb-hairline-strong` / `sb-hairline-cool` | `#223447` / `#35526b` / `#2a475e` |
+| 기본 / 강조 / 차가운 경계선       | `sb-hairline` / `sb-hairline-strong` / `sb-hairline-cool` | `#27405a` / `#3d5f7c` / `#30506a` |
 | 주요 액션 / 진한 강조 / 밝은 강조 | `sb-primary` / `sb-primary-deep` / `sb-primary-soft`      | `#3ecf8e` / `#24b47e` / `#4ade80` |
-| 기본 글자 / 보조 글자 / 낮은 강조 | `sb-ink` / `sb-ink-mute` / `sb-ink-mute-2`                | `#ffffff` / `#9fadba` / `#8a98a6` |
-| 비활성·장식 / 민트 위 글자        | `sb-ink-faint` / `sb-on-primary`                          | `#5a6b7c` / `#171717`             |
+| 민트 글자 / 민트 배경 틴트        | `sb-primary-text` / `sb-tint-primary`                     | `#5fe0a4` / `#3ecf8e1f`           |
+| 기본 글자 / 보조 글자 / 낮은 강조 | `sb-ink` / `sb-ink-mute` / `sb-ink-mute-2`                | `#ffffff` / `#b1c0ce` / `#94a4b4` |
+| 비활성·장식 / 민트 위 글자        | `sb-ink-faint` / `sb-on-primary`                          | `#6f8296` / `#171717`             |
 | 긍정 그래프 / 긍정 글자           | `sb-pos` / `sb-pos-text`                                  | `#3ecf8e` / `#4ade80`             |
 | 부정 그래프 / 부정 글자           | `sb-neg` / `sb-neg-text`                                  | `#ff6b5e` / `#ff8a7e`             |
 | 주의·마커 / 주의 글자             | `sb-mark` / `sb-amber-text`                               | `#ffc93c` / `#ffd166`             |

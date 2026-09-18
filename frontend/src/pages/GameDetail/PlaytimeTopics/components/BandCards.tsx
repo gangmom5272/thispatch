@@ -117,7 +117,9 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
       {insufficient ? (
         <>
           <p className="mt-sb-2 text-sb-title text-sb-amber-text">—</p>
-          <p className="mt-sb-1 text-sb-caption text-sb-neg-text">표본 부족 {band.reviewCount}건</p>
+          <p className="mt-sb-1 text-sb-caption text-sb-neg-text">
+            표본 부족 {band.reviewCount.toLocaleString("en-US")}건
+          </p>
         </>
       ) : (
         <>
@@ -126,7 +128,7 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
           </p>
           <SentimentCounts positiveCount={band.positiveCount} negativeCount={band.negativeCount} />
           <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-            표본 충족 · {band.reviewCount}건
+            표본 충족 · {band.reviewCount.toLocaleString("en-US")}건
           </p>
         </>
       )}

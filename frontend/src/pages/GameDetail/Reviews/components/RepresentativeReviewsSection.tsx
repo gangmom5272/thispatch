@@ -12,7 +12,7 @@ export function RepresentativeReviewsSection({ reviews }: RepresentativeReviewsS
       <header className="mb-sb-4">
         <h2 className="text-sb-title font-medium text-sb-ink">최근 대표 리뷰</h2>
         <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
-          최근 14일 리뷰 중 서버가 선정한 대표 반응(최대 4건)
+          최근 14일 리뷰 중 유저가 선정한 대표 리뷰
         </p>
       </header>
 

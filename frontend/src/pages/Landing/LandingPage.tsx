@@ -38,7 +38,7 @@ function ActionArrow() {
 function HeroCtaLink() {
   return (
     <Link
-      to={paths.home}
+      to={paths.games}
       className="group relative z-0 inline-flex h-13 transform-gpu cursor-pointer items-center justify-center gap-sb-3 overflow-hidden rounded-sb-control border border-sb-ink/10 bg-sb-primary px-sb-6 text-sb-body font-medium whitespace-nowrap text-sb-on-primary transition-transform duration-200 ease-in-out hover:bg-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary active:translate-y-px active:bg-sb-primary-deep motion-reduce:transition-none"
     >
       <span
@@ -280,7 +280,7 @@ function CtaSection() {
         </Reveal>
         <Reveal variant="cta" delay={100} className="mt-sb-6">
           <div className="flex flex-wrap items-center gap-sb-6">
-            <Link to={paths.home} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
+            <Link to={paths.games} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
               게임 목록 열기
               <ActionArrow />
             </Link>

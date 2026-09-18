@@ -100,7 +100,7 @@ export default function GameListPage() {
         />
 
         <section className="flex flex-col gap-sb-5">
-          <SectionLabel>전체 게임</SectionLabel>
+          <SectionLabel count={totalCount}>전체 게임</SectionLabel>
           {query.isPending && <GameGridSkeleton />}
           {query.isError && (
             <div role="alert" className={panelClass}>
@@ -247,17 +247,22 @@ function GameListToolbar({
 
       {totalCount !== undefined ? (
         <p className="ml-auto text-sb-ink-mute tabular-nums" aria-live="polite">
-          {totalCount}개 게임
+          {totalCount.toLocaleString("en-US")}개 게임
         </p>
       ) : null}
     </form>
   )
 }
 
-function SectionLabel({ children }: { children: string }) {
+function SectionLabel({ children, count }: { children: string; count?: number }) {
   return (
-    <h2 className="flex items-center gap-sb-3 text-sb-heading text-sb-ink-mute">
+    <h2 className="flex items-center gap-sb-3 text-sb-heading font-medium text-sb-ink">
       {children}
+      {count !== undefined && (
+        <span className="rounded-sb-tag bg-sb-tint-primary px-sb-2 font-sb-mono text-sb-caption text-sb-primary-text tabular-nums">
+          {count.toLocaleString("en-US")}
+        </span>
+      )}
       <span aria-hidden="true" className="h-px flex-1 bg-sb-hairline" />
     </h2>
   )
@@ -306,7 +311,7 @@ function MyGameSection({
 
   return (
     <section className="flex flex-col gap-sb-5">
-      <SectionLabel>내 게임</SectionLabel>
+      <SectionLabel count={items.length > 0 ? items.length : undefined}>내 게임</SectionLabel>
       {isPending && (
         <ul aria-label="내 게임 불러오는 중" aria-busy="true" className={railClass}>
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (

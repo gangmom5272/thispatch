@@ -60,8 +60,6 @@ export default function ReviewsPage() {
   const reviews = representativeQuery.data ?? []
   // listItems: 무한 스크롤 페이지를 평탄화한 목록
   const listItems = listQuery.data?.pages.flatMap((page) => page.items) ?? []
-  // period: 첫 페이지 meta 기준 데이터 구간
-  const period = listQuery.data?.pages[0]?.meta.period ?? null
   // filteredCount: 현재 필터의 totalCount
   const filteredCount = listQuery.data?.pages[0]?.page.totalCount ?? null
   const totalCount = totalQuery.data ?? null
@@ -97,7 +95,6 @@ export default function ReviewsPage() {
         <ReviewList
           items={listItems}
           selectedTopicIds={selectedTopicIds}
-          period={period}
           hasNextPage={Boolean(listQuery.hasNextPage)}
           isFetchingNextPage={listQuery.isFetchingNextPage}
           isFetchNextPageError={listQuery.isFetchNextPageError}

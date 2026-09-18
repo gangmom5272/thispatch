@@ -43,7 +43,7 @@ export function TopicFilterBar({
         <div>
           <h2 className="text-sb-title font-medium text-sb-ink">리뷰 검색</h2>
           <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
-            불만·만족 요소 토픽 5종으로 리뷰를 좁혀 봅니다
+            최근 14 리뷰를 토픽 5종으로 필터링할 수 있습니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-sb-3">

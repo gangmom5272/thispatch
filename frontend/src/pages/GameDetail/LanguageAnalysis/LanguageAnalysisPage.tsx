@@ -37,13 +37,12 @@ function PeriodBar({ data }: { data: LanguageAnalysis }) {
       <span className="font-sb-mono font-medium text-sb-ink tabular-nums">
         리뷰 {formatCount(data.totalReviewCount)}
       </span>
-      <span className="text-sb-ink-mute md:ml-auto">언어별 긍정률 · 절대값</span>
       {data.isSufficientSample ? (
-        <span className="rounded-sb-tag bg-sb-tint-green px-[10px] py-sb-1 font-medium text-sb-pos-text tabular-nums">
+        <span className="rounded-sb-tag bg-sb-tint-green px-[10px] md:ml-auto py-sb-1 font-medium text-sb-pos-text tabular-nums">
           ✓ 표본 충족 · {formatCount(data.totalReviewCount)}
         </span>
       ) : (
-        <span className="rounded-sb-tag bg-sb-tint-amber px-[10px] py-sb-1 font-medium text-sb-amber-text tabular-nums">
+        <span className="rounded-sb-tag bg-sb-tint-amber px-[10px] md:ml-auto py-sb-1 font-medium text-sb-amber-text tabular-nums">
           표본 부족 · {formatCount(data.totalReviewCount)} (최소{" "}
           {formatCount(data.minimumSampleCount)})
         </span>
@@ -98,7 +97,8 @@ function LanguageAnalysisContent({ gameId, data }: { gameId: number; data: Langu
             언어별 반응 분포
           </h2>
           <p className="text-sb-ink-mute">
-            리뷰 비중 상위 {TOP_LANGUAGE_COUNT}개 · 행을 펼치면 대표 리뷰를 봅니다
+            언어 비중 상위 {TOP_LANGUAGE_COUNT}개 언어를 확인할 수 있습니다. 각 언어를 펼치면 대표
+            리뷰를 확인할 수 있습니다.
           </p>
         </div>
 

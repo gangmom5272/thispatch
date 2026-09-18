@@ -1,14 +1,11 @@
 import type { Review } from "@/types/review"
 import { ReviewListCard } from "@/pages/GameDetail/Reviews/components/ReviewListCard"
 import LoadMoreSentinel from "@/components/LoadMoreSentinel"
-import { formatDisplayRange } from "@/lib/seoulDate"
-import type { StatPeriod } from "@/types/statistics"
 
 interface ReviewListProps {
   items: Review[]
   /** 검색에서 선택된 토픽 id — 카드 태그 강조용 */
   selectedTopicIds: number[]
-  period: StatPeriod | null
   hasNextPage: boolean
   isFetchingNextPage: boolean
   isFetchNextPageError: boolean
@@ -21,7 +18,6 @@ interface ReviewListProps {
 export function ReviewList({
   items,
   selectedTopicIds,
-  period,
   hasNextPage,
   isFetchingNextPage,
   isFetchNextPageError,
@@ -29,17 +25,6 @@ export function ReviewList({
 }: ReviewListProps) {
   return (
     <section className="flex flex-col gap-sb-4">
-      {period ? (
-        <p className="font-sb-mono text-sb-caption text-sb-ink-mute">
-          데이터 구간 {formatDisplayRange(period.startDate, period.endDate, period.dayCount)}
-        </p>
-      ) : null}
-
-      <p className="text-sb-body leading-relaxed text-sb-ink-mute">
-        토픽은 리뷰 문장에서 추출한 분류이며 작성자의 의도를 단정하지 않습니다. 여러 토픽을 선택하면
-        하나라도 해당하는 리뷰를 보여줍니다.
-      </p>
-
       {items.length === 0 ? (
         <p className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4 text-sb-body text-sb-ink-mute">
           조건에 맞는 리뷰가 없습니다. 토픽 선택을 바꿔 보세요.

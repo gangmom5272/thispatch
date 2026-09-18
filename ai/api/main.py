@@ -462,7 +462,9 @@ class PatchPoint(BaseModel):
 class TrendIn(BaseModel):
     appid: int
     game: str = ""
-    daily: list[DayStat] = Field(..., min_length=1, max_length=400, description="선택 기간의 일별 집계. 날짜 순서는 상관없다")
+    daily: list[DayStat] = Field(..., max_length=400,
+                                 description="선택 기간의 일별 집계. 날짜 순서는 상관없다. "
+                                             "빈 배열이면 '리뷰 없음' 결과를 200 으로 돌려준다")
     patches: list[PatchPoint] = Field(default=[], max_length=50, description="기간 안 패치 시점")
     window_days: int = Field(7, ge=1, le=30, description="패치 전후 비교 창")
     use_llm: bool = Field(True, description="false 면 문장 틀로만(밀리초)")
@@ -512,6 +514,14 @@ def trends_summarize(q: TrendIn):
     """
     t0 = time.time()
     daily = [d.model_dump() for d in q.daily]
+    if not daily:
+        # 기간에 리뷰가 없는 것은 오류가 아니다. 화면이 에러를 받지 않도록 200 으로 돌려준다.
+        return TrendOut(appid=q.appid, title=f"{q.game or q.appid} 반응 추세",
+                        summary="선택한 기간에는 리뷰가 없습니다.",
+                        facts=[{"key": "total_reviews", "label": "기간 리뷰", "value": "0건"}],
+                        patch_effects=[], caveats=["선택한 기간에 집계된 리뷰가 없습니다."],
+                        day_count=0, used_llm=False, model=None, attempts=0, clean=True,
+                        elapsed_ms=int((time.time() - t0) * 1000))
     facts, effects = compute_facts(daily, [p.model_dump() for p in q.patches], q.window_days)
     title, summary = template_summary(facts, effects)
     used_llm, attempts, clean, model = False, 0, True, None

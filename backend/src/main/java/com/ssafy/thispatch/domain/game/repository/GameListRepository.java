@@ -98,6 +98,28 @@ public class GameListRepository {
 
 	private String filter(GameListQuery query, GameListScope scope) {
 		String filter = "lower(g.name) like :search escape '!'";
+		var filters = query.filters();
+		if (filters.releaseYearFrom() != null) {
+			filter += " and extract(year from g.release_ts at time zone 'Asia/Seoul') >= :releaseYearFrom";
+		}
+		if (filters.releaseYearTo() != null) {
+			filter += " and extract(year from g.release_ts at time zone 'Asia/Seoul') <= :releaseYearTo";
+		}
+		if (filters.minReviewCount() != null) {
+			filter += " and g.store_review_count >= :minReviewCount";
+		}
+		if (filters.maxReviewCount() != null) {
+			filter += " and g.store_review_count <= :maxReviewCount";
+		}
+		if (filters.minPositiveRate() != null) {
+			filter += " and g.store_positive_pct >= :minPositiveRate";
+		}
+		if (filters.maxPositiveRate() != null) {
+			filter += " and g.store_positive_pct <= :maxPositiveRate";
+		}
+		if (!filters.developer().isEmpty()) {
+			filter += " and lower(g.developer) like :developer escape '!'";
+		}
 		if (!query.genreIds().isEmpty()) {
 			filter += " and exists(select 1 from game_tag gt where gt.appid = g.appid and gt.tag_id in (:genreIds))";
 		}
@@ -108,8 +130,13 @@ public class GameListRepository {
 	}
 
 	private MapSqlParameterSource parameters(long memberId, GameListQuery query) {
+		var filters = query.filters();
 		return new MapSqlParameterSource("memberId", memberId)
-			.addValue("search", query.searchPattern()).addValue("genreIds", query.genreIds());
+			.addValue("search", query.searchPattern()).addValue("genreIds", query.genreIds())
+			.addValue("releaseYearFrom", filters.releaseYearFrom()).addValue("releaseYearTo", filters.releaseYearTo())
+			.addValue("minReviewCount", filters.minReviewCount()).addValue("maxReviewCount", filters.maxReviewCount())
+			.addValue("minPositiveRate", filters.minPositiveRate()).addValue("maxPositiveRate", filters.maxPositiveRate())
+			.addValue("developer", filters.developerPattern());
 	}
 
 	public record GameRow(long id, String title, String capsulePath, String developer, String description,

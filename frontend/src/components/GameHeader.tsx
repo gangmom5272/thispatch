@@ -7,25 +7,6 @@ import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { gameDetailPath, paths } from "@/router/paths"
 import type { GameDetail } from "@/types"
 
-const UPDATED_AT_COPY = "수정일 기준 집계"
-
-function formatCollectedAt(iso: string | null): string | null {
-  if (!iso) return null
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return null
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date)
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? ""
-  return `수집 ${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`
-}
-
 function formatReviewCount(count: number | null): string {
   if (count === null) return "—"
   return count.toLocaleString("en-US")
@@ -56,9 +37,6 @@ function BackArrowIcon() {
 }
 
 function GameInfo({ game }: { game: GameDetail }) {
-  const collectedLabel = formatCollectedAt(game.lastCollectedAt)
-  const basisText = collectedLabel ? `${collectedLabel} · ${UPDATED_AT_COPY}` : UPDATED_AT_COPY
-
   return (
     <div className="flex flex-col gap-sb-4 border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-4 md:flex-row md:items-center md:gap-[18px] md:px-sb-12 md:pb-3.5 md:pt-sb-4">
       <div className="h-[86px] w-[184px] shrink-0 overflow-hidden rounded-sb-control border border-sb-hairline-cool bg-sb-canvas">
@@ -70,9 +48,6 @@ function GameInfo({ game }: { game: GameDetail }) {
           <h1 className="text-sb-heading font-medium tracking-[-0.42px] text-sb-ink">
             {game.title}
           </h1>
-          <p className="shrink-0 font-sb-mono text-sb-body tabular-nums text-sb-ink-mute sm:ml-auto">
-            {basisText}
-          </p>
         </div>
 
         {game.description ? (

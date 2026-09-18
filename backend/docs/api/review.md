@@ -129,20 +129,26 @@
 **Processing Rules / Notes — Rules**
 
 - `reviewId`로 서버에 저장된 리뷰 원문을 조회한다.
+- `recent_review.review_id` 기본키에 해당하는 행의 `review_text`를 사용한다. 다른 수정 버전으로 대체하거나 목록의 최근 14일 필터를 적용하지 않는다.
 - 번역 대상 언어는 한국어로 고정하며, 외부 번역 API는 DeepL을 사용한다.
 - 클라이언트에서 번역할 원문을 직접 전달하지 않는다. 서버에 존재하는 리뷰만 번역한다.
-- DeepL 호출 실패는 서버 내부 오류와 구분하여 `502 Bad Gateway`로 응답한다.
+- DB의 `language_code`가 `korean` 또는 `koreana`이거나 원문이 빈 문자열·공백뿐이면 DeepL을 호출하지 않고 원문 그대로 `200`을 반환한다.
+- 그 외 원문은 DeepL의 언어 자동 감지를 사용하여 한국어(`KO`)로 번역한다.
+- DeepL 키 미설정·인증 오류, 미지원 언어, 입력 한도 초과, 할당량 초과, 연결 실패·시간 초과 및 잘못된 응답은 `502 TRANSLATION_UNAVAILABLE`로 처리한다.
+- DeepL JSON 요청 본문의 UTF-8 크기가 128 KiB를 초과하면 외부 호출 없이 같은 `502`로 처리한다. 원문을 자르거나 분할하지 않고 자동 재시도하지 않는다.
+- 번역 결과를 캐시하거나 DB에 저장하지 않는다. 각 요청에서 조회한 원문을 사용한다.
 
 **Error Responses**
 
 - `401 UNAUTHORIZED`: 인증이 필요합니다.
-- `404`: 리뷰를 찾을 수 없습니다.
-- `502`: 번역 서비스를 이용할 수 없습니다. (DeepL 호출 실패)
+- `404 REVIEW_NOT_FOUND`: 리뷰를 찾을 수 없습니다.
+- `502 TRANSLATION_UNAVAILABLE`: 번역 서비스를 이용할 수 없습니다.
 - `500 INTERNAL_SERVER_ERROR`: 서버 내부 오류가 발생했습니다.
 
 오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`을
-사용하며, 원본 명세의 `success: false`는 포함하지 않는다. `404`·`502`의 도메인 오류 코드는
-구현 시 위 상태 코드·메시지에 맞춰 정의하고 이 문서에 반영한다.
+사용하며, 원본 명세의 `success: false`는 포함하지 않는다. DB 등 일반 서버 오류는 DeepL 오류로 변환하지 않는다.
+
+DeepL 입력 크기·언어 감지 기준: [공식 번역 API 문서](https://developers.deepl.com/api-reference/translate/request-translation).
 
 ## 최근 대표 리뷰 조회
 

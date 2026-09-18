@@ -16,6 +16,10 @@ spring:
     locations: classpath:db/migration
 
 app:
+  deepl:
+    api-key: ${DEEPL_API_KEY:}
+    connect-timeout: ${DEEPL_CONNECT_TIMEOUT:3s}
+    read-timeout: ${DEEPL_READ_TIMEOUT:10s}
   ai:
     base-url: ${AI_BASE_URL:}
     connect-timeout: ${AI_CONNECT_TIMEOUT:3s}

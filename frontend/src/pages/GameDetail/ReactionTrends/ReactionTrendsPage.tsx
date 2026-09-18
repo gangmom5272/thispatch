@@ -14,8 +14,10 @@ import {
 } from "@/pages/GameDetail/ReactionTrends/lib/aggregate"
 import {
   MIN_DAY_WIDTH,
+  snapScrollLeft,
   useChartDayWidth,
   VISIBLE_DAYS,
+  visibleSlice,
 } from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
 import {
   addDaysIso,
@@ -27,6 +29,7 @@ import {
 import type { ReactionTrendPatchMarker } from "@/types/statistics"
 
 const AI_DEBOUNCE_MS = 450
+const SNAP_DEBOUNCE_MS = 180
 const LOAD_MORE_DAYS = 30
 const LOAD_EDGE_PX = 48
 
@@ -34,18 +37,6 @@ function parseGameId(raw: string | undefined): number | null {
   if (!raw || !/^\d+$/.test(raw)) return null
   const id = Number(raw)
   return Number.isSafeInteger(id) && id >= 1 ? id : null
-}
-
-function visibleSlice(
-  dailyLength: number,
-  scrollLeft: number,
-  clientWidth: number,
-  dayWidth: number,
-): { startIndex: number; endIndex: number } {
-  if (dailyLength === 0 || dayWidth <= 0) return { startIndex: 0, endIndex: 0 }
-  const startIndex = Math.max(0, Math.floor(scrollLeft / dayWidth))
-  const endIndex = Math.min(dailyLength, Math.ceil((scrollLeft + clientWidth) / dayWidth))
-  return { startIndex, endIndex: Math.max(startIndex + 1, endIndex) }
 }
 
 export default function ReactionTrendsPage() {
@@ -60,6 +51,9 @@ export default function ReactionTrendsPage() {
   const prevDayCountRef = useRef(0)
   const needsEndPinRef = useRef(true)
   const aiTimerRef = useRef<number | null>(null)
+  const snapTimerRef = useRef<number | null>(null)
+  // 프로그래밍 스크롤(스냅·핀·패치 이동) 중 재스냅 방지
+  const programScrollRef = useRef(false)
   const loadingMoreRef = useRef(false)
   const dayWidth = useChartDayWidth(scrollEl)
 
@@ -116,13 +110,27 @@ export default function ReactionTrendsPage() {
       maxLeft,
       Math.max(0, index * dayWidth - el.clientWidth / 2 + dayWidth / 2),
     )
+    programScrollRef.current = true
     el.scrollTo({ left: target, behavior })
+    window.setTimeout(
+      () => {
+        programScrollRef.current = false
+      },
+      behavior === "smooth" ? 400 : 0,
+    )
   }
 
   const scrollToLatest = (behavior: ScrollBehavior = "smooth") => {
     const el = chartScrollRef.current
     if (!el) return
+    programScrollRef.current = true
     el.scrollTo({ left: Math.max(0, el.scrollWidth - el.clientWidth), behavior })
+    window.setTimeout(
+      () => {
+        programScrollRef.current = false
+      },
+      behavior === "smooth" ? 400 : 0,
+    )
   }
 
   const scrollToPatch = (patchId: string) => {
@@ -179,9 +187,11 @@ export default function ReactionTrendsPage() {
     }
 
     if (prev > 0 && daily.length > prev) {
+      programScrollRef.current = true
       el.scrollLeft += (daily.length - prev) * dayWidth
       needsEndPinRef.current = false
       prevDayCountRef.current = daily.length
+      programScrollRef.current = false
       return
     }
 
@@ -192,7 +202,9 @@ export default function ReactionTrendsPage() {
     const pinToEnd = () => {
       const node = chartScrollRef.current
       if (!node || !needsEndPinRef.current) return
+      programScrollRef.current = true
       node.scrollLeft = Math.max(0, node.scrollWidth - node.clientWidth)
+      programScrollRef.current = false
     }
 
     pinToEnd()
@@ -211,6 +223,13 @@ export default function ReactionTrendsPage() {
       }
     }
 
+    const clearSnapTimer = () => {
+      if (snapTimerRef.current !== null) {
+        window.clearTimeout(snapTimerRef.current)
+        snapTimerRef.current = null
+      }
+    }
+
     const queueAiAfterIdle = () => {
       clearAiTimer()
       aiTimerRef.current = window.setTimeout(() => {
@@ -219,13 +238,35 @@ export default function ReactionTrendsPage() {
       }, AI_DEBOUNCE_MS)
     }
 
+    /** idle 후 가장자리 일자 가시 비율에 맞춰 day 경계로 스냅 */
+    const queueSnapAfterIdle = () => {
+      clearSnapTimer()
+      snapTimerRef.current = window.setTimeout(() => {
+        snapTimerRef.current = null
+        if (programScrollRef.current || loadingMoreRef.current || needsEndPinRef.current) return
+        const width = dayWidth || MIN_DAY_WIDTH
+        const nextLeft = snapScrollLeft(el.scrollLeft, el.clientWidth, width, el.scrollWidth)
+        if (Math.abs(nextLeft - el.scrollLeft) < 1) return
+        programScrollRef.current = true
+        el.scrollTo({ left: nextLeft, behavior: "smooth" })
+        window.setTimeout(() => {
+          programScrollRef.current = false
+          setViewport(visibleSlice(daily.length, el.scrollLeft, el.clientWidth, width))
+          scheduleAiFromViewport()
+        }, 350)
+      }, SNAP_DEBOUNCE_MS)
+    }
+
     const onScroll = () => {
       const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
       if (el.scrollLeft < maxLeft - 1) needsEndPinRef.current = false
       setViewport(
         visibleSlice(daily.length, el.scrollLeft, el.clientWidth, dayWidth || MIN_DAY_WIDTH),
       )
-      queueAiAfterIdle()
+      if (!programScrollRef.current) {
+        queueAiAfterIdle()
+        queueSnapAfterIdle()
+      }
       if (el.scrollLeft < LOAD_EDGE_PX) loadEarlier()
     }
 
@@ -234,6 +275,7 @@ export default function ReactionTrendsPage() {
     return () => {
       el.removeEventListener("scroll", onScroll)
       clearAiTimer()
+      clearSnapTimer()
     }
   }, [daily.length, dayWidth, scrollEl])
 
@@ -323,7 +365,7 @@ export default function ReactionTrendsPage() {
           ) : null}
         </div>
 
-        <div className="mt-sb-4">
+        <div className="relative mt-sb-4">
           <ReactionTrendsChart
             rows={rows}
             selectedPatchId={resolvedPatchId}
@@ -336,6 +378,19 @@ export default function ReactionTrendsPage() {
               if (patch) setSelectedPatchId(patch.id)
             }}
           />
+          {loadingMore ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-sb-2 border-t border-sb-hairline-cool bg-sb-canvas-surface/95 px-sb-4 py-sb-3"
+            >
+              <span
+                aria-hidden="true"
+                className="size-4 animate-spin rounded-full border-2 border-sb-hairline-strong border-t-sb-primary motion-reduce:animate-none"
+              />
+              <p className="text-sb-body text-sb-ink">이전 일자를 불러오는 중…</p>
+            </div>
+          ) : null}
         </div>
         <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
           한 화면에 약 {VISIBLE_DAYS}일이 보입니다. 좌우 스크롤로 이전·이후 날짜를 보고, 왼쪽 끝에서

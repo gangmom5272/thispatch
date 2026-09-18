@@ -2,6 +2,81 @@ import { useEffect, useRef, useState } from "react"
 
 export const VISIBLE_DAYS = 14
 export const MIN_DAY_WIDTH = 24
+/** 기간·스냅 판정에 쓰는 최소 가시 비율(반 이상) */
+export const VISIBLE_RATIO_MIN = 0.5
+
+/**
+ * 일자 열 [index * dayWidth, (index+1) * dayWidth)과 뷰포트의 교차 비율(0~1).
+ */
+export function dayVisibilityRatio(
+  dayIndex: number,
+  scrollLeft: number,
+  clientWidth: number,
+  dayWidth: number,
+): number {
+  if (dayWidth <= 0 || clientWidth <= 0) return 0
+  // 일자 열의 왼쪽·오른쪽 경계(px)
+  const dayStart = dayIndex * dayWidth
+  const dayEnd = dayStart + dayWidth
+  const viewStart = scrollLeft
+  const viewEnd = scrollLeft + clientWidth
+  const overlap = Math.max(0, Math.min(dayEnd, viewEnd) - Math.max(dayStart, viewStart))
+  return overlap / dayWidth
+}
+
+/**
+ * 가시 비율 ≥ VISIBLE_RATIO_MIN 인 일자만 포함하는 [startIndex, endIndex) 슬라이스.
+ */
+export function visibleSlice(
+  dailyLength: number,
+  scrollLeft: number,
+  clientWidth: number,
+  dayWidth: number,
+): { startIndex: number; endIndex: number } {
+  if (dailyLength === 0 || dayWidth <= 0) return { startIndex: 0, endIndex: 0 }
+
+  let startIndex = -1
+  let endIndex = -1
+  for (let i = 0; i < dailyLength; i++) {
+    if (dayVisibilityRatio(i, scrollLeft, clientWidth, dayWidth) >= VISIBLE_RATIO_MIN) {
+      if (startIndex < 0) startIndex = i
+      // endIndex는 exclusive
+      endIndex = i + 1
+    }
+  }
+
+  // 어떤 일자도 반 이상 안 보이면 뷰포트 중심에 가장 일자 1칸
+  if (startIndex < 0) {
+    const center = Math.floor((scrollLeft + clientWidth / 2) / dayWidth)
+    const idx = Math.min(dailyLength - 1, Math.max(0, center))
+    return { startIndex: idx, endIndex: idx + 1 }
+  }
+
+  return { startIndex, endIndex }
+}
+
+/**
+ * 스크롤 idle 후 가장자리 일자 가시 비율에 맞춰 day 경계로 scrollLeft를 보정한다.
+ * 왼쪽 일자가 반 이상 보이면 그 일자 시작으로, 미만이면 다음 일자로 스냅.
+ */
+export function snapScrollLeft(
+  scrollLeft: number,
+  clientWidth: number,
+  dayWidth: number,
+  scrollWidth: number,
+): number {
+  if (dayWidth <= 0 || clientWidth <= 0) return scrollLeft
+  const maxLeft = Math.max(0, scrollWidth - clientWidth)
+  // 뷰포트 왼쪽이 걸친 일자 인덱스와 그 일자 안에서의 오프셋
+  const leftIdx = Math.floor(scrollLeft / dayWidth + Number.EPSILON)
+  const offset = scrollLeft - leftIdx * dayWidth
+  if (offset < 1) return Math.min(maxLeft, Math.max(0, scrollLeft))
+
+  // offset/dayWidth ≤ 0.5 → 왼쪽 일자 가시 ≥ 50% → 뒤로 스냅
+  const snapped =
+    offset / dayWidth <= 1 - VISIBLE_RATIO_MIN ? leftIdx * dayWidth : (leftIdx + 1) * dayWidth
+  return Math.min(maxLeft, Math.max(0, snapped))
+}
 
 export const CHART_COLORS = {
   rate: "#4ade80",

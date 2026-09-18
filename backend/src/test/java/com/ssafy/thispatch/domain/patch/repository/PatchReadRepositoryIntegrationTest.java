@@ -53,6 +53,23 @@ class PatchReadRepositoryIntegrationTest {
 	}
 
 	@Test
+	void translationReadsOnlyPatchByExactStringIdWithoutWriting() {
+		String stringId = "00018446744073709551";
+		jdbc.update("update news set gid = ? where gid = ?", stringId, patchId);
+		var before = jdbc.queryForMap("select * from news where gid = ?", stringId);
+		assertThat(repository.findTranslationSource(stringId))
+			.contains(new PatchReadRepository.TranslationSource("Patch", "[b]Fix[/b]"));
+		assertThat(repository.findTranslationSource("18446744073709551")).isEmpty();
+		assertThat(repository.findTranslationSource("missing-patch")).isEmpty();
+		assertThat(jdbc.queryForMap("select * from news where gid = ?", stringId)).isEqualTo(before);
+		jdbc.update("update news set title = '', contents = '' where gid = ?", stringId);
+		assertThat(repository.findTranslationSource(stringId))
+			.contains(new PatchReadRepository.TranslationSource("", ""));
+		jdbc.update("update news set is_patch = false where gid = ?", stringId);
+		assertThat(repository.findTranslationSource(stringId)).isEmpty();
+	}
+
+	@Test
 	void doesNotReadAnotherGamesPatchOrNonPatchAnnouncement() {
 		assertThat(repository.find(gameId + 1, patchId)).isEmpty();
 		jdbc.update("update news set is_patch = false where gid = ?", patchId);

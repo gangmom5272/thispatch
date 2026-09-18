@@ -1,9 +1,10 @@
 # 로컬 PostgreSQL · Redis 개발 환경
 
-## DeepL 리뷰 번역 설정
+## DeepL 리뷰·패치노트 번역 설정
 
 기존 백엔드 실행 환경에서 `backend/.env`에 `DEEPL_API_KEY=발급받은_API_키`를 추가하고
-`dev` 프로필로 다시 실행하면 `GET /reviews/{reviewId}/translation`을 사용할 수 있습니다.
+`dev` 프로필로 다시 실행하면 `GET /reviews/{reviewId}/translation`과
+`GET /patches/{patchId}/translation`을 사용할 수 있습니다. 두 API가 같은 키와 클라이언트를 사용합니다.
 요청에는 기존 Access Token을 `Authorization: Bearer ...`로 전달합니다.
 실제 키는 커밋하지 않으며 `.env.example`에는 빈 값만 둡니다.
 
@@ -15,8 +16,8 @@
 
 - [DeepL 공식 인증 규칙](https://developers.deepl.com/docs/getting-started/auth)에 따라 `:fx`로 끝나는 키는 `https://api-free.deepl.com`, 나머지는 `https://api.deepl.com`을 자동 선택합니다.
 - 운영에서는 백엔드 컨테이너 환경에 `DEEPL_API_KEY`를 주입하고 재시작합니다. 기존 서버 Compose의 `env_file`을 사용할 수 있습니다.
-- 키가 없어도 서버는 기동합니다. 번역이 필요한 요청은 `502 TRANSLATION_UNAVAILABLE`을 반환합니다. 한국어·빈 원문은 키 없이도 원문을 반환합니다.
-- 오류·입력 제한·캐시 정책은 [리뷰 번역 계약](docs/api/review.md#리뷰-번역)을 따릅니다. 번역을 기다리는 동안 DB 트랜잭션을 유지하지 않습니다.
+- 키가 없어도 서버는 기동합니다. 번역이 필요한 요청은 `502 TRANSLATION_UNAVAILABLE`을 반환합니다. 리뷰의 한국어·빈 원문은 키 없이도 원문을 반환합니다. 패치노트는 원문 언어 정보가 없어 한국어도 키가 필요하며, 빈 제목·본문만 외부 호출을 생략합니다.
+- 오류·입력 제한·캐시 정책은 [리뷰 번역 계약](docs/api/review.md#리뷰-번역)과 [패치노트 번역 계약](docs/api/patch.md#패치노트-번역)을 따릅니다. 번역을 기다리는 동안 DB 트랜잭션을 유지하지 않습니다.
 - 자동화 테스트는 DeepL HTTP 호출을 대체하므로 실제 키와 외부 번역 서비스를 사용하지 않습니다.
 
 Docker Desktop의 Linux 컨테이너 엔진과 Docker Compose가 필요합니다.

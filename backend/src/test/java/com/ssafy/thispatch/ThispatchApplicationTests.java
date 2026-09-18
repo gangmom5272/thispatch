@@ -89,14 +89,15 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V10, each applied exactly once").hasSize(10);
+		assertThat(history).as("V1 through V11, each applied exactly once").hasSize(11);
 		assertThat(history).extracting(row -> row.get("version"))
-			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
 				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql",
-				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql", "V10__seed_language.sql");
+				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql", "V10__seed_language.sql",
+				"V11__seed_topic.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -176,6 +177,7 @@ class ThispatchApplicationTests {
 			"skill|스킬", "map|맵", "system|시스템", "other|기타", "unknown|알 수 없음"));
 		assertPlayModes(jdbc);
 		assertLanguages(jdbc);
+		assertTopics(jdbc);
 		var tags = jdbc.queryForList("SELECT tag_id, name_ko FROM tag");
 		assertThat(tags).as("Steam tag snapshot and any existing tags").hasSizeGreaterThanOrEqualTo(446);
 		assertThat(tags).extracting(row -> row.get("tag_id") + "|" + row.get("name_ko"))
@@ -219,6 +221,21 @@ class ThispatchApplicationTests {
 				"czech|체코어", "hungarian|헝가리어", "dutch|네덜란드어", "swedish|스웨덴어", "danish|덴마크어",
 				"finnish|핀란드어", "norwegian|노르웨이어", "romanian|루마니아어", "bulgarian|불가리아어",
 				"greek|그리스어", "vietnamese|베트남어", "indonesian|인도네시아어", "malay|말레이어", "arabic|아랍어");
+	}
+
+	/**
+	 * 리뷰 토픽 5종 (V11 · 2026-09-18 진우님 확정).
+	 *
+	 * <p>{@code review_topic.topic_id} · {@code band_topic_stat.topic_id} 가 이 표를 참조한다. topic_id 는
+	 * AI 분류기가 파케이에 쓰는 고정값이라 바꾸면 안 된다. {@code sim_threshold} 는 코사인 유사도가 아니라
+	 * 분류기 확률 문턱이다. {@code centroid} 는 아직 쓰지 않아 null.
+	 */
+	private void assertTopics(JdbcTemplate jdbc) {
+		var rows = jdbc.queryForList("SELECT topic_id, name_ko, centroid, sim_threshold FROM topic ORDER BY topic_id");
+		assertThat(rows).as("topic").hasSize(5);
+		assertThat(rows).extracting(row -> row.get("topic_id") + "|" + row.get("name_ko") + "|" + row.get("sim_threshold"))
+			.containsExactly("1|밸런스|0.600", "2|버그·성능|0.575", "3|UI·조작|0.700", "4|운영·서버|0.700", "5|가격·과금|0.600");
+		assertThat(rows).allSatisfy(row -> assertThat(row.get("centroid")).isNull());
 	}
 
 	private void assertCodes(JdbcTemplate jdbc, String table, List<String> expected) {

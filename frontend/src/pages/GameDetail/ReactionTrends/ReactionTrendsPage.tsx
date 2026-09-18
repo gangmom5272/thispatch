@@ -22,7 +22,6 @@ import {
 import {
   addDaysIso,
   formatCollectedLabel,
-  formatDisplayRange,
   initialReactionTrendsStartDate,
   todaySeoul,
 } from "@/lib/seoulDate"
@@ -97,10 +96,6 @@ export default function ReactionTrendsPage() {
   }, [daily, viewport])
 
   const rangeSummary = useMemo(() => sumDailyRange(visibleDaily), [visibleDaily])
-  const periodLabel =
-    visibleDaily.length > 0
-      ? formatDisplayRange(visibleDaily[0].date, visibleDaily.at(-1)!.date, visibleDaily.length)
-      : null
 
   const scrollToIndex = (index: number, behavior: ScrollBehavior = "smooth") => {
     const el = chartScrollRef.current
@@ -313,9 +308,6 @@ export default function ReactionTrendsPage() {
         <header className="flex flex-wrap items-end justify-between gap-sb-3">
           <div>
             <h1 className="text-sb-title font-medium text-sb-ink">일별 리뷰 반응</h1>
-            {periodLabel ? (
-              <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">{periodLabel}</p>
-            ) : null}
             <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">
               {[collected, basis].filter(Boolean).join(" · ")}
             </p>

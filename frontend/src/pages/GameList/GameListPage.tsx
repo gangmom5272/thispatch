@@ -5,13 +5,16 @@ import LoadMoreSentinel from "../../components/LoadMoreSentinel"
 import {
   DEFAULT_GAME_FILTER,
   DEFAULT_GAME_SORT,
+  formatGameRange,
+  GAME_RANGE_FILTERS,
   GAME_SORT_OPTIONS,
   isGameSort,
+  type GameRangeFilterGroup,
+  type GameRangeKey,
 } from "../../constants/games"
-import { useDragScroll } from "../../hooks/useDragScroll"
-import { useGameList, useMyGameList } from "../../hooks/queries/gameQueries"
+import { useGameList } from "../../hooks/queries/gameQueries"
 import { useGenreList } from "../../hooks/queries/genreQueries"
-import type { Game, GameFilterConditions, MyGame } from "../../types"
+import type { Game, GameFilterConditions } from "../../types"
 import GameCard from "./components/GameCard"
 import GameFilterDialog from "./components/GameFilterDialog"
 import GameSearchCombobox from "./components/GameSearchCombobox"
@@ -22,24 +25,50 @@ interface AppliedConditions extends GameFilterConditions {
   search: string
 }
 
+function readRange(params: URLSearchParams, key: GameRangeKey, min: number, max: number) {
+  const raw = params.get(key)
+  if (raw === null || !/^\d+$/.test(raw)) return undefined
+  const value = Number(raw)
+  return value >= min && value <= max ? value : undefined
+}
+
 function readConditions(params: URLSearchParams): AppliedConditions {
   const sort = params.get("sort")
   const genreIds = (params.get("genreIds") ?? "")
     .split(",")
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0)
-  return {
+  const conditions: AppliedConditions = {
     search: params.get("search") ?? "",
     sort: isGameSort(sort) ? sort : DEFAULT_GAME_SORT,
     genreIds,
+    developer: params.get("developer")?.trim() || undefined,
   }
+  for (const group of GAME_RANGE_FILTERS) {
+    const from = readRange(params, group.from, group.min, group.max)
+    const to = readRange(params, group.to, group.min, group.max)
+    if (from !== undefined && to !== undefined && from > to) continue
+    conditions[group.from] = from
+    conditions[group.to] = to
+  }
+  return conditions
 }
 
-function writeConditions({ search, sort, genreIds }: AppliedConditions): URLSearchParams {
+function writeConditions({
+  search,
+  sort,
+  genreIds,
+  developer,
+  ...ranges
+}: AppliedConditions): URLSearchParams {
   const params = new URLSearchParams()
   if (search) params.set("search", search)
   if (sort !== DEFAULT_GAME_SORT) params.set("sort", sort)
   if (genreIds.length > 0) params.set("genreIds", genreIds.join(","))
+  if (developer) params.set("developer", developer)
+  for (const [key, value] of Object.entries(ranges)) {
+    if (value !== undefined) params.set(key, String(value))
+  }
   return params
 }
 
@@ -49,6 +78,7 @@ const secondaryButtonClass =
   "flex h-sb-control cursor-pointer items-center gap-sb-2 rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
 const chipClass =
   "flex h-7 items-center gap-sb-1 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2"
+const removableChipClass = `${chipClass} cursor-pointer hover:border-sb-hairline-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`
 const panelClass =
   "flex flex-col items-start gap-sb-3 rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-6"
 
@@ -58,20 +88,27 @@ export default function GameListPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const filters = {
+    ...applied,
     search: applied.search || undefined,
-    sort: applied.sort,
     genreIds: applied.genreIds.length > 0 ? applied.genreIds : undefined,
   }
   const query = useGameList(filters)
-  const myGames = useMyGameList(filters)
 
-  /** URL에 검색·필터 조건을 반영한다. */
+  /** URL에 검색·필터 조건을 반영한다. 조건이 바뀌면 쿼리 키가 바뀌어 첫 페이지부터 다시 조회한다. */
   const apply = (next: AppliedConditions) => {
     setSearchParams(writeConditions(next))
   }
 
-  const hasAppliedConditions = applied.genreIds.length > 0 || applied.sort !== DEFAULT_GAME_SORT
-  const appliedFilterCount = applied.genreIds.length + (applied.sort !== DEFAULT_GAME_SORT ? 1 : 0)
+  const rangeChips = GAME_RANGE_FILTERS.flatMap((group) => {
+    const range = formatGameRange(group, applied[group.from], applied[group.to])
+    return range ? [{ group, range }] : []
+  })
+  const appliedFilterCount =
+    applied.genreIds.length +
+    rangeChips.length +
+    (applied.developer ? 1 : 0) +
+    (applied.sort !== DEFAULT_GAME_SORT ? 1 : 0)
+  const hasAppliedConditions = appliedFilterCount > 0
   const totalCount = query.data?.pages[0]?.page.totalCount
 
   return (
@@ -83,20 +120,12 @@ export default function GameListPage() {
         <GameListToolbar
           key={searchParams.toString()}
           applied={applied}
+          rangeChips={rangeChips}
           appliedFilterCount={appliedFilterCount}
           hasAppliedConditions={hasAppliedConditions}
           totalCount={totalCount}
           onApply={apply}
           onOpenFilter={() => setIsFilterOpen(true)}
-        />
-
-        <MyGameSection
-          items={myGames.data ?? []}
-          isPending={myGames.isPending}
-          isError={myGames.isError}
-          error={myGames.error}
-          isFetching={myGames.isFetching}
-          onRetry={() => myGames.refetch()}
         />
 
         <section className="flex flex-col gap-sb-5">
@@ -129,7 +158,7 @@ export default function GameListPage() {
               isFetchNextPageError={query.isFetchNextPageError}
               onLoadMore={() => query.fetchNextPage()}
               onResetConditions={() => {
-                apply({ search: "", sort: DEFAULT_GAME_SORT, genreIds: [] })
+                apply({ ...DEFAULT_GAME_FILTER, search: "" })
               }}
             />
           )}
@@ -138,7 +167,7 @@ export default function GameListPage() {
 
       {isFilterOpen && (
         <GameFilterDialog
-          initial={{ sort: applied.sort, genreIds: applied.genreIds }}
+          initial={applied}
           onApply={(next) => {
             // 필터 적용 시 URL·목록을 즉시 갱신(검색어는 현재 적용값 유지)
             apply({ ...next, search: applied.search })
@@ -150,8 +179,14 @@ export default function GameListPage() {
   )
 }
 
+interface RangeChip {
+  group: GameRangeFilterGroup
+  range: string
+}
+
 interface GameListToolbarProps {
   applied: AppliedConditions
+  rangeChips: RangeChip[]
   appliedFilterCount: number
   hasAppliedConditions: boolean
   totalCount: number | undefined
@@ -162,6 +197,7 @@ interface GameListToolbarProps {
 /** 검색·필터 툴바. key로 리마운트되면 URL의 적용 조건으로 입력을 다시 맞춘다. */
 function GameListToolbar({
   applied,
+  rangeChips,
   appliedFilterCount,
   hasAppliedConditions,
   totalCount,
@@ -215,7 +251,7 @@ function GameListToolbar({
                       genreIds: applied.genreIds.filter((genreId) => genreId !== id),
                     })
                   }
-                  className={`${chipClass} cursor-pointer hover:border-sb-hairline-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
+                  className={removableChipClass}
                 >
                   {name}
                   <span aria-hidden="true" className="text-sb-ink-mute">
@@ -225,6 +261,39 @@ function GameListToolbar({
               </li>
             )
           })}
+          {rangeChips.map(({ group, range }) => (
+            <li key={group.from}>
+              <button
+                type="button"
+                aria-label={`${group.label} ${range} 조건 제거`}
+                onClick={() =>
+                  onApply({ ...applied, [group.from]: undefined, [group.to]: undefined })
+                }
+                className={removableChipClass}
+              >
+                {group.label}
+                <span className="font-sb-mono tabular-nums">{range}</span>
+                <span aria-hidden="true" className="text-sb-ink-mute">
+                  ×
+                </span>
+              </button>
+            </li>
+          ))}
+          {applied.developer ? (
+            <li>
+              <button
+                type="button"
+                aria-label={`개발사 ${applied.developer} 조건 제거`}
+                onClick={() => onApply({ ...applied, developer: undefined })}
+                className={removableChipClass}
+              >
+                개발사 {applied.developer}
+                <span aria-hidden="true" className="text-sb-ink-mute">
+                  ×
+                </span>
+              </button>
+            </li>
+          ) : null}
           <li className={chipClass}>
             <span aria-hidden="true" className="text-sb-ink-mute">
               ⇅
@@ -284,80 +353,6 @@ function GameGridSkeleton() {
     </ul>
   )
 }
-
-interface MyGameSectionProps {
-  items: MyGame[]
-  isPending: boolean
-  isError: boolean
-  error: unknown
-  isFetching: boolean
-  onRetry: () => void
-}
-
-const railClass =
-  "flex gap-sb-5 overflow-x-auto pb-sb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-
-function MyGameSection({
-  items,
-  isPending,
-  isError,
-  error,
-  isFetching,
-  onRetry,
-}: MyGameSectionProps) {
-  const { setRef, dragProps } = useDragScroll()
-
-  if (!isPending && !isError && items.length === 0) return null
-
-  return (
-    <section className="flex flex-col gap-sb-5">
-      <SectionLabel count={items.length > 0 ? items.length : undefined}>내 게임</SectionLabel>
-      {isPending && (
-        <ul aria-label="내 게임 불러오는 중" aria-busy="true" className={railClass}>
-          {Array.from({ length: SKELETON_COUNT }, (_, index) => (
-            <li key={index} className={`w-72 shrink-0 ${cardSkeletonClass}`} />
-          ))}
-        </ul>
-      )}
-      {isError && (
-        <div role="alert" className={panelClass}>
-          <p>
-            {isApiError(error)
-              ? error.message
-              : "내 게임을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
-          </p>
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={isFetching}
-            className={secondaryButtonClass}
-          >
-            다시 시도
-          </button>
-        </div>
-      )}
-      {items.length > 0 && (
-        <ul
-          ref={setRef}
-          tabIndex={0}
-          aria-label="내 게임"
-          onPointerDown={dragProps.onPointerDown}
-          onClickCapture={dragProps.onClickCapture}
-          onDragStartCapture={dragProps.onDragStartCapture}
-          style={dragProps.style}
-          className={`${railClass} ${dragProps.className} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
-        >
-          {items.map((game) => (
-            <li key={game.id} className="w-72 shrink-0">
-              <GameCard game={game} isMine />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
 interface AllGamesProps {
   items: Game[]
   /** 현재 적용된 검색어 — 빈 상태 안내에 표시 */

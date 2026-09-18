@@ -23,7 +23,6 @@ const MARGIN_TOP = 12
 const MARGIN_BOTTOM = 28
 const LEFT_AXIS_WIDTH = 68
 const RIGHT_AXIS_WIDTH = 72
-const AXIS_LABEL_COL = 16
 const TOP_BAND = 0.42
 const BOTTOM_BAND = 0.58
 const RATE_MIN = 40
@@ -294,7 +293,6 @@ export function ReactionTrendsChart({
 
 function RateAxisColumn() {
   const ticks = rateTicks()
-  const labelTop = MARGIN_TOP + TOP_BAND_PX / 2
   return (
     <div
       className={`relative flex shrink-0 ${chartShellClass}`}
@@ -302,14 +300,6 @@ function RateAxisColumn() {
       tabIndex={-1}
       aria-hidden
     >
-      <div className="relative shrink-0" style={{ width: AXIS_LABEL_COL, height: CHART_HEIGHT }}>
-        <p
-          className="absolute left-1/2 origin-center -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-sb-caption text-sb-ink-mute"
-          style={{ top: labelTop }}
-        >
-          긍정률
-        </p>
-      </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div style={{ height: MARGIN_TOP }} />
         <div
@@ -329,7 +319,6 @@ function RateAxisColumn() {
 
 function CountAxisColumn({ countMax }: { countMax: number }) {
   const ticks = countTicks(countMax)
-  const labelBottom = MARGIN_BOTTOM + BOTTOM_BAND_PX / 2
   return (
     <div
       className={`relative flex shrink-0 ${chartShellClass}`}
@@ -349,14 +338,6 @@ function CountAxisColumn({ countMax }: { countMax: number }) {
           ))}
         </div>
         <div style={{ height: MARGIN_BOTTOM }} />
-      </div>
-      <div className="relative shrink-0" style={{ width: AXIS_LABEL_COL, height: CHART_HEIGHT }}>
-        <p
-          className="absolute left-1/2 origin-center -translate-x-1/2 translate-y-1/2 rotate-90 whitespace-nowrap text-sb-caption text-sb-ink-mute"
-          style={{ bottom: labelBottom }}
-        >
-          리뷰
-        </p>
       </div>
     </div>
   )

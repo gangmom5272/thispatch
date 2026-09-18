@@ -1,4 +1,4 @@
-import type { GameFilterConditions, GameSort, GameTag } from "../types"
+import type { GameFilterConditions, GameRangeFilters, GameSort, GameTag } from "../types"
 
 export const DEFAULT_GAME_SORT: GameSort = "REVIEW_COUNT_DESC"
 
@@ -10,6 +10,53 @@ export const GAME_SORT_OPTIONS: Array<{ value: GameSort; label: string }> = [
   { value: "REACTION_CHANGE_DESC", label: "반응 변화 큰 순" },
   { value: "RELEASE_DATE_DESC", label: "최신순" },
 ]
+
+export type GameRangeKey = Exclude<keyof GameRangeFilters, "developer">
+
+export interface GameRangeFilterGroup {
+  label: string
+  from: GameRangeKey
+  to: GameRangeKey
+  min: number
+  max: number
+  unit: string
+}
+
+/** 숫자 범위 필터 그룹. URL·다이얼로그·적용 칩이 같은 정의를 공유한다. */
+export const GAME_RANGE_FILTERS: GameRangeFilterGroup[] = [
+  {
+    label: "출시연도",
+    from: "releaseYearFrom",
+    to: "releaseYearTo",
+    min: 1,
+    max: 9999,
+    unit: "년",
+  },
+  {
+    label: "리뷰 수",
+    from: "minReviewCount",
+    to: "maxReviewCount",
+    min: 0,
+    max: 2147483647,
+    unit: "개",
+  },
+  { label: "긍정률", from: "minPositiveRate", to: "maxPositiveRate", min: 0, max: 100, unit: "%" },
+]
+
+/** "2020~2025년", "1,000개 이상", "80% 이하" 형태의 범위 설명. 둘 다 없으면 null */
+export function formatGameRange(
+  group: GameRangeFilterGroup,
+  from: number | undefined,
+  to: number | undefined,
+): string | null {
+  const fmt = (n: number) => (group.unit === "년" ? String(n) : n.toLocaleString("en-US"))
+  if (from !== undefined && to !== undefined) {
+    return from === to ? `${fmt(from)}${group.unit}` : `${fmt(from)}~${fmt(to)}${group.unit}`
+  }
+  if (from !== undefined) return `${fmt(from)}${group.unit} 이상`
+  if (to !== undefined) return `${fmt(to)}${group.unit} 이하`
+  return null
+}
 
 export function isGameSort(value: string | null): value is GameSort {
   return GAME_SORT_OPTIONS.some((option) => option.value === value)

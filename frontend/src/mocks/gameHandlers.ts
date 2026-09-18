@@ -1,5 +1,10 @@
 import { delay, http, HttpResponse } from "msw"
-import { DEFAULT_GAME_SORT, isGameSort } from "../constants/games"
+import {
+  DEFAULT_GAME_SORT,
+  GAME_RANGE_FILTERS,
+  isGameSort,
+  type GameRangeKey,
+} from "../constants/games"
 import type { Game, GameDetail, GameSort, MyGame } from "../types"
 import { mockGames } from "./games"
 import { userFromAuthHeader } from "./lib/authStore"
@@ -86,16 +91,48 @@ function listResponse(request: Request, scope: "all" | "mine", pool: MockGame[])
     return respond(400, invalidFiltersMessage)
   }
 
+  const developer = (params.get("developer") ?? "").trim().toLowerCase()
+  if (developer.length > 500) {
+    return respond(400, invalidFiltersMessage)
+  }
+  const ranges: Partial<Record<GameRangeKey, number>> = {}
+  for (const group of GAME_RANGE_FILTERS) {
+    for (const key of [group.from, group.to]) {
+      const raw = params.get(key)
+      if (raw === null) continue
+      const value = Number(raw)
+      if (!/^\d+$/.test(raw) || value < group.min || value > group.max) {
+        return respond(400, invalidFiltersMessage)
+      }
+      ranges[key] = value
+    }
+    const from = ranges[group.from]
+    const to = ranges[group.to]
+    if (from !== undefined && to !== undefined && from > to) {
+      return respond(400, "입력값을 확인해주세요.")
+    }
+  }
+  const inRange = (value: number, from: number | undefined, to: number | undefined) =>
+    (from === undefined || value >= from) && (to === undefined || value <= to)
+
   const matches = pool
     .filter(
       (game) =>
         game.title.toLowerCase().includes(search.trim().toLowerCase()) &&
-        (genreIds.length === 0 || game.tags.some((tag) => genreIds.includes(tag.id))),
+        (genreIds.length === 0 || game.tags.some((tag) => genreIds.includes(tag.id))) &&
+        inRange(
+          Number(game.releasedAt.slice(0, 4)),
+          ranges.releaseYearFrom,
+          ranges.releaseYearTo,
+        ) &&
+        inRange(game.reviewCount, ranges.minReviewCount, ranges.maxReviewCount) &&
+        inRange(game.positiveRate, ranges.minPositiveRate, ranges.maxPositiveRate) &&
+        game.gameSummary.developer.toLowerCase().includes(developer),
     )
     .toSorted((a, b) => comparators[sort](a, b) || a.id - b.id)
 
   const filterKey = encodeURIComponent(
-    JSON.stringify([scope, search, sort, genreIds.toSorted((a, b) => a - b)]),
+    JSON.stringify([scope, search, sort, genreIds.toSorted((a, b) => a - b), ranges, developer]),
   )
   let offset = 0
   const cursor = params.get("cursor")

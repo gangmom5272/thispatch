@@ -18,7 +18,7 @@ export function useLogin() {
     ...loginMutationOptions,
     onSuccess: (tokens) => {
       setTokens(tokens.accessToken, tokens.refreshToken)
-      void queryClient.invalidateQueries({ queryKey: sessionKeys.all })
+      return queryClient.invalidateQueries({ queryKey: sessionKeys.all })
     },
   })
 }

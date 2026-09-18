@@ -30,7 +30,9 @@ function ObservedPatterns({ group }: { group: CaseGroup }) {
   if (group.observedPatterns.length === 0) {
     return (
       <>
-        <p className="font-medium text-sb-amber-text">{group.caseCount}건 · 소표본 해석 주의</p>
+        <p className="font-medium text-sb-amber-text">
+          {group.caseCount.toLocaleString("en-US")}건 · 소표본 해석 주의
+        </p>
         <p className="text-sb-ink-mute">{smallSampleNote[group.outcome]}</p>
       </>
     )
@@ -71,7 +73,9 @@ export default function OutcomeColumn({ group, gameId }: { group: CaseGroup; gam
         <h2 id={headingId} className="font-medium">
           {group.name}
         </h2>
-        <span className="font-sb-mono text-sb-ink-mute tabular-nums">{group.caseCount}건</span>
+        <span className="font-sb-mono text-sb-ink-mute tabular-nums">
+          {group.caseCount.toLocaleString("en-US")}건
+        </span>
       </div>
       <div className="flex flex-col gap-sb-2 rounded-sb-control border border-sb-hairline bg-sb-canvas-night-soft px-sb-4 py-sb-3">
         <ObservedPatterns group={group} />

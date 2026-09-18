@@ -1,7 +1,7 @@
 /* thispatch.pen: active SB screens and SB Components (not the legacy palette). */
 @theme static {
   --color-sb-canvas-base: #0e141b;
-  --color-sb-canvas-surface: #16202d;
+  --color-sb-canvas-surface: #172433;
   --color-sb-canvas: #1b2838;
   --color-sb-canvas-soft: #22303e;
   --color-sb-canvas-active: #24384d;
@@ -9,19 +9,21 @@
   --color-sb-canvas-night: #0b1118;
   --color-sb-canvas-night-soft: #131c27;
 
-  --color-sb-hairline: #223447;
-  --color-sb-hairline-strong: #35526b;
-  --color-sb-hairline-cool: #2a475e;
+  --color-sb-hairline: #27405a;
+  --color-sb-hairline-strong: #3d5f7c;
+  --color-sb-hairline-cool: #30506a;
 
   --color-sb-primary: #3ecf8e;
   --color-sb-primary-deep: #24b47e;
   --color-sb-primary-soft: #4ade80;
+  --color-sb-primary-text: #5fe0a4;
+  --color-sb-tint-primary: #3ecf8e1f;
   --color-sb-on-primary: #171717;
   --color-sb-on-dark: #ffffff;
   --color-sb-ink: #ffffff;
-  --color-sb-ink-mute: #9fadba;
-  --color-sb-ink-mute-2: #8a98a6;
-  --color-sb-ink-faint: #5a6b7c;
+  --color-sb-ink-mute: #b1c0ce;
+  --color-sb-ink-mute-2: #94a4b4;
+  --color-sb-ink-faint: #6f8296;
 
   --color-sb-pos: #3ecf8e;
   --color-sb-pos-dim: #1f5540;

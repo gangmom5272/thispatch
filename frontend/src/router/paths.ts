@@ -2,6 +2,9 @@
 export const paths = {
   home: "/",
   games: "/games",
+  myGames: "/my-games",
+  myPage: "/mypage",
+  plans: "/plans",
   gameDetailPattern: "/games/:gameId",
   gamePlanPattern: "/games/:gameId/plan",
   gameCasesPattern: "/games/:gameId/cases",

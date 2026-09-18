@@ -1,2 +1,9 @@
 @import "tailwindcss";
 @import "./theme.css";
+
+/* 앱 셸보다 긴 오버레이(펼쳐진 카드 등) 아래로 브라우저 기본 흰 배경이 드러나지 않게 한다. */
+@layer base {
+  html {
+    background-color: var(--color-sb-canvas-base);
+  }
+}

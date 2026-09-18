@@ -8,11 +8,13 @@ import { playtimeTopicsHandlers } from "./handlers/playtimeTopicsHandlers"
 import { reviewHandlers } from "./handlers/reviewHandlers"
 import { patchHandlers } from "./handlers/patchHandlers"
 import { sessionHandlers } from "./handlers/sessionHandlers"
+import { memberHandlers } from "./handlers/memberHandlers"
 
 export const handlers = [
   ...healthHandlers,
   ...sessionHandlers,
   ...authHandlers,
+  ...memberHandlers,
   ...gameHandlers,
   ...genreHandlers,
   ...reactionTrendsHandlers,

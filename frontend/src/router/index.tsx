@@ -18,6 +18,8 @@ import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrends
 import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
 import GameListPage from "@/pages/GameList/GameListPage"
+import MyGamesPage from "@/pages/MyGames/MyGamesPage"
+import MyPage from "@/pages/MyPage/MyPage"
 import LandingPage from "@/pages/Landing/LandingPage"
 import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
@@ -73,6 +75,18 @@ export const router = createBrowserRouter([
       {
         path: routeSegment(paths.gameCaseDetailPattern),
         element: <CaseDetailPage />,
+      },
+      {
+        path: routeSegment(paths.myGames),
+        element: <MyGamesPage />,
+      },
+      {
+        path: routeSegment(paths.myPage),
+        element: <MyPage />,
+      },
+      {
+        path: routeSegment(paths.plans),
+        element: <PlaceholderPage title="기획안 내역" />,
       },
       {
         path: routeSegment(paths.methodology),

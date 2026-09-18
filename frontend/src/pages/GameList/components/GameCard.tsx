@@ -1,127 +1,88 @@
-import { useRef, useState, type CSSProperties } from "react"
+import { useRef, useState, type FocusEvent } from "react"
 import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
 import { GameImage } from "@/components/GameImage"
 import { useToggleMyGame } from "../../../hooks/queries/gameQueries"
 import { gameDetailPath } from "../../../router/paths"
 import type { Game, MyGame } from "../../../types"
+import { PositiveRate, StarIcon } from "./GameCardParts"
+import GameExpandedCard from "./GameExpandedCard"
 import GenreTagClamp from "./GenreTagClamp"
-import GameSummaryPopover from "./GameSummaryPopover"
 
-const POSITIVE_RATE_MIN = 80
-const NEUTRAL_RATE_MIN = 60
-
-const RATE_TONE = {
-  positive: {
-    text: "text-sb-pos-text",
-    bar: "[&::-webkit-progress-value]:bg-sb-pos [&::-moz-progress-bar]:bg-sb-pos",
-  },
-  neutral: {
-    text: "text-sb-amber-text",
-    bar: "[&::-webkit-progress-value]:bg-sb-mark [&::-moz-progress-bar]:bg-sb-mark",
-  },
-  negative: {
-    text: "text-sb-neg-text",
-    bar: "[&::-webkit-progress-value]:bg-sb-neg [&::-moz-progress-bar]:bg-sb-neg",
-  },
-}
-
-const POPOVER_WIDTH = 384
-const POPOVER_GAP = 8
+const EXPANDED_WIDTH = 384
 const VIEWPORT_MARGIN = 16
 
-interface PopoverPosition {
-  x: number
-  y: number
-  anchor: "top" | "bottom"
+interface ExpandAnchor {
+  side: "left" | "right"
+  edge: "top" | "bottom"
 }
 
-type PopoverStyle = CSSProperties & Record<"--popover-x" | "--popover-y", string>
-
-/** 카드 rect 기준으로 요약 팝오버 좌표를 계산한다. */
-function popoverPositionFor(card: DOMRect): PopoverPosition {
-  const fitsRight = card.right + POPOVER_GAP + POPOVER_WIDTH <= window.innerWidth - VIEWPORT_MARGIN
-  const x = fitsRight
-    ? card.right + POPOVER_GAP
-    : Math.max(VIEWPORT_MARGIN, card.left - POPOVER_GAP - POPOVER_WIDTH)
+/**
+ * 펼쳐진 카드가 화면 오른쪽을 넘으면 오른쪽 모서리에 맞춰 왼쪽으로,
+ * 카드가 화면 아래쪽 절반에 있으면 아래 모서리에 맞춰 위로 펼친다.
+ */
+function expandAnchorFor(card: DOMRect): ExpandAnchor {
+  const fitsRight = card.left + EXPANDED_WIDTH <= window.innerWidth - VIEWPORT_MARGIN
   const isInLowerHalf = card.top + card.height / 2 > window.innerHeight / 2
-  return isInLowerHalf
-    ? { x, y: Math.max(VIEWPORT_MARGIN, window.innerHeight - card.bottom), anchor: "bottom" }
-    : { x, y: Math.max(VIEWPORT_MARGIN, card.top), anchor: "top" }
+  return { side: fitsRight ? "left" : "right", edge: isInLowerHalf ? "bottom" : "top" }
 }
 
-function rateTone(rate: number) {
-  if (rate >= POSITIVE_RATE_MIN) return RATE_TONE.positive
-  if (rate >= NEUTRAL_RATE_MIN) return RATE_TONE.neutral
-  return RATE_TONE.negative
+const anchorClass: Record<ExpandAnchor["side"], string> & Record<ExpandAnchor["edge"], string> = {
+  left: "left-0",
+  right: "right-0",
+  top: "top-0 origin-top",
+  bottom: "bottom-0 origin-bottom",
 }
 
-function StarIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    >
-      <path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17.3 6.4 20.3l1.2-6.3L3 9.6l6.3-.8Z" />
-    </svg>
-  )
-}
-
-/** 게임 목록 카드. 캡슐 이미지 호버 시에만 요약 팝오버를 연다. */
+/**
+ * 게임 목록 카드. 카드에 마우스를 올리거나 포커스가 들어오면
+ * 카드 자리에서 펼쳐진 카드가 이웃 카드 위로 겹쳐 뜨며 Steam 요약을 보여 준다.
+ */
 export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine: boolean }) {
   const { mutate, isPending, error } = useToggleMyGame()
-  const [preview, setPreview] = useState<PopoverPosition | null>(null)
-  // 팝오버 위치 계산용 카드 루트
-  const cardRef = useRef<HTMLElement>(null)
-  const tone = rateTone(game.positiveRate)
+  const [anchor, setAnchor] = useState<ExpandAnchor | null>(null)
+  // 펼침 방향 계산용 카드 루트
+  const rootRef = useRef<HTMLDivElement>(null)
   const detailPath = gameDetailPath(game.id)
+  const toggleMine = () => mutate({ gameId: game.id, isMine })
 
-  /** 카드 rect 기준으로 요약 팝오버를 연다. */
-  const openPreview = () => {
-    const card = cardRef.current
-    if (!card) return
-    setPreview(popoverPositionFor(card.getBoundingClientRect()))
+  const expand = () => {
+    const root = rootRef.current
+    if (!root) return
+    setAnchor(expandAnchorFor(root.getBoundingClientRect()))
   }
-  const closePreview = () => setPreview(null)
-  const popoverStyle: PopoverStyle | undefined = preview
-    ? { "--popover-x": `${preview.x}px`, "--popover-y": `${preview.y}px` }
-    : undefined
+  const collapse = () => setAnchor(null)
+  const collapseIfLeaving = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) collapse()
+  }
 
   return (
-    <div className="h-full">
+    <div
+      ref={rootRef}
+      className="relative h-full"
+      onMouseEnter={expand}
+      onMouseLeave={collapse}
+      onFocus={expand}
+      onBlur={collapseIfLeaving}
+      onKeyDown={(event) => event.key === "Escape" && collapse()}
+    >
       <article
-        ref={cardRef}
-        className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${preview ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
+        className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${anchor ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        {/* z-[1]: 제목 링크의 전체 클릭 영역(::after)보다 위에 두어 이미지 호버만 받는다 */}
-        <div
-          tabIndex={0}
-          className="relative z-[1] shrink-0 rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-          onMouseEnter={openPreview}
-          onMouseLeave={closePreview}
-          onFocus={openPreview}
-          onBlur={closePreview}
+        {/* 이미지 클릭도 상세로 이동(제목 스트레치 링크가 가려지므로) */}
+        <Link
+          to={detailPath}
+          draggable={false}
+          tabIndex={-1}
+          className="relative z-[1] block shrink-0"
+          aria-hidden="true"
         >
-          {/* 이미지 클릭도 상세로 이동(제목 스트레치 링크가 가려지므로) */}
-          <Link
-            to={detailPath}
-            draggable={false}
-            tabIndex={-1}
-            className="block"
-            aria-hidden="true"
-          >
-            <GameImage
-              src={game.capsuleImageUrl}
-              loading="lazy"
-              className="aspect-[460/215] w-full"
-            />
-          </Link>
-        </div>
+          <GameImage
+            src={game.capsuleImageUrl}
+            loading="lazy"
+            className="aspect-[460/215] w-full"
+          />
+        </Link>
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             {/* leading 여유로 truncate overflow가 g/y descender를 자르지 않게 함 */}
@@ -141,7 +102,7 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
                 isMine ? `${game.title} 내 게임 등록 해제` : `${game.title} 내 게임으로 등록`
               }
               disabled={isPending}
-              onClick={() => mutate({ gameId: game.id, isMine })}
+              onClick={toggleMine}
               className={`relative z-10 shrink-0 cursor-pointer rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50 ${isMine ? "text-sb-amber-text hover:text-sb-ink-mute" : "text-sb-ink-mute hover:text-sb-ink"}`}
             >
               <StarIcon filled={isMine} />
@@ -155,30 +116,22 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
             </p>
           )}
           <GenreTagClamp tags={game.tags} />
-          <div className="mt-auto flex flex-col gap-sb-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sb-lead text-sb-ink-mute">긍정률</span>
-              <span className={`font-sb-mono text-sb-title tabular-nums ${tone.text}`}>
-                {game.positiveRate}%
-              </span>
-            </div>
-            <progress
-              value={game.positiveRate}
-              max={100}
-              aria-hidden="true"
-              className={`h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-sb-canvas-soft [&::-webkit-progress-bar]:bg-transparent ${tone.bar}`}
-            />
-          </div>
+          <PositiveRate rate={game.positiveRate} />
         </div>
       </article>
 
-      {preview && (
+      {anchor && (
         <div
-          role="presentation"
-          style={popoverStyle}
-          className={`pointer-events-none fixed left-(--popover-x) z-20 hidden max-h-[calc(100vh-32px)] overflow-hidden rounded-sb-card lg:block ${preview.anchor === "top" ? "top-(--popover-y)" : "bottom-(--popover-y)"}`}
+          aria-hidden="true"
+          className={`absolute z-20 hidden w-96 min-w-full transition duration-200 ease-sb-enter starting:scale-95 starting:opacity-0 motion-reduce:transition-none lg:block ${anchorClass[anchor.side]} ${anchorClass[anchor.edge]}`}
         >
-          <GameSummaryPopover summary={game.gameSummary} genreTags={game.tags} />
+          <GameExpandedCard
+            game={game}
+            isMine={isMine}
+            detailPath={detailPath}
+            isToggling={isPending}
+            onToggle={toggleMine}
+          />
         </div>
       )}
     </div>

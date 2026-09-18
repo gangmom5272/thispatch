@@ -124,11 +124,12 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
         </div>
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
-            <h3 className="truncate text-sb-title font-medium" title={game.title}>
+            {/* leading 여유로 truncate overflow가 g/y descender를 자르지 않게 함 */}
+            <h3 className="min-w-0 flex-1 text-sb-title font-medium" title={game.title}>
               <Link
                 to={detailPath}
                 draggable={false}
-                className="rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+                className="block truncate leading-[1.35] rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               >
                 {game.title}
               </Link>

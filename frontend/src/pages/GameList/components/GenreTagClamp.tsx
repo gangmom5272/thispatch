@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { GameTag } from "../../../types"
 
-/** 칩 한 줄 높이: py-sb-1(8) + body line(24) — 칩 자체는 한 줄 유지 */
-const TAG_CHIP_HEIGHT_PX = 32
+/** 칩 한 줄 높이: body line + py-sb-1 + descender 여유 */
+const TAG_CHIP_HEIGHT_PX = 34
 /** gap-sb-1 */
 const TAG_GAP_PX = 4
 /** 태그가 쌓일 수 있는 최대 줄 수(슬롯 높이) */
@@ -37,7 +37,7 @@ export default function GenreTagClamp({ tags }: { tags: GameTag[] }) {
         {tags.map((tag) => (
           <li
             key={tag.id}
-            className="shrink-0 whitespace-nowrap rounded-sb-tag bg-sb-canvas-soft px-sb-2 py-sb-1"
+            className="flex h-[34px] shrink-0 items-center whitespace-nowrap rounded-sb-tag bg-sb-canvas-soft px-sb-2 leading-normal"
           >
             {tag.name}
           </li>
@@ -46,7 +46,7 @@ export default function GenreTagClamp({ tags }: { tags: GameTag[] }) {
       {overflows ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 bottom-0 rounded-sb-tag bg-sb-canvas-soft px-sb-2 py-sb-1 text-sb-ink-mute"
+          className="pointer-events-none absolute right-0 bottom-0 flex h-[34px] items-center rounded-sb-tag bg-sb-canvas-soft px-sb-2 leading-normal text-sb-ink-mute"
         >
           …
         </span>

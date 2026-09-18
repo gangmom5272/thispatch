@@ -33,7 +33,12 @@ public class CollectorApplication {
         // 오전 9시 타이머로 돌릴 때 프로세스가 안 끝나면 다음 날 것과 겹친다.
         //
         // 워커는 반대로 계속 떠서 큐를 들어야 하므로 건드리지 않는다.
-        if (ctx.getEnvironment().matchesProfiles("manager")) {
+        //
+        // ⚠ 공지 매니저(news-manager)도 같다. 2026-09-18 파이프라인 첫 완주에서 공지 잡이
+        //   COMPLETED 된 뒤 90분째 프로세스가 안 죽어 다음 단계(변환·compaction)로 못 넘어갔다 —
+        //   "AMQP Connection" 비데몬 스레드 하나가 JVM 을 붙잡고 있었다(jstack 실측).
+        //   여기에 manager 만 적혀 있어서 그랬다. 매니저 프로파일이 늘면 여기에 같이 적는다.
+        if (ctx.getEnvironment().matchesProfiles("manager", "news-manager")) {
             System.exit(SpringApplication.exit(ctx));
         }
     }

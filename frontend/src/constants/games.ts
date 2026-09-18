@@ -24,4 +24,11 @@ export const GAME_GENRES: GameTag[] = [
   { id: 6, name: "어드벤처" },
   { id: 7, name: "생존" },
   { id: 8, name: "인디" },
+  // 카드 태그 2줄 클램프 QA용 — 다수 태그 목 게임에 사용
+  { id: 9, name: "오픈월드" },
+  { id: 10, name: "멀티플레이" },
+  { id: 11, name: "스토리 중심" },
+  { id: 12, name: "협동" },
+  { id: 13, name: "샌드박스" },
+  { id: 14, name: "탐험" },
 ]

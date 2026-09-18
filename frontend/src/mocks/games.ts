@@ -32,6 +32,16 @@ const seeds: Array<[number, string, number[], number, number, number, string]> =
   [553850, "HELLDIVERS 2", [2], 75, 720000, 26, "2024-02-08"],
   [582010, "Monster Hunter: World", [2, 3], 89, 320000, 19, "2018-08-09"],
   [570, "Dota 2", [2, 4], 82, 2400000, 21, "2013-07-09"],
+  // 장르 태그 2줄 클램프·팝오버 QA용 (장르 14개)
+  [
+    275850,
+    "No Man's Sky",
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+    85,
+    290000,
+    23,
+    "2016-08-12",
+  ],
 ]
 
 const details: Record<number, [string, string[], string, string[], string]> = {
@@ -202,6 +212,13 @@ const details: Record<number, [string, string[], string, string[], string]> = {
     "5대5 팀 대전 MOBA입니다. 대형 밸런스 패치마다 영웅 메타가 뒤바뀌며 리뷰 반응이 일시적으로 요동칩니다.",
     ["MOBA", "e스포츠", "전략", "멀티플레이어"],
     "7.38",
+  ],
+  275850: [
+    "Hello Games",
+    ["싱글 플레이", "멀티 플레이"],
+    "무한에 가까운 우주를 탐험하는 오픈월드 서바이벌입니다. 장르 태그가 많은 카드·팝오버 QA용 목 데이터입니다.",
+    ["오픈 월드", "탐험", "생존", "샌드박스", "우주", "멀티플레이어"],
+    "Worlds Part II",
   ],
 }
 

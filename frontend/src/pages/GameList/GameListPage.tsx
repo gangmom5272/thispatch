@@ -55,12 +55,7 @@ const panelClass =
 export default function GameListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const applied = readConditions(searchParams)
-  const [pending, setPending] = useState<GameFilterConditions>(() => ({
-    sort: applied.sort,
-    genreIds: applied.genreIds,
-  }))
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [searchValue, setSearchValue] = useState(applied.search)
 
   const filters = {
     search: applied.search || undefined,
@@ -70,24 +65,13 @@ export default function GameListPage() {
   const query = useGameList(filters)
   const myGames = useMyGameList(filters)
 
+  /** URL에 검색·필터 조건을 반영한다. */
   const apply = (next: AppliedConditions) => {
-    setPending({ sort: next.sort, genreIds: next.genreIds })
     setSearchParams(writeConditions(next))
   }
 
-  const searchWith = (term: string) => apply({ ...pending, search: term.trim() })
-
-  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    searchWith(searchValue)
-  }
-
-  const genres = useGenreList().data ?? []
-  const genreName = (id: number) => genres.find((genre) => genre.id === id)?.name ?? `장르 ${id}`
-
-  const sortLabel = GAME_SORT_OPTIONS.find((option) => option.value === applied.sort)?.label
   const hasAppliedConditions = applied.genreIds.length > 0 || applied.sort !== DEFAULT_GAME_SORT
-  const pendingCount = pending.genreIds.length + (pending.sort !== DEFAULT_GAME_SORT ? 1 : 0)
+  const appliedFilterCount = applied.genreIds.length + (applied.sort !== DEFAULT_GAME_SORT ? 1 : 0)
   const totalCount = query.data?.pages[0]?.page.totalCount
 
   return (
@@ -95,79 +79,16 @@ export default function GameListPage() {
       <main className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
         <h1 className="text-sb-section font-medium md:text-sb-display">게임 목록</h1>
 
-        <form
-          role="search"
-          onSubmit={handleSearch}
-          className="flex flex-wrap items-center gap-sb-3"
-        >
-          <GameSearchCombobox value={searchValue} onChange={setSearchValue} onSearch={searchWith} />
-          <button type="submit" className={primaryButtonClass}>
-            검색
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsFilterOpen(true)}
-            className={`${secondaryButtonClass} ${pendingCount > 0 ? "bg-sb-canvas-active" : ""}`}
-          >
-            필터
-            {pendingCount > 0 && (
-              <span className="rounded-full bg-sb-primary px-sb-2 text-sb-caption text-sb-on-primary tabular-nums">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-
-          {hasAppliedConditions ? (
-            <ul aria-label="적용된 조건" className="flex flex-wrap items-center gap-sb-2">
-              {applied.genreIds.map((id) => {
-                const name = genreName(id)
-                return (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      aria-label={`${name} 장르 조건 제거`}
-                      onClick={() =>
-                        apply({
-                          ...applied,
-                          genreIds: applied.genreIds.filter((genreId) => genreId !== id),
-                        })
-                      }
-                      className={`${chipClass} cursor-pointer hover:border-sb-hairline-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
-                    >
-                      {name}
-                      <span aria-hidden="true" className="text-sb-ink-mute">
-                        ×
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-              <li className={chipClass}>
-                <span aria-hidden="true" className="text-sb-ink-mute">
-                  ⇅
-                </span>
-                {sortLabel}
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => apply({ ...DEFAULT_GAME_FILTER, search: applied.search })}
-                  className="cursor-pointer rounded-sb-control text-sb-ink-mute hover:text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-                >
-                  초기화
-                </button>
-              </li>
-            </ul>
-          ) : (
-            <p className="text-sb-ink-mute">장르 전체 · {sortLabel}</p>
-          )}
-
-          {totalCount !== undefined && (
-            <p className="ml-auto text-sb-ink-mute tabular-nums" aria-live="polite">
-              {totalCount}개 게임
-            </p>
-          )}
-        </form>
+        {/* URL이 바뀌면(로고 홈 등) 검색 입력·필터 배지를 초기 상태로 리마운트 */}
+        <GameListToolbar
+          key={searchParams.toString()}
+          applied={applied}
+          appliedFilterCount={appliedFilterCount}
+          hasAppliedConditions={hasAppliedConditions}
+          totalCount={totalCount}
+          onApply={apply}
+          onOpenFilter={() => setIsFilterOpen(true)}
+        />
 
         <MyGameSection
           items={myGames.data ?? []}
@@ -208,7 +129,6 @@ export default function GameListPage() {
               isFetchNextPageError={query.isFetchNextPageError}
               onLoadMore={() => query.fetchNextPage()}
               onResetConditions={() => {
-                setSearchValue("")
                 apply({ search: "", sort: DEFAULT_GAME_SORT, genreIds: [] })
               }}
             />
@@ -218,7 +138,7 @@ export default function GameListPage() {
 
       {isFilterOpen && (
         <GameFilterDialog
-          initial={pending}
+          initial={{ sort: applied.sort, genreIds: applied.genreIds }}
           onApply={(next) => {
             // 필터 적용 시 URL·목록을 즉시 갱신(검색어는 현재 적용값 유지)
             apply({ ...next, search: applied.search })
@@ -227,6 +147,110 @@ export default function GameListPage() {
         />
       )}
     </div>
+  )
+}
+
+interface GameListToolbarProps {
+  applied: AppliedConditions
+  appliedFilterCount: number
+  hasAppliedConditions: boolean
+  totalCount: number | undefined
+  onApply: (next: AppliedConditions) => void
+  onOpenFilter: () => void
+}
+
+/** 검색·필터 툴바. key로 리마운트되면 URL의 적용 조건으로 입력을 다시 맞춘다. */
+function GameListToolbar({
+  applied,
+  appliedFilterCount,
+  hasAppliedConditions,
+  totalCount,
+  onApply,
+  onOpenFilter,
+}: GameListToolbarProps) {
+  const [searchValue, setSearchValue] = useState(applied.search)
+  const genres = useGenreList().data ?? []
+  const genreName = (id: number) => genres.find((genre) => genre.id === id)?.name ?? `장르 ${id}`
+  const sortLabel = GAME_SORT_OPTIONS.find((option) => option.value === applied.sort)?.label
+
+  const searchWith = (term: string) =>
+    onApply({ sort: applied.sort, genreIds: applied.genreIds, search: term.trim() })
+
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    searchWith(searchValue)
+  }
+
+  return (
+    <form role="search" onSubmit={handleSearch} className="flex flex-wrap items-center gap-sb-3">
+      <GameSearchCombobox value={searchValue} onChange={setSearchValue} onSearch={searchWith} />
+      <button type="submit" className={primaryButtonClass}>
+        검색
+      </button>
+      <button
+        type="button"
+        onClick={onOpenFilter}
+        className={`${secondaryButtonClass} ${appliedFilterCount > 0 ? "bg-sb-canvas-active" : ""}`}
+      >
+        필터
+        {appliedFilterCount > 0 ? (
+          <span className="rounded-full bg-sb-primary px-sb-2 text-sb-caption text-sb-on-primary tabular-nums">
+            {appliedFilterCount}
+          </span>
+        ) : null}
+      </button>
+
+      {hasAppliedConditions ? (
+        <ul aria-label="적용된 조건" className="flex flex-wrap items-center gap-sb-2">
+          {applied.genreIds.map((id) => {
+            const name = genreName(id)
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  aria-label={`${name} 장르 조건 제거`}
+                  onClick={() =>
+                    onApply({
+                      ...applied,
+                      genreIds: applied.genreIds.filter((genreId) => genreId !== id),
+                    })
+                  }
+                  className={`${chipClass} cursor-pointer hover:border-sb-hairline-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary`}
+                >
+                  {name}
+                  <span aria-hidden="true" className="text-sb-ink-mute">
+                    ×
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+          <li className={chipClass}>
+            <span aria-hidden="true" className="text-sb-ink-mute">
+              ⇅
+            </span>
+            {sortLabel}
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => onApply({ ...DEFAULT_GAME_FILTER, search: applied.search })}
+              className="cursor-pointer rounded-sb-control text-sb-ink-mute hover:text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+            >
+              초기화
+            </button>
+          </li>
+        </ul>
+      ) : (
+        <p className="text-sb-ink-mute">장르 전체 · {sortLabel}</p>
+      )}
+
+      {totalCount !== undefined ? (
+        <p className="ml-auto text-sb-ink-mute tabular-nums" aria-live="polite">
+          {totalCount}개 게임
+        </p>
+      ) : null}
+    </form>
   )
 }
 

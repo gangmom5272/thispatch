@@ -97,6 +97,9 @@ def _span(days, start, end):
 def compute_facts(daily, patches, window_days):
     """일별 집계 → 화면에 그대로 쓸 수 있는 수치. 계산은 전부 여기서 끝난다."""
     days = sorted(daily, key=lambda d: d["date"])
+    if not days:
+        # 호출 쪽(main)이 먼저 거르지만, 이 함수만 따로 쓰는 경우에도 죽지 않게 둔다
+        return [{"key": "total_reviews", "label": "기간 리뷰", "value": "0건"}], []
     total = sum(d["reviews"] for d in days)
     pos = sum(d["positive"] for d in days)
     facts = [{"key": "period", "label": "기간", "value": f"{days[0]['date']} ~ {days[-1]['date']}"},

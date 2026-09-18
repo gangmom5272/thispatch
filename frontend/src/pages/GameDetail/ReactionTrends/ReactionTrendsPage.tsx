@@ -365,7 +365,7 @@ export default function ReactionTrendsPage() {
           ) : null}
         </div>
 
-        <div className="mt-sb-4">
+        <div className="relative mt-sb-4">
           <ReactionTrendsChart
             rows={rows}
             selectedPatchId={resolvedPatchId}
@@ -378,6 +378,19 @@ export default function ReactionTrendsPage() {
               if (patch) setSelectedPatchId(patch.id)
             }}
           />
+          {loadingMore ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-sb-2 border-t border-sb-hairline-cool bg-sb-canvas-surface/95 px-sb-4 py-sb-3"
+            >
+              <span
+                aria-hidden="true"
+                className="size-4 animate-spin rounded-full border-2 border-sb-hairline-strong border-t-sb-primary motion-reduce:animate-none"
+              />
+              <p className="text-sb-body text-sb-ink">이전 일자를 불러오는 중…</p>
+            </div>
+          ) : null}
         </div>
         <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
           한 화면에 약 {VISIBLE_DAYS}일이 보입니다. 좌우 스크롤로 이전·이후 날짜를 보고, 왼쪽 끝에서

@@ -2,7 +2,7 @@
 
 패키지: `com.ssafy.thispatch.domain.review` · [공통 규칙](conventions.md)
 
-## 응답 형식과 조회 기준
+## 리뷰 목록·대표 리뷰의 응답 형식과 조회 기준
 
 - [리뷰 목록 원본 명세](https://splendid-snout-4a6.notion.site/d519f3f2785282da8db581071c91d8a4)와
   [대표 리뷰 원본 명세](https://splendid-snout-4a6.notion.site/4f19f3f2785282e3aab381a845eab9a1)의 전체 성공 응답은
@@ -88,6 +88,61 @@
 - `400`: 토픽 ID 또는 페이지 커서 오류
 - `401`
 - `404`
+
+## 리뷰 번역
+
+### `GET /reviews/{reviewId}/translation`
+
+[리뷰 번역 원본 명세](https://app.notion.com/p/3df776ebfd68812e996ecd6ae5c888ee)
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `reviewId` | long | 리뷰 ID |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-18 13:20:00",
+  "data": {
+    "reviewId": 12345,
+    "translatedText": "최근 패치 이후 무기 밸런스가 크게 나빠졌습니다."
+  },
+  "success": true
+}
+```
+
+`data.reviewId`는 `long`, `data.translatedText`는 `string`이다.
+
+**Processing Rules / Notes — Rules**
+
+- `reviewId`로 서버에 저장된 리뷰 원문을 조회한다.
+- 번역 대상 언어는 한국어로 고정하며, 외부 번역 API는 DeepL을 사용한다.
+- 클라이언트에서 번역할 원문을 직접 전달하지 않는다. 서버에 존재하는 리뷰만 번역한다.
+- DeepL 호출 실패는 서버 내부 오류와 구분하여 `502 Bad Gateway`로 응답한다.
+
+**Error Responses**
+
+- `401 UNAUTHORIZED`: 인증이 필요합니다.
+- `404`: 리뷰를 찾을 수 없습니다.
+- `502`: 번역 서비스를 이용할 수 없습니다. (DeepL 호출 실패)
+- `500 INTERNAL_SERVER_ERROR`: 서버 내부 오류가 발생했습니다.
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`을
+사용하며, 원본 명세의 `success: false`는 포함하지 않는다. `404`·`502`의 도메인 오류 코드는
+구현 시 위 상태 코드·메시지에 맞춰 정의하고 이 문서에 반영한다.
 
 ## 최근 대표 리뷰 조회
 

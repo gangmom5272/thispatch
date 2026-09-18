@@ -24,6 +24,7 @@
 | game | [game.md](game.md) | `DELETE /games/{gameId}/my-game` | 내 게임 등록 해제 |
 | review | [review.md](review.md) | `GET /games/{gameId}/reviews` | 리뷰 목록 |
 | review | [review.md](review.md) | `GET /games/{gameId}/reviews/representative` | 최근 대표 리뷰 |
+| review | [review.md](review.md) | `GET /reviews/{reviewId}/translation` | 리뷰 한국어 번역 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/reaction-trends` | 반응 추세 차트/기간 합계 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/summaries/reaction-trends` | 반응 추세 AI 요약 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/playtime-topics` | 플레이타임×토픽 |
@@ -33,6 +34,7 @@
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/plan-structures` | 기획안 구조화 |
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/case-searches` | 유사 사례 검색/상세 비교 |
 | patch | [patch.md](patch.md) | `GET /games/{gameId}/patches/{patchId}` | 패치 원문 상세 |
+| patch | [patch.md](patch.md) | `GET /patches/{patchId}/translation` | 패치노트 한국어 번역 |
 
 ## 구현·검증 규칙
 

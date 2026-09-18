@@ -357,6 +357,63 @@ patchedOn    <- news.published_ts의 KST 날짜 (공지 게시일)
 
 패치 원문의 Steam BBCode 서식은 일반 텍스트로 변환합니다. 문단·목록·알 수 없는 대괄호 표현과 코드 예시는 보존합니다. `publishedAt`은 UTC 시각, `patchedOn`은 같은 시각의 한국 날짜입니다.
 
+## 패치노트 번역
+
+### `GET /patches/{patchId}/translation`
+
+[패치노트 번역 원본 명세](https://app.notion.com/p/3df776ebfd688156a926cbd844f44389)
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `patchId` | string | 패치 ID (`news.gid`) |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-18 13:20:00",
+  "data": {
+    "patchId": "1234567890",
+    "translatedTitle": "밸런스 업데이트",
+    "translatedBody": "무기 공격력이 20% 감소하고 적의 체력이 조정되었습니다."
+  },
+  "success": true
+}
+```
+
+`data.patchId`, `data.translatedTitle`, `data.translatedBody`는 모두 `string`이다.
+
+**Processing Rules / Notes — Rules**
+
+- `patchId`는 `news.gid`이며, 서버에 저장된 패치노트의 제목과 본문을 조회한다.
+- 번역 대상 언어는 한국어로 고정하며, 외부 번역 API는 DeepL을 사용한다.
+- 클라이언트에서 번역할 패치노트 원문을 직접 전달하지 않는다.
+- 번역한 제목은 `translatedTitle`, 번역한 본문은 `translatedBody`로 반환한다.
+- DeepL 호출 실패는 서버 내부 오류와 구분하여 `502 Bad Gateway`로 응답한다.
+
+**Error Responses**
+
+- `401 UNAUTHORIZED`: 인증이 필요합니다.
+- `404 PATCH_NOT_FOUND`: 패치를 찾을 수 없습니다.
+- `502`: 번역 서비스를 이용할 수 없습니다. (DeepL 호출 실패)
+- `500 INTERNAL_SERVER_ERROR`: 서버 내부 오류가 발생했습니다.
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`을
+사용하며, 원본 명세의 `success: false`는 포함하지 않는다. `502`의 도메인 오류 코드는
+구현 시 위 상태 코드·메시지에 맞춰 정의하고 이 문서에 반영한다.
+
 ## AI 장애 응답 (2026-09-16 사용자 결정)
 
 기획안 구조화·유사 사례 검색처럼 AI가 필요한 작업에서 서버 미준비·연결 실패·시간 초과·사용할 수 없는

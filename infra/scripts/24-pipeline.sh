@@ -9,7 +9,7 @@
 #   LOAD_FROM=band_stat bash 24-pipeline.sh daily --only load   그 표부터
 #   bash 24-pipeline.sh daily --dry-run        무엇을 할지만 보고 아무것도 안 함
 #   bash 24-pipeline.sh stages             단계 목록
-#   bash 24-pipeline.sh install            타이머 등록 (매일 09:05 KST)
+#   bash 24-pipeline.sh install            타이머 등록 (평일 09:05 KST)
 #   bash 24-pipeline.sh remove             타이머 해제
 #   bash 24-pipeline.sh status             타이머 · 최근 실행
 #
@@ -502,7 +502,7 @@ daily)
 
 install)
   [ "$(id -u)" = 0 ] && { echo "sudo 없이 그냥 실행하세요." >&2; exit 1; }
-  echo "== 타이머 등록 (매일 09:05 KST) =================="
+  echo "== 타이머 등록 (평일 09:05 KST) =================="
   SELF=$(readlink -f "$0")
   sudo tee /etc/systemd/system/thispatch-pipeline.service >/dev/null <<UNIT
 [Unit]
@@ -526,8 +526,11 @@ Description=디스패치 일일 배치 — 매일 09:05
 [Timer]
 # ⚠ 새벽이 아니라 아침이다. 수집은 서버가 아니라 노트북에서 돈다.
 #   교육장 노트북은 밤에 꺼져 있으므로 새벽에 걸어 두면 영영 안 돈다.
-OnCalendar=*-*-* 09:05:00 Asia/Seoul
-# 노트북이 꺼져 있어 걸렀으면 켜지자마자 한 번 따라잡는다
+# ⚠ 평일만이다. 주말엔 교육장에 아무도 없어 클러스터가 없다. 매일로 두면 토·일이
+#   「빠진 실행」으로 남아 Persistent 가 월요일 부팅 직후에 그것을 바로 돌리고,
+#   워커 4대가 켜지기 전이라 수집에서 넘어진다 (2026-09-18 발견).
+OnCalendar=Mon..Fri *-*-* 09:05:00 Asia/Seoul
+# 평일에 노트북이 꺼져 있어 걸렀으면(연휴) 켜지자마자 한 번 따라잡는다
 Persistent=true
 
 [Install]

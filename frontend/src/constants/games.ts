@@ -1,6 +1,6 @@
 import type { GameFilterConditions, GameSort, GameTag } from "../types"
 
-export const DEFAULT_GAME_SORT: GameSort = "POSITIVE_RATE_ASC"
+export const DEFAULT_GAME_SORT: GameSort = "REVIEW_COUNT_DESC"
 
 export const DEFAULT_GAME_FILTER: GameFilterConditions = { sort: DEFAULT_GAME_SORT, genreIds: [] }
 

@@ -32,7 +32,8 @@ export function BrandLogo({ size = 22, interactive = true, className }: BrandLog
 
   return (
     <Link
-      to={paths.home}
+      // 동일 path에서도 검색·필터 쿼리를 비워 홈(게임 목록) 초기 상태로 이동
+      to={{ pathname: paths.home, search: "" }}
       className={cn(
         styles,
         "cursor-pointer rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary",

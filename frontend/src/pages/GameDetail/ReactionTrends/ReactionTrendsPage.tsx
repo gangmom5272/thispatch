@@ -16,6 +16,7 @@ import {
   MIN_DAY_WIDTH,
   useChartDayWidth,
   VISIBLE_DAYS,
+  visibleSlice,
 } from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
 import {
   addDaysIso,
@@ -34,18 +35,6 @@ function parseGameId(raw: string | undefined): number | null {
   if (!raw || !/^\d+$/.test(raw)) return null
   const id = Number(raw)
   return Number.isSafeInteger(id) && id >= 1 ? id : null
-}
-
-function visibleSlice(
-  dailyLength: number,
-  scrollLeft: number,
-  clientWidth: number,
-  dayWidth: number,
-): { startIndex: number; endIndex: number } {
-  if (dailyLength === 0 || dayWidth <= 0) return { startIndex: 0, endIndex: 0 }
-  const startIndex = Math.max(0, Math.floor(scrollLeft / dayWidth))
-  const endIndex = Math.min(dailyLength, Math.ceil((scrollLeft + clientWidth) / dayWidth))
-  return { startIndex, endIndex: Math.max(startIndex + 1, endIndex) }
 }
 
 export default function ReactionTrendsPage() {

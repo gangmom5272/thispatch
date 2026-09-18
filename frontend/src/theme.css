@@ -152,6 +152,39 @@
     }
   }
 
+  /* 02 질문 섹션 반응 추세 그래프. 화면에 들어오면 막대가 자라고 선이 왼쪽부터 그려진다. */
+  --animate-sb-trend-bar: sb-trend-bar 420ms var(--ease-sb-enter) both;
+  --animate-sb-trend-line: sb-trend-line 1100ms var(--ease-sb-enter) both;
+  --animate-sb-trend-fade: sb-trend-fade 420ms var(--ease-sb-enter) both;
+
+  @keyframes sb-trend-bar {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+
+  /* polyline에 pathLength="1"을 주어 길이 측정 없이 왼쪽부터 그린다. */
+  @keyframes sb-trend-line {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes sb-trend-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   /* 스크롤 안내 선. 위에서 아래로 자란 뒤 위쪽부터 빠져나간다. */
   --animate-sb-scroll-hint: sb-scroll-hint 2s ease-in-out infinite;
 

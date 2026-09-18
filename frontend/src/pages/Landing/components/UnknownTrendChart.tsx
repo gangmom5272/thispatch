@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react"
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
+import { cn } from "@/lib/cn"
 import {
   TREND_KNOWN_DAYS,
   TREND_PATCH_DAY_LABEL,
@@ -6,10 +8,10 @@ import {
   TREND_UNKNOWN_DAY_LABELS,
 } from "@/pages/Landing/demoData"
 
-/* 세로 치수와 색은 thispatch.pen `SB / 01 진단 · 반응 추세`의 일별 칸 구성을 그대로 옮긴 값이다. */
-const RATE_HEIGHT = 136
+/* 색과 칸 구성은 thispatch.pen `SB / 01 진단 · 반응 추세`를 따르되, 배경으로 쓰느라 세로만 늘렸다. */
+const RATE_HEIGHT = 280
 const BAND_GAP = 5
-const VOL_HEIGHT = 76
+const VOL_HEIGHT = 152
 const LABEL_HEIGHT = 21
 const HEIGHT = RATE_HEIGHT + BAND_GAP + VOL_HEIGHT + BAND_GAP + LABEL_HEIGHT
 const VOL_TOP = RATE_HEIGHT + BAND_GAP
@@ -21,10 +23,11 @@ const RIGHT_AXIS_WIDTH = 44
 const COLUMNS_X = Y_AXIS_WIDTH + AXIS_GAP
 const SIDE_WIDTH = COLUMNS_X + AXIS_GAP + RIGHT_AXIS_WIDTH
 
-/** Y축 눈금은 80%~40%를 5칸으로 나눈 pen 값과 같은 위치에 둔다. */
+/** Y축 눈금은 pen처럼 80%~40% 다섯 칸을 긍정률 영역에 고르게 배치한다. */
 const RATE_TICKS = [80, 70, 60, 50, 40]
-const RATE_TICK_TOP = 10.5
-const RATE_TICK_BOTTOM = 125.5
+const AXIS_LABEL_HEIGHT = 21
+const RATE_TICK_TOP = AXIS_LABEL_HEIGHT / 2
+const RATE_TICK_BOTTOM = RATE_HEIGHT - AXIS_LABEL_HEIGHT / 2
 const COUNT_TICKS = [40, 20, 0]
 const COUNT_MAX = 40
 
@@ -37,13 +40,19 @@ const MAX_MARK_SIZE = 132
 const MIN_MASK_FOR_MARK = 260
 
 /** 한 칸에 두는 최소 너비. 브라우저가 좁으면 보여 주는 일수를 줄인다. */
-const WIDTH_PER_COLUMN = 105
+const WIDTH_PER_COLUMN = 72
 const MIN_COLUMNS = 6
-const MIN_UNKNOWN_COLUMNS = 2
+const MIN_UNKNOWN_COLUMNS = 4
 const MAX_UNKNOWN_COLUMNS = 5
 const MIN_KNOWN_COLUMNS = 3
 const MAX_COLUMNS = TREND_KNOWN_DAYS.length + 1 + MAX_UNKNOWN_COLUMNS
 const DEFAULT_WIDTH = 960
+
+/** 막대가 차례로 자란 뒤 선이 그려지고, 마지막에 가림막이 덮인다 (ms). */
+const BAR_STAGGER = 45
+const LINE_DELAY = 280
+const DOT_DELAY = LINE_DELAY + 900
+const SCRIM_DELAY = DOT_DELAY + 240
 
 const rateY = (rate: number) =>
   RATE_TICK_TOP + ((80 - rate) / 40) * (RATE_TICK_BOTTOM - RATE_TICK_TOP)
@@ -70,10 +79,17 @@ function layoutFor(width: number) {
  * 02 질문 섹션 — 패치 직전 며칠의 반응만 보여주고 패치일부터는 가려 둔다.
  * 반응 추세 화면의 일별 그래프와 같은 모양이며, 패치 이후 값은 갖고 있지 않다.
  * 그래프 너비에 맞춰 보여 줄 일수를 정해 칸 크기를 일정하게 유지한다.
+ * 화면에 들어오면 막대·선·가림막 순으로 그려진다.
  */
 export function UnknownTrendChart() {
   const figureRef = useRef<HTMLElement>(null)
   const [width, setWidth] = useState(DEFAULT_WIDTH)
+  const [entered, setEntered] = useState(false)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  // 모션 축소이거나 관찰자를 쓸 수 없으면 연출 없이 완성된 그래프를 보여준다.
+  const animates = !prefersReducedMotion && typeof IntersectionObserver !== "undefined"
+  const playing = animates && entered
+  const waiting = animates && !entered
 
   useLayoutEffect(() => {
     const element = figureRef.current
@@ -85,6 +101,21 @@ export function UnknownTrendChart() {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+
+  useLayoutEffect(() => {
+    const element = figureRef.current
+    if (!animates || !element) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setEntered(true)
+        observer.disconnect()
+      },
+      { threshold: 0.25 },
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [animates])
 
   const { columns, known, unknown } = layoutFor(width)
   const knownDays = TREND_KNOWN_DAYS.slice(-known)
@@ -107,7 +138,7 @@ export function UnknownTrendChart() {
   return (
     <figure
       ref={figureRef}
-      className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4"
+      className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface px-sb-4"
     >
       <figcaption className="mb-sb-4 flex flex-wrap items-baseline gap-x-sb-3 gap-y-sb-1">
         <span className="text-sb-title font-medium text-sb-ink">일별 리뷰 반응</span>
@@ -167,7 +198,14 @@ export function UnknownTrendChart() {
           const updated = volHeight(day.updated)
           const barX = columnCenter(index) - barWidth / 2
           return (
-            <g key={day.label}>
+            <g
+              key={day.label}
+              className={cn(
+                waiting && "opacity-0",
+                playing && "origin-bottom animate-sb-trend-bar [transform-box:fill-box]",
+              )}
+              style={playing ? { animationDelay: `${index * BAR_STAGGER}ms` } : undefined}
+            >
               <rect
                 x={barX}
                 y={VOL_TOP + VOL_HEIGHT - first}
@@ -187,6 +225,7 @@ export function UnknownTrendChart() {
           )
         })}
 
+        {/* pathLength로 길이를 1로 정규화해 왼쪽부터 그려지게 한다. */}
         <polyline
           points={knownDays
             .map((day, index) => `${columnCenter(index)},${rateY(day.positiveRate)}`)
@@ -195,17 +234,29 @@ export function UnknownTrendChart() {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="stroke-sb-hairline-strong"
+          pathLength="1"
+          strokeDasharray="1"
+          className={cn(
+            "stroke-sb-hairline-strong",
+            waiting && "opacity-0",
+            playing && "animate-sb-trend-line",
+          )}
+          style={playing ? { animationDelay: `${LINE_DELAY}ms` } : undefined}
         />
-        {knownDays.map((day, index) => (
-          <circle
-            key={day.label}
-            cx={columnCenter(index)}
-            cy={rateY(day.positiveRate)}
-            r="3.5"
-            className="fill-sb-primary"
-          />
-        ))}
+        <g
+          className={cn(waiting && "opacity-0", playing && "animate-sb-trend-fade")}
+          style={playing ? { animationDelay: `${DOT_DELAY}ms` } : undefined}
+        >
+          {knownDays.map((day, index) => (
+            <circle
+              key={day.label}
+              cx={columnCenter(index)}
+              cy={rateY(day.positiveRate)}
+              r="3.5"
+              className="fill-sb-primary"
+            />
+          ))}
+        </g>
 
         {[...knownDays.map((day) => day.label), ...unknownLabels].map((label, index) => (
           <text
@@ -220,45 +271,62 @@ export function UnknownTrendChart() {
         ))}
 
         {/* 패치일부터 오른쪽은 가린다. 패치 칸 표시는 가림막 위에 다시 그린다. */}
-        <rect
-          x={maskX}
-          y="0"
-          width={columnsRight - maskX}
-          height={HEIGHT}
-          fill="url(#sb-trend-scrim)"
-        />
-        <rect x={maskX} y="0" width={colWidth} height={HEIGHT} rx="4" className="fill-sb-mark/20" />
-        <text
-          x={columnCenter(known)}
-          y={LABEL_BASELINE}
-          textAnchor="middle"
-          className="fill-sb-amber-text font-sb-mono text-[16px]"
+        <g
+          className={cn(waiting && "opacity-0", playing && "animate-sb-trend-fade")}
+          style={playing ? { animationDelay: `${SCRIM_DELAY}ms` } : undefined}
         >
-          {TREND_PATCH_DAY_LABEL}
-        </text>
+          <rect
+            x={maskX}
+            y="0"
+            width={columnsRight - maskX}
+            height={HEIGHT}
+            fill="url(#sb-trend-scrim)"
+          />
+          <rect
+            x={maskX}
+            y="0"
+            width={colWidth}
+            height={HEIGHT}
+            rx="4"
+            className="fill-sb-mark/20"
+          />
+          <text
+            x={columnCenter(known)}
+            y={LABEL_BASELINE}
+            textAnchor="middle"
+            className="fill-sb-amber-text font-sb-mono text-[16px]"
+          >
+            {TREND_PATCH_DAY_LABEL}
+          </text>
 
-        <g transform={`translate(${columnCenter(known) - CHIP_WIDTH / 2 + 20}, 0)`}>
-          <rect width={CHIP_WIDTH} height={CHIP_HEIGHT} rx="4" className="fill-sb-accent-yellow" />
-          <text
-            x={CHIP_WIDTH / 2}
-            y="21"
-            textAnchor="middle"
-            className="fill-sb-on-primary font-sb-mono text-[16px] font-medium"
-          >
-            {TREND_PATCH_LABEL}
-          </text>
+          <g transform={`translate(${columnCenter(known) - CHIP_WIDTH / 2 + 20}, 0)`}>
+            <rect
+              width={CHIP_WIDTH}
+              height={CHIP_HEIGHT}
+              rx="4"
+              className="fill-sb-accent-yellow"
+            />
+            <text
+              x={CHIP_WIDTH / 2}
+              y="21"
+              textAnchor="middle"
+              className="fill-sb-on-primary font-sb-mono text-[16px] font-medium"
+            >
+              {TREND_PATCH_LABEL}
+            </text>
+          </g>
+          {showMark ? (
+            <text
+              x={markX}
+              y={HEIGHT / 2 + markSize * 0.3}
+              textAnchor="middle"
+              fontSize={markSize}
+              className="fill-sb-ink-faint font-medium"
+            >
+              ?
+            </text>
+          ) : null}
         </g>
-        {showMark ? (
-          <text
-            x={markX}
-            y={HEIGHT / 2 + markSize * 0.3}
-            textAnchor="middle"
-            fontSize={markSize}
-            className="fill-sb-ink-faint font-medium"
-          >
-            ?
-          </text>
-        ) : null}
       </svg>
 
       <ul className="mt-sb-4 flex flex-wrap items-center gap-sb-4 text-sb-caption text-sb-ink-mute">

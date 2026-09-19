@@ -116,6 +116,24 @@ public final class ReviewLake {
      * 켜 두므로 없는 쪽은 건너뛴다.
      */
     public static Dataset<Row> read(SparkSession spark) {
-        return spark.read().schema(ReviewSchema.REVIEW_RAW).parquet(HdfsPaths.reviewAll());
+        // ⚠ ignoreMissingFiles 는 없는 '파일' 만 봐 준다. 경로 자체가 없으면 PATH_NOT_FOUND 로 죽는다.
+        //   base 는 첫 compaction 전에는 없다 — 2026-09-18 첫 compaction 이 여기서 죽었다.
+        //   있는 경로만 골라 읽고, 하나도 없으면 빈 데이터셋을 준다.
+        java.util.List<String> existing = new java.util.ArrayList<>();
+        try {
+            org.apache.hadoop.fs.FileSystem fs = org.apache.hadoop.fs.FileSystem.get(
+                    java.net.URI.create(HdfsPaths.HDFS), spark.sparkContext().hadoopConfiguration());
+            for (String p : HdfsPaths.reviewAll()) {
+                if (fs.exists(new org.apache.hadoop.fs.Path(p))) {
+                    existing.add(p);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("HDFS 를 못 읽는다: " + e.getMessage(), e);
+        }
+        if (existing.isEmpty()) {
+            return spark.createDataFrame(new java.util.ArrayList<Row>(), ReviewSchema.REVIEW_RAW);
+        }
+        return spark.read().schema(ReviewSchema.REVIEW_RAW).parquet(existing.toArray(String[]::new));
     }
 }

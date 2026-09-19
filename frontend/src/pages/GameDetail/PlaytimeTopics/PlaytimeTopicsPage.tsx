@@ -6,7 +6,6 @@ import { BandCards } from "@/pages/GameDetail/PlaytimeTopics/components/BandCard
 import { SampleFallback } from "@/pages/GameDetail/PlaytimeTopics/components/SampleFallback"
 import { TopicAiSummaryCard } from "@/pages/GameDetail/PlaytimeTopics/components/TopicAiSummaryCard"
 import { TopicBars } from "@/pages/GameDetail/PlaytimeTopics/components/TopicBars"
-import { formatDisplayRange } from "@/lib/seoulDate"
 
 /** URL gameId 세그먼트를 양의 정수로 파싱한다. */
 function parseGameId(raw: string | undefined): number | null {
@@ -57,7 +56,6 @@ export default function PlaytimeTopicsPage() {
   const data = query.data
   if (!data) return null
 
-  const period = data.meta.period
   // selectedBandStats: 카드·fallback 라벨에 쓰는 선택 밴드
   const selectedBandStats =
     selectedBandNo === null
@@ -75,18 +73,12 @@ export default function PlaytimeTopicsPage() {
         <header>
           <h1 className="text-sb-title font-medium text-sb-ink">플레이타임 구간별 토픽</h1>
           <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">
-            데이터 구간 {formatDisplayRange(period.startDate, period.endDate, period.dayCount)} ·
-            오늘 기준 최근 {period.dayCount}일 · 리뷰{" "}
+            최근 14일 리뷰&nbsp;
             {data.overall.reviewCount.toLocaleString("en-US")}건
           </p>
-          <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
-            구간 경계는 게임 전체 리뷰 p25·중앙·p75(
-            {data.scale.p25Minutes}/{data.scale.medianMinutes}/{data.scale.p75Minutes}분)
-            기준입니다.
-          </p>
           <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-            표본 {data.minimumSampleCount}건 미만 구간은 리뷰 원문으로 대체합니다. 게임을 바꾸면
-            구간 경계(시간대)가 달라집니다. 마지막 구간을 선택하면 원문 fallback을 볼 수 있습니다.
+            분석 가능한 최소 리뷰 개수는 {data.minimumSampleCount}건입니다.{" "}
+            {data.minimumSampleCount}건 미만인 구간은 리뷰 원문으로 대체합니다.
           </p>
         </header>
 

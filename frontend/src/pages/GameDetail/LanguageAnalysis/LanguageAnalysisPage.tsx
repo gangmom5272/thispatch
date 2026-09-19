@@ -26,10 +26,6 @@ function PeriodBar({ data }: { data: LanguageAnalysis }) {
   const { period } = data.meta
   return (
     <div className={`flex flex-wrap items-center gap-sb-3 px-sb-4 py-sb-3 ${panelClass}`}>
-      <span className="text-sb-ink-mute">데이터 구간</span>
-      <span className="font-sb-mono font-medium text-sb-ink tabular-nums">
-        {period.startDate} ~ {period.endDate}
-      </span>
       <span className="rounded-sb-tag bg-sb-canvas-soft px-sb-2 py-[3px] text-sb-ink-mute">
         오늘 기준 최근 {period.dayCount}일
       </span>

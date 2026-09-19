@@ -22,6 +22,9 @@ const STEP_DELAYS = [0, 120, 240, 360] as const
 /** 뷰포트 한가운데를 지나는 스크롤 구간이 현재 단계가 된다. */
 const SLOT_ROOT_MARGIN = "-50% 0px -50% 0px"
 
+/** 단계가 바뀔 때 이전 화면이 사라지고 다음 화면이 나타나는 데 쓰는 시간. */
+const PANEL_FADE_MS = 180
+
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div>
@@ -119,7 +122,18 @@ export function EvidenceSteps() {
   const panelId = useId()
   const prefersReducedMotion = usePrefersReducedMotion()
   const [activeStep, setActiveStep] = useState(0)
+  const [shownStep, setShownStep] = useState(0)
   const slotRefs = useRef<Array<HTMLDivElement | null>>([])
+
+  // 활성 단계가 먼저 바뀌고 이전 화면이 사라진 뒤 표시 단계가 따라가면서 페이드아웃·페이드인이 이어진다.
+  useEffect(() => {
+    if (shownStep === activeStep) return
+    const timer = setTimeout(
+      () => setShownStep(activeStep),
+      prefersReducedMotion ? 0 : PANEL_FADE_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [activeStep, shownStep, prefersReducedMotion])
 
   useEffect(() => {
     const slots = slotRefs.current.filter((slot) => slot !== null)
@@ -201,7 +215,14 @@ export function EvidenceSteps() {
         </ol>
 
         <Reveal variant="group" id={panelId} className="mt-sb-8 md:min-h-112">
-          <StepPanel index={activeStep} />
+          <div
+            className={cn(
+              "ease-sb-enter transition-opacity duration-[180ms] motion-reduce:transition-none",
+              shownStep === activeStep || prefersReducedMotion ? "opacity-100" : "opacity-0",
+            )}
+          >
+            <StepPanel index={shownStep} />
+          </div>
         </Reveal>
       </div>
     </div>

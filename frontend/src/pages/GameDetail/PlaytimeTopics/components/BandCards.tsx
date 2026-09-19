@@ -79,7 +79,7 @@ function OverallCard({ overall, selected, onSelect }: OverallCardProps) {
           : "border-sb-hairline-cool bg-sb-canvas-surface hover:bg-sb-canvas-soft"
       }`}
     >
-      <p className="text-sb-caption text-sb-ink-mute">4구간 합계</p>
+      <p className="text-sb-caption text-sb-ink-mute">전 구간</p>
       <p className="mt-sb-2 font-sb-mono text-sb-title tabular-nums text-sb-ink">
         {formatPositiveRate(overall.positiveRate)}
       </p>
@@ -88,7 +88,7 @@ function OverallCard({ overall, selected, onSelect }: OverallCardProps) {
         negativeCount={overall.negativeCount}
       />
       <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-        최근 14일 {overall.reviewCount.toLocaleString("en-US")}건
+        {overall.reviewCount.toLocaleString("en-US")}건
       </p>
     </button>
   )
@@ -118,7 +118,7 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
         <>
           <p className="mt-sb-2 text-sb-title text-sb-amber-text">—</p>
           <p className="mt-sb-1 text-sb-caption text-sb-neg-text">
-            표본 부족 {band.reviewCount.toLocaleString("en-US")}건
+            {band.reviewCount.toLocaleString("en-US")}건
           </p>
         </>
       ) : (
@@ -128,7 +128,7 @@ function BandCard({ band, selected, onSelect }: BandCardProps) {
           </p>
           <SentimentCounts positiveCount={band.positiveCount} negativeCount={band.negativeCount} />
           <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-            표본 충족 · {band.reviewCount.toLocaleString("en-US")}건
+            {band.reviewCount.toLocaleString("en-US")}건
           </p>
         </>
       )}

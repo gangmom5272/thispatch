@@ -23,9 +23,9 @@ export function TopicBars({ topics, reviewCount, isOverall }: TopicBarsProps) {
   return (
     <section className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
       <header className="mb-sb-4">
-        <h2 className="text-sb-title font-medium text-sb-ink">토픽별 언급률</h2>
+        <h2 className="text-sb-title font-medium text-sb-ink">리뷰 중 토픽 언급률</h2>
         <p className="mt-sb-1 text-sb-caption text-sb-ink-mute">
-          토픽별 언급 리뷰 수 · 리뷰 하나에 여러 토픽이 포함될 수 있음 (합 100% 아님)
+          리뷰 하나에 여러 토픽이 포함될 수 있습니다. 비율 합계가 100%를 초과할 수 있습니다.
         </p>
         <ul className="mt-sb-2 flex flex-wrap gap-sb-4 text-sb-caption text-sb-ink-mute">
           <li className="flex items-center gap-sb-2">

@@ -85,6 +85,40 @@ final class LoaderSupport {
         return n;
     }
 
+    /**
+     * {@link #replaceTable} 와 같은데 표를 비우지 않는다 — 증분 적재용. 연결 하나, 트랜잭션 하나.
+     * INSERT 문에 ON CONFLICT 를 넣어 부딪히는 행을 처리하는 것은 호출자 몫이다.
+     */
+    static long appendTable(Dataset<Row> rows, String url, String user, String password,
+                            String insertSql, int batch, RowBinder binder) {
+        long n = 0;
+        try (Connection conn = DriverManager.getConnection(url, user, password)) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                int inBatch = 0;
+                Iterator<Row> it = rows.toLocalIterator();
+                while (it.hasNext()) {
+                    binder.bind(ps, it.next());
+                    ps.addBatch();
+                    if (++inBatch >= batch) {
+                        n += ps.executeBatch().length;
+                        inBatch = 0;
+                    }
+                }
+                if (inBatch > 0) {
+                    n += ps.executeBatch().length;
+                }
+                conn.commit();
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("적재 실패: " + e.getMessage(), e);
+        }
+        return n;
+    }
+
     static long count(String url, String user, String password, String table) {
         try (Connection conn = DriverManager.getConnection(url, user, password);
              Statement st = conn.createStatement();

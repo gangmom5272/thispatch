@@ -1,4 +1,4 @@
-import { Link, Navigate } from "react-router"
+import { Link } from "react-router"
 import { isApiError } from "@/api/error"
 import { useMyGameList } from "@/hooks/queries/gameQueries"
 import { useSession } from "@/hooks/queries/sessionQueries"
@@ -17,10 +17,6 @@ const primaryLinkClass =
 /** 별을 눌러 등록한 내 게임만 모아 보여 준다. 로그인이 필요하다. */
 export default function MyGamesPage() {
   const session = useSession()
-
-  if (session.isSuccess && !session.data.authenticated) {
-    return <Navigate to={paths.login} replace state={{ from: paths.myGames }} />
-  }
 
   return (
     <main className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">

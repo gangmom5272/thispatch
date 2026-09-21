@@ -114,7 +114,7 @@ export default function GameListPage() {
   return (
     <div className="min-h-screen bg-sb-canvas-base font-sb-sans text-sb-body text-sb-ink scheme-dark">
       <main className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
-        <h1 className="text-sb-section font-medium md:text-sb-display">게임 목록</h1>
+        <h1 className="text-sb-section font-medium md:text-sb-display">게임 탐색</h1>
 
         {/* URL이 바뀌면(로고 홈 등) 검색 입력·필터 배지를 초기 상태로 리마운트 */}
         <GameListToolbar

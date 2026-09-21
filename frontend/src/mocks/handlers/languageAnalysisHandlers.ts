@@ -198,10 +198,7 @@ const LANGUAGE_REVIEW_ID_BASE: Record<string, number> = {
 export const languageAnalysisTranslationById = new Map<number, string>()
 
 /** 시드 리뷰에 고유 id를 붙이고 번역 맵을 채운다. */
-function withReviewIds(
-  languageCode: string,
-  reviews: ReviewSeed[],
-): RepresentativeReview[] {
+function withReviewIds(languageCode: string, reviews: ReviewSeed[]): RepresentativeReview[] {
   // base: 언어별 id 구간 시작
   const base = LANGUAGE_REVIEW_ID_BASE[languageCode] ?? 919_000
   return reviews.map((review, index) => {

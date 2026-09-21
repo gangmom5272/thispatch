@@ -1,10 +1,8 @@
 import { useActionState, useState, type ReactNode } from "react"
-import { Navigate } from "react-router"
 import { isApiError } from "@/api/error"
 import Input from "@/components/Input"
 import { useUpdateNickname, useUpdatePassword } from "@/hooks/queries/memberQueries"
 import { useSession } from "@/hooks/queries/sessionQueries"
-import { paths } from "@/router/paths"
 import WithdrawDialog from "./components/WithdrawDialog"
 
 const NICKNAME_MAX_LENGTH = 50
@@ -25,10 +23,6 @@ const primaryButtonClass =
 /** 회원 정보 수정(닉네임·비밀번호)과 회원 탈퇴. 로그인이 필요하다. */
 export default function MyPage() {
   const session = useSession()
-
-  if (session.isSuccess && !session.data.authenticated) {
-    return <Navigate to={paths.login} replace state={{ from: paths.myPage }} />
-  }
 
   const user = session.data?.user ?? null
 

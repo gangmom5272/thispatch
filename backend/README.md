@@ -267,7 +267,7 @@ Gradle 명령만 실행할 수 있지만, 빈 DB에서 최초 migration 적용�
 - URL은 절대 HTTP(S) 주소여야 하며 사용자 정보, query, fragment를 포함할 수 없다.
 - `BACKEND_PUBLIC_URL`은 브라우저에서 접근하는 주소다. 운영의 `/api` 같은 경로 접두사를 포함할 수 있다.
 - CORS 허용 주소는 `https://thispatch.com,http://localhost:5173`처럼 쉼표로 구분한다. 각 주소에는 경로·끝 슬래시를 넣지 않으며 `*` 패턴도 허용하지 않는다.
-- CORS 허용 메서드는 현재 API 계약의 `GET`, `POST`, `DELETE`와 사전 요청용 `OPTIONS`다. 허용 요청 헤더는 `Authorization`, `Content-Type`, `Accept`다.
+- CORS 허용 메서드는 현재 API 계약의 `GET`, `POST`, `PATCH`, `DELETE`와 사전 요청용 `OPTIONS`다. 허용 요청 헤더는 `Authorization`, `Content-Type`, `Accept`다.
 - 서비스 인증은 Bearer Token 방식이므로 CORS의 `allowCredentials`는 `false`다.
 - `CorsFilter`는 서블릿 필터로 한 번 등록하며 Security 필터보다 먼저 실행된다. `SecurityFilterChain`에는 CORS 필터를 중복 등록하지 않는다.
 - CORS 설정은 공개·보호 API의 인증 규칙을 바꾸지 않는다. 접근 규칙은 `SecurityConfig`, Access Token 검증은 `JwtAuthenticationFilter`가 처리한다.

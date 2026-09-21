@@ -20,7 +20,7 @@ public class CorsConfig {
 	public UrlBasedCorsConfigurationSource corsConfigurationSource(AppProperties properties) {
 		var cors = new CorsConfiguration();
 		cors.setAllowedOrigins(properties.cors().allowedOrigins().stream().map(URI::toString).toList());
-		cors.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
+		cors.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
 		cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 		cors.setAllowCredentials(false);
 		var source = new UrlBasedCorsConfigurationSource();

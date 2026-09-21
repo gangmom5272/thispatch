@@ -4,6 +4,8 @@ import type {
   CaseSearch,
   CaseSearchInput,
   PatchDetail,
+  PatchPlanHistoryDetail,
+  PatchPlanHistoryItem,
   PlanStructure,
   SimilarCase,
 } from "../../types"
@@ -70,6 +72,144 @@ const sample: Omit<PlanStructure, "gameId" | "rawText" | "genreIds"> = {
       },
     ],
   },
+}
+
+const samplePlans: PatchPlanHistoryDetail[] = [
+  {
+    planId: 101,
+    gameId: mockGames[0].id,
+    gameTitle: mockGames[0].title,
+    rawText:
+      "Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다. 고통 4 이상 난이도에서만 적용하며, Wraith 계열 등장 빈도도 소폭 조정한다.",
+    restatement: {
+      text: "고통 4 이상 난이도에서 특정 적(Axebot)의 체력과 공격력을 함께 상향하는 변경입니다.",
+    },
+    genreIds: [9, 19],
+    confirmedSlots: [
+      {
+        target: { name: "Axebot", role: "ENEMY" },
+        attribute: "체력",
+        changeType: "MODIFY",
+        direction: "INCREASE",
+        magnitude: "+20%",
+        scope: "고통 4 이상",
+      },
+      {
+        target: { name: "Axebot", role: "ENEMY" },
+        attribute: "공격력",
+        changeType: "MODIFY",
+        direction: "INCREASE",
+        magnitude: "+10%",
+        scope: "고통 4 이상",
+      },
+      {
+        target: { name: "Wraith", role: "UNKNOWN" },
+        attribute: "등장 빈도",
+        changeType: "MODIFY",
+        direction: "UNKNOWN",
+        magnitude: null,
+        scope: null,
+      },
+    ],
+    createdAt: "2026-09-21T14:32:00+09:00",
+  },
+  {
+    planId: 100,
+    gameId: mockGames[1].id,
+    gameTitle: mockGames[1].title,
+    rawText: "첫 번째 지역의 전투 보상 골드를 늘리고 상점 이용 부담을 낮춘다.",
+    restatement: { text: "초반 구간의 보상을 늘려 진입 난이도를 낮추는 변경입니다." },
+    genreIds: [],
+    confirmedSlots: [
+      {
+        target: { name: "전투 보상", role: "REWARD" },
+        attribute: "골드",
+        changeType: "MODIFY",
+        direction: "INCREASE",
+        magnitude: "+15%",
+        scope: "1지역",
+      },
+      {
+        target: { name: "상점", role: "SHOP" },
+        attribute: "가격",
+        changeType: "MODIFY",
+        direction: "DECREASE",
+        magnitude: "-10%",
+        scope: "1지역",
+      },
+    ],
+    createdAt: "2026-09-18T10:16:00+09:00",
+  },
+  {
+    planId: 99,
+    gameId: mockGames[0].id,
+    gameTitle: mockGames[0].title,
+    rawText: "특정 카드의 비용을 낮추고 획득하는 방어도를 조정한다.",
+    restatement: { text: "카드 비용과 방어도 수치를 함께 조정하는 변경입니다." },
+    genreIds: [9],
+    confirmedSlots: [
+      {
+        target: { name: "방어 카드", role: "CARD" },
+        attribute: "비용",
+        changeType: "MODIFY",
+        direction: "DECREASE",
+        magnitude: "-1",
+        scope: null,
+      },
+      {
+        target: { name: "방어 카드", role: "CARD" },
+        attribute: "방어도",
+        changeType: "MODIFY",
+        direction: "DECREASE",
+        magnitude: "-2",
+        scope: null,
+      },
+    ],
+    createdAt: "2026-09-15T16:40:00+09:00",
+  },
+  {
+    planId: 98,
+    gameId: mockGames[1].id,
+    gameTitle: mockGames[1].title,
+    rawText: "초반 엘리트 적의 체력을 낮추고 등장 조건을 조정한다.",
+    restatement: { text: "초반 엘리트 전투의 난이도를 낮추는 변경입니다." },
+    genreIds: [19],
+    confirmedSlots: [
+      {
+        target: { name: "엘리트", role: "ENEMY" },
+        attribute: "체력",
+        changeType: "MODIFY",
+        direction: "DECREASE",
+        magnitude: "-10%",
+        scope: "1막",
+      },
+      {
+        target: { name: "엘리트", role: "ENEMY" },
+        attribute: "등장 조건",
+        changeType: "MODIFY",
+        direction: "UNKNOWN",
+        magnitude: null,
+        scope: "1막",
+      },
+    ],
+    createdAt: "2026-09-12T09:05:00+09:00",
+  },
+]
+
+function planListItem(plan: PatchPlanHistoryDetail): PatchPlanHistoryItem {
+  return {
+    planId: plan.planId,
+    gameId: plan.gameId,
+    gameTitle: plan.gameTitle,
+    rawTextPreview: plan.rawText.slice(0, 200),
+    slotCount: plan.confirmedSlots.length,
+    unknownEntityCount: new Set(
+      plan.confirmedSlots
+        .filter((slot) => slot.target.role === "UNKNOWN")
+        .map((slot) => slot.target.name),
+    ).size,
+    createdAt: plan.createdAt,
+  }
 }
 
 function similarCase(
@@ -371,5 +511,42 @@ export const patchHandlers = [
       url: `https://store.steampowered.com/news/app/${item.gameId}/view/${params.patchId}`,
     }
     return HttpResponse.json(okEnvelope(data))
+  }),
+  http.get(`${baseURL}/members/me/patch-plans`, async ({ request }) => {
+    await delay(400)
+    if (!userFromAuthHeader(request)) {
+      return HttpResponse.json(errorBody("401", "인증이 필요합니다."), { status: 401 })
+    }
+    const url = new URL(request.url)
+    const limit = Number(url.searchParams.get("limit") ?? 20)
+    const offset = Number(url.searchParams.get("cursor") ?? 0)
+    const page = samplePlans.slice(offset, offset + limit)
+    const nextOffset = offset + page.length
+    const hasNext = nextOffset < samplePlans.length
+    return HttpResponse.json(
+      okEnvelope({
+        items: page.map(planListItem),
+        page: {
+          limit,
+          nextCursor: hasNext ? String(nextOffset) : null,
+          hasNext,
+          totalCount: samplePlans.length,
+        },
+      }),
+    )
+  }),
+  http.get(`${baseURL}/members/me/patch-plans/:planId`, async ({ request, params }) => {
+    await delay(400)
+    if (!userFromAuthHeader(request)) {
+      return HttpResponse.json(errorBody("401", "인증이 필요합니다."), { status: 401 })
+    }
+    const plan = samplePlans.find((item) => item.planId === Number(params.planId))
+    if (!plan) {
+      return HttpResponse.json(
+        errorBody("PATCH_PLAN_NOT_FOUND", "기획안 내역을 찾을 수 없습니다."),
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(okEnvelope(plan))
   }),
 ]

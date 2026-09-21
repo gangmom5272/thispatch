@@ -421,6 +421,169 @@ Authorization: Bearer {ACCESS_TOKEN}
 }
 ```
 
+## 기획안 내역 상세 조회
+
+### `GET /members/me/patch-plans/{planId}`
+
+[기획안 내역 상세 조회 원본 명세](https://app.notion.com/p/3e2776ebfd6881cdadece23076f0fe13)
+
+현재 로그인 사용자가 저장한 기획안 원문, 당시 기획안 해석, 해당 검색에 실제 제출한 최종 확정 슬롯을 조회한다.
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `planId` | long | 조회할 기획안 내역 ID. 1 이상 |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Request Example**
+
+```http
+GET /members/me/patch-plans/101
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-21 14:40:00",
+  "data": {
+    "planId": 101,
+    "gameId": 730,
+    "gameTitle": "Slay the Spire 2",
+    "rawText": "Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다. 고통 4 이상 난이도에서만 적용하며, Wraith 계열 등장 빈도도 소폭 조정한다.",
+    "restatement": {
+      "text": "고통 4 이상 난이도에서 특정 적(Axebot)의 체력과 공격력을 함께 상향하는 변경입니다."
+    },
+    "genreIds": [9, 19],
+    "confirmedSlots": [
+      {
+        "target": {
+          "name": "Axebot",
+          "role": "ENEMY"
+        },
+        "attribute": "체력",
+        "changeType": "MODIFY",
+        "direction": "INCREASE",
+        "magnitude": "20%",
+        "scope": "고통 4 이상"
+      },
+      {
+        "target": {
+          "name": "Axebot",
+          "role": "ENEMY"
+        },
+        "attribute": "공격력",
+        "changeType": "MODIFY",
+        "direction": "INCREASE",
+        "magnitude": "10%",
+        "scope": "고통 4 이상"
+      },
+      {
+        "target": {
+          "name": "Wraith",
+          "role": "UNKNOWN"
+        },
+        "attribute": "등장 빈도",
+        "changeType": "MODIFY",
+        "direction": "UNKNOWN",
+        "magnitude": null,
+        "scope": null
+      }
+    ],
+    "createdAt": "2026-09-21T14:32:00+09:00"
+  },
+  "success": true
+}
+```
+
+**Processing Rules / Notes — Field rules**
+
+아래 필드 경로는 `data` 내부를 기준으로 한다.
+
+| Field | Type | Description |
+|---|---|---|
+| `planId` | long | 저장한 기획안 내역 ID (`patch_plan.patch_plan_id`) |
+| `gameId` | long | 기획안 대상 게임 ID (`patch_plan.appid`) |
+| `gameTitle` | string | 현재 게임 테이블의 게임 이름 (`game.name`) |
+| `rawText` | string | 사용자가 입력한 기획안 원문 전체 (`patch_plan.raw_text`) |
+| `restatement` | object | 저장된 기획안 해석 |
+| `restatement.text` | string | 당시 저장된 기획안 해석 문장 (`patch_plan_restatement.text`) |
+| `genreIds` | int[] | 해당 검색에 사용한 장르 ID (`patch_plan_genre.genre_id`). 빈 배열은 전체 장르 조건 |
+| `confirmedSlots` | object[] | 해당 검색에 실제 제출한 최종 확정 슬롯 |
+| `confirmedSlots[].target` | object | 최종 확정 대상 |
+| `confirmedSlots[].target.name` | string | 최종 대상 이름 (`patch_plan_confirmed_slot.target_name`) |
+| `confirmedSlots[].target.role` | string (enum) | 최종 대상 역할 (`target_role`). `PLAYER`, `ENEMY`, `WEAPON`, `ITEM`, `SKILL`, `MAP`, `SYSTEM`, `OTHER`, `UNKNOWN` |
+| `confirmedSlots[].attribute` | string | 최종 변경 속성 (`attribute`) |
+| `confirmedSlots[].changeType` | string (enum) | 최종 변경 유형 (`change_type`). `ADD`, `REMOVE`, `MODIFY`, `FIX`, `DEPRECATE` |
+| `confirmedSlots[].direction` | string (enum) | 최종 변경 방향 (`direction`). `INCREASE`, `DECREASE`, `NONE`, `NOT_APPLICABLE`, `UNKNOWN` |
+| `confirmedSlots[].magnitude` | string \| null | 최종 변화량 문자열 (`magnitude`). 없으면 `null` |
+| `confirmedSlots[].scope` | string \| null | 최종 적용 조건 및 범위 (`scope`). 없으면 `null` |
+| `createdAt` | string | 검색 내역 저장 시각 (`patch_plan.created_at`). ISO 8601, 한국 시간대 (`+09:00`) |
+
+**Processing Rules / Notes — Rules**
+
+- 인증된 현재 회원 소유의 `planId`만 조회한다. 회원 ID를 별도로 입력받지 않는다.
+- 미존재 내역과 다른 회원 소유의 내역은 모두 동일한 `404 PATCH_PLAN_NOT_FOUND`로 처리하여 다른 회원의 내역 존재 여부를 노출하지 않는다.
+- `rawText`는 저장된 원문 전체를 반환한다. 별도 제목, AI 요약, 축약본을 생성하거나 반환하지 않는다.
+- `restatement.text`는 저장된 `patch_plan_restatement.text`를 그대로 반환한다. 조회 시 AI 재구조화·재진술을 실행하지 않는다.
+- `confirmedSlots`는 `patch_plan_confirmed_slot`에서 조회하며 `slot_order` 오름차순으로 반환한다. 최초 AI 구조화의 `entities`, 최초 `slots`는 반환하지 않는다.
+- `genreIds`는 검색 당시 선택값을 `patch_plan_genre`에서 조회한다. 현재 게임의 장르로 대체하지 않으며, `genreIds: []`는 기존 유사 사례 검색 계약과 동일하게 전체 장르 조건을 의미한다.
+- 게임 이름은 조회 시점의 `game.name`을 사용한다.
+- 화면의 미확인 표시는 `confirmedSlots[].target.role = UNKNOWN` 등 최종 슬롯 값으로 판단한다. 안내 문구가 필요하면 프론트가 최종 슬롯 상태를 기준으로 고정 문구를 표시한다. 안내를 위해 AI를 다시 호출하지 않는다.
+- 상세 조회는 저장된 내역만 반환하며 유사 사례 검색을 실행하지 않는다. 과거 유사 사례 검색 결과도 응답에 포함하지 않는다.
+- 기존 내역으로 다시 검색할 때는 `gameId`를 `POST /games/{gameId}/case-searches`의 Path Variable로, `genreIds`와 `confirmedSlots`를 Request Body로 전달한다. 재검색은 새로운 내역을 생성한다.
+- 최종 확정 슬롯의 필드 구조·타입·코드 값은 기존 유사 사례 검색 API의 `confirmedSlots` 계약과 동일하다.
+
+**Error Responses**
+
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | `planId` 양수 검증 실패 (필드별 `errors` 포함) |
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | `planId` 타입 오류 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `404` | `PATCH_PLAN_NOT_FOUND` | 기획안 내역을 찾을 수 없습니다. | 미존재 내역 또는 다른 회원 소유의 내역 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회 실패 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 문자열 `code`, `message`, 한국 시간의
+`responsedAt`을 포함하고 `data`, `success`는 포함하지 않는다. 필드 검증 오류가 있을 때만 `errors`를 포함한다.
+
+입력값 검증 실패 예시:
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "입력값을 확인해주세요.",
+  "responsedAt": "2026-09-21 14:40:00",
+  "errors": [
+    {
+      "field": "planId",
+      "message": "planId는 1 이상이어야 합니다."
+    }
+  ]
+}
+```
+
+미존재 또는 다른 회원 소유의 내역 조회 실패 예시:
+
+```json
+{
+  "code": "PATCH_PLAN_NOT_FOUND",
+  "message": "기획안 내역을 찾을 수 없습니다.",
+  "responsedAt": "2026-09-21 14:40:00"
+}
+```
+
 ## 패치 상세
 
 ### `GET /games/{gameId}/patches/{patchId}`

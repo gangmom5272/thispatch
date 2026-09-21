@@ -44,9 +44,11 @@ import org.apache.spark.storage.StorageLevel;
  *   <li><b>기본</b> — Spark {@link PatchChangeExtractor}(change-rules-2)를 모든 청크 텍스트에 돌린 결과.
  *       청크는 {@code /embeddings/patch_chunk/dt=D} 파케이에서 읽고, {@code chunk_id} 는 DB 의
  *       {@code patch_chunk} 에서 (gid, seq)→chunk_id 로 바꾼다 — {@link PatchChunkToPostgres} 가 먼저 돌아야 한다.</li>
- *   <li><b>덮어쓰기</b> — AI {@code /embeddings/patch_change/dt=D} 중 그 청크의 {@code model_version} 이
+ *   <li><b>덮어쓰기</b> — AI {@code /embeddings/patch_change/dt=D} 중 {@code model_version} 이
  *       {@code qwen} 으로 시작하고 {@code validation_status = 'valid'} 인 행. 같은 (gid, seq) 의 기본 행을
- *       전부 버리고 이것으로 바꾼다. AI 의 규칙 판본(rule-v2) 행은 넣지 않는다.</li>
+ *       전부 버리고 이것으로 바꾼다. AI 의 규칙 판본(rule-v2) 행은 넣지 않는다.
+ *       {@code model_version} 은 변경점 파일의 컬럼(2026-09-18 추가, 행 단위)을 먼저 보고, 없는 옛 파일이면
+ *       청크의 {@code model_version} 으로 판단한다 — 한 파일에 rule-v2 와 Qwen 행이 섞여 오므로 행 단위가 맞다.</li>
  * </ol>
  *
  * <p>Qwen 행은 인기 게임·최근 공지부터 며칠에 걸쳐 늘어나므로 매일 다시 돈다 — 그날 파티션의 gid 에 대해
@@ -185,16 +187,19 @@ public final class PatchChangeToPostgres {
     // ── 순수 Spark 부분 (테스트가 여기를 본다) ──────────────────────
 
     /**
-     * AI 변경점 중 넣을 것만 — 그 청크의 model_version 이 qwen 으로 시작하고 validation_status 가 valid.
+     * AI 변경점 중 넣을 것만 — model_version 이 qwen 으로 시작하고 validation_status 가 valid.
+     * model_version 은 변경점 행의 것을 먼저, 그 컬럼이 없거나 null 이면 청크의 것을 본다.
      * 코드 문자열은 코드표 id 로 바꾼다(없는 코드는 null). 결과는 {@link PatchChangeProcessor#OUTPUT_SCHEMA} 모양.
      */
     static Dataset<Row> qwenValidOverlay(Dataset<Row> aiChanges, Dataset<Row> chunkInfo,
                                          Map<String, Short> changeTypes, Map<String, Short> directions, Map<String, Short> targets) {
+        boolean fileHasModel = java.util.Arrays.asList(aiChanges.columns()).contains("model_version");
         Dataset<Row> joined = aiChanges
                 .select(col("gid"), col("seq").cast(DataTypes.ShortType), col("change_type"), col("direction"),
-                        col("target_type"), col("evidence_quote"), col("validation_status"))
-                .join(chunkInfo, new String[] {"gid", "seq"})
-                .filter(lower(coalesce(col("model_version"), lit(""))).startsWith("qwen")
+                        col("target_type"), col("evidence_quote"), col("validation_status"),
+                        (fileHasModel ? col("model_version") : lit(null).cast(DataTypes.StringType)).alias("row_model_version"))
+                .join(chunkInfo.withColumnRenamed("model_version", "chunk_model_version"), new String[] {"gid", "seq"})
+                .filter(lower(coalesce(col("row_model_version"), col("chunk_model_version"), lit(""))).startsWith("qwen")
                         .and(col("validation_status").equalTo("valid"))
                         .and(col("evidence_quote").isNotNull()));
         return joined.select(

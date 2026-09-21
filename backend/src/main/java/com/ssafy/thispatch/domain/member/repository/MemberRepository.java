@@ -5,11 +5,14 @@ import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.ssafy.thispatch.domain.member.entity.Member;
+
+import jakarta.persistence.LockModeType;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
@@ -20,6 +23,20 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	boolean existsByEmail(String email);
 
 	boolean existsByMemberIdAndStatus(long memberId, String status);
+
+	// 비밀번호 검증부터 변경까지 직렬화해 동시 요청이 이전 비밀번호로 덮어쓰지 못하게 한다.
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select m from Member m where m.memberId = :memberId")
+	Optional<Member> findByIdForPasswordChange(@Param("memberId") long memberId);
+
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update Member m set m.password = :passwordHash, m.updatedAt = :updatedAt,
+		m.refreshTokenHash = null, m.refreshTokenExpiresAt = null
+		where m.memberId = :memberId and m.status = 'ACTIVE'
+		""")
+	int changePasswordAndClearRefreshToken(@Param("memberId") long memberId,
+		@Param("passwordHash") String passwordHash, @Param("updatedAt") Instant updatedAt);
 
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
@@ -46,6 +63,14 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		where m.memberId = :memberId and m.status = 'ACTIVE' and m.nickname is null
 		""")
 	int setNicknameIfUnset(@Param("memberId") long memberId, @Param("nickname") String nickname,
+		@Param("updatedAt") Instant updatedAt);
+
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update Member m set m.nickname = :nickname, m.updatedAt = :updatedAt
+		where m.memberId = :memberId and m.status = 'ACTIVE'
+		""")
+	int changeNicknameIfActive(@Param("memberId") long memberId, @Param("nickname") String nickname,
 		@Param("updatedAt") Instant updatedAt);
 
 	// PostgreSQL의 UNIQUE 충돌을 문장 수준에서 처리해 트랜잭션이 rollback-only가 되지 않게 한다.

@@ -22,6 +22,10 @@ AI 노트북이 서버1로 SSH 역터널을 열고, 서버1의 백엔드 컨테�
   HTTP 응답 대기 제한이며, 사전 health 조회(최대 5초)와 연결 시간은 별도다.
   HTTP 연결 종료가 AI 서버의 진행 중 모델 계산까지 취소한다는 보장은 없다.
 - `/health` 조회는 별도로 5초의 응답 제한을 사용한다.
+- 리뷰·추세 요약 모두 HTTP/1.1로 전송한다. 현재 AI 서버는 Java 클라이언트의 HTTP/2 전환 요청에서
+  스트리밍 JSON 본문을 읽지 못해 `400 INVALID_REQUEST`를 반환할 수 있다.
+  `RestClient.post().body(request)`가 JSON을 직렬화하며, 실제 HTTP 서버를 사용하는
+  `AiSummaryTransportTest`에서 POST 본문·한글·snake_case 필드와 HTTP/2 전환 헤더 부재를 검증한다.
 - 요청 전에 `/health`를 확인한다. 리뷰 요약은 `ready: true`일 때만 호출한다.
   통계 요약은 문장 틀 대체 결과가 있으므로 `ready: false`여도 호출한다.
   모델을 직접 시작하거나 자동 재시도하지 않는다.

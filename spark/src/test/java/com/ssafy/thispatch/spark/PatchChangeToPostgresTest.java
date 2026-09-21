@@ -68,6 +68,23 @@ class PatchChangeToPostgresTest {
         assertEquals("valid", r.getAs("validation_status"));
     }
 
+    /** 9/18 부터 변경점 파일에 model_version 이 행 단위로 온다 — 한 파일에 rule-v2 와 Qwen 행이 섞인다. 행의 것이 우선한다. */
+    @Test void rowModelVersionWinsOverChunkModelVersion() {
+        StructType aiWithModel = AI.add("model_version", DataTypes.StringType);
+        Dataset<Row> aiRows = spark.createDataFrame(Arrays.asList(
+                RowFactory.create("100", (short) 0, (short) 0, "modify", "decrease", "enemy", "Axebot", "health", "Axebot health 100 -> 80", "valid", "rule-v2"),
+                RowFactory.create("100", (short) 1, (short) 0, "fix", "not_applicable", "unknown", "crash", null, "Fixed a crash", "valid", "qwen3.5-9b-q4km/service-facts-2"),
+                RowFactory.create("100", (short) 1, (short) 1, "add", "increase", "player", "HP", null, "HP up", "needs_review", "qwen3.5-9b-q4km/service-facts-2")), aiWithModel);
+        // 1행: qwen 청크지만 행은 rule-v2 → 빠짐 · 2행: 청크는 rule-v1 이지만 행이 qwen·valid → 들어감 · 3행: qwen 이지만 valid 아님 → 빠짐
+        Dataset<Row> chunks = spark.createDataFrame(Arrays.asList(
+                info("100", 0, 5001L, "qwen3.5-9b-q4km"),
+                info("100", 1, 5002L, "rule-v1")), CHUNK_INFO);
+        List<Row> out = PatchChangeToPostgres.qwenValidOverlay(aiRows, chunks, TYPES, DIRS, TARGETS).collectAsList();
+        assertEquals(1, out.size());
+        assertEquals(5002L, (long) out.get(0).getAs("chunk_id"));
+        assertEquals((short) 4, (short) out.get(0).getAs("change_type_id"));   // fix
+    }
+
     @Test void unknownCodeBecomesNullNotAnotherCode() {
         Dataset<Row> aiRows = spark.createDataFrame(List.of(ai("100", 0, "rebalance", "sideways", "npc", "valid")), AI);
         Dataset<Row> chunks = spark.createDataFrame(List.of(info("100", 0, 5001L, "qwen3.5-9b-q4km")), CHUNK_INFO);

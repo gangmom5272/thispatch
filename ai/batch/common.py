@@ -84,11 +84,15 @@ def write_parquet_dir(df, d, schema=None, part="part-00000.parquet", mark=True):
     """폴더를 비우고 다시 쓴다(같은 dt 재실행 = 통째로 덮어쓰기). 끝나면 _SUCCESS."""
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
-    for f in d.iterdir():
-        if f.is_file():
-            f.unlink()
+    # 먼저 임시 이름으로 다 쓰고, 그다음 옛 파일을 지우고 이름을 바꾼다. 쓰는 도중 죽어도 옛 판이 남는다
+    # (9/19: 지우고 쓰던 구조에서 apply 도중 프로세스가 죽어 patch_change 원본까지 잃었다).
+    tmp = d / (part + ".tmp")
     table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
-    pq.write_table(table, d / part, compression="snappy")
+    pq.write_table(table, tmp, compression="snappy")
+    for f in d.iterdir():
+        if f.is_file() and f != tmp:
+            f.unlink()
+    tmp.replace(d / part)
     if mark:
         (d / SUCCESS).touch()
     return d / part
@@ -118,6 +122,7 @@ PATCH_CHANGE_SCHEMA = pa.schema([
     ("attribute", pa.string()),
     ("evidence_quote", pa.string()),
     ("validation_status", pa.string()),
+    ("model_version", pa.string()),   # 9/18: 이 행이 규칙(rule-v2)인지 Qwen 인지. Loader 가 patch_chunk 조인 없이 Qwen 행만 고르게
 ])
 
 REVIEW_TOPIC_SCHEMA = pa.schema([

@@ -13,6 +13,8 @@
 | member | [member.md](member.md) | `GET /auth/steam/callback` | Steam 인증·신규 회원 생성·로그인 코드 발급 |
 | member | [member.md](member.md) | `POST /auth/steam/token` | Steam 로그인 토큰 교환 |
 | member | [member.md](member.md) | `POST /auth/steam/signup` | Steam 최초 닉네임 설정 (인증 필수) |
+| member | [member.md](member.md) | `PATCH /members/me/nickname` | 마이페이지 닉네임 변경 (인증 필수) |
+| member | [member.md](member.md) | `PATCH /members/me/password` | 마이페이지 비밀번호 변경 (LOCAL 회원, 인증 필수) |
 | member | [member.md](member.md) | `POST /auth/refresh` | 토큰 갱신 |
 | member | [member.md](member.md) | `POST /auth/logout` | 로그아웃 |
 | member | [member.md](member.md) | `DELETE /members/me` | 회원탈퇴 |
@@ -33,6 +35,8 @@
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/language-analysis/{languageCode}` | 언어 상세/AI 요약/대표 리뷰 |
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/plan-structures` | 기획안 구조화 |
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/case-searches` | 유사 사례 검색/상세 비교 |
+| patch | [patch.md](patch.md) | `GET /members/me/patch-plans` | 마이페이지 기획안 내역 목록 조회 (인증 필수) |
+| patch | [patch.md](patch.md) | `GET /members/me/patch-plans/{planId}` | 마이페이지 기획안 내역 상세 조회 (인증 필수) |
 | patch | [patch.md](patch.md) | `GET /games/{gameId}/patches/{patchId}` | 패치 원문 상세 |
 | patch | [patch.md](patch.md) | `GET /patches/{patchId}/translation` | 패치노트 한국어 번역 |
 

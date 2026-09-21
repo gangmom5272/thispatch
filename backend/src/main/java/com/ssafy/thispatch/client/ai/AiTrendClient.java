@@ -79,7 +79,9 @@ public class AiTrendClient {
 	}
 
 	private static RestClient createClient(AiProperties properties, Duration timeout) {
-		HttpClient http = HttpClient.newBuilder().connectTimeout(properties.connectTimeout())
+		// AI 서버는 HTTP/2 전환 요청에서 스트리밍 본문을 읽지 못하므로 HTTP/1.1로 전송한다.
+		HttpClient http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+			.connectTimeout(properties.connectTimeout())
 			.followRedirects(HttpClient.Redirect.NEVER).build();
 		var requests = new JdkClientHttpRequestFactory(http);
 		requests.setReadTimeout(timeout);

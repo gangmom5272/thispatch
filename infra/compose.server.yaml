@@ -8,7 +8,7 @@
 #   PostgreSQL 17.11 이 네이티브로 이미 돌고 있어서(0.0.0.0:5432 점유)
 #   그대로 올리면 포트 충돌로 안 뜬다.
 #
-# ⚠ 여기에 DB 를 넣지 말 것
+# ⚠ 영구 서비스 DB 는 여기에 넣지 말 것
 #   CI/CD 가 붙으면 push 마다 이 파일로 up -d 가 돈다. DB 가 같이 있으면
 #   앱을 배포할 때마다 DB 가 사정권에 들어온다.
 #
@@ -108,6 +108,36 @@ services:
       retries: 5
       start_period: 120s
 
+  # 재생성할 수 있는 요약과 만료되는 로그인 코드만 보관한다.
+  # 외부 포트 없이 backend만 참여하는 내부 네트워크로 연결한다.
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 128mb
+      # 캐시가 차도 유효한 로그인 코드를 임의로 밀어내지 않는다.
+      - --maxmemory-policy
+      - noeviction
+    networks:
+      - redis_internal
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   backend:
     build:
       # ⚠ 컨텍스트가 저장소 루트다. 멀티모듈이라 settings.gradle 과
@@ -117,6 +147,12 @@ services:
     image: thispatch/backend:latest
     container_name: backend
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+      - redis_internal
 
     # 127.0.0.1 바인딩 — 밖에서 직접 못 붙는다. UFW 에도 열지 않았다.
     # 외부 진입은 nginx 의 /api/ 프록시 하나뿐이다.
@@ -137,6 +173,12 @@ services:
       # .env 파일 읽기가 optional: 이라 없어도 안 죽는다.
       SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE:-prod}"
       TZ: "Asia/Seoul"
+
+      # 같은 Compose의 내부 Redis. 호스트의 6379 포트는 열지 않는다.
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DATABASE: "0"
+      REDIS_PASSWORD: ""
 
       # AI 노트북 → 서버1의 Docker 호스트 주소로 연 SSH 역터널.
       # 노트북 주소 대신 서버에 바인딩한 주소를 사용한다. 실제 접근은 컨테이너에서 확인한다.
@@ -197,3 +239,8 @@ services:
       retries: 5
       # Flyway 가 마이그레이션을 적용하는 시간을 준다.
       start_period: 90s
+
+networks:
+  default:
+  redis_internal:
+    internal: true

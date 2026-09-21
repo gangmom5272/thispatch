@@ -55,11 +55,7 @@ public class AiTrendClient {
 			// 통계 요약은 ready=false여도 서버가 문장 틀 결과를 제공하므로 요청한다.
 			Result result = client.post().uri("/trends/summarize").contentType(MediaType.APPLICATION_JSON)
 				.body(request).retrieve().body(Result.class);
-			if (result == null || result.appid() == null || result.appid() != request.appid()
-				|| result.summary() == null || result.summary().isBlank()
-				|| result.usedLlm() == null || result.clean() == null
-				|| (result.usedLlm() && !result.clean()) || result.caveats() == null
-				|| result.caveats().stream().anyMatch(note -> note == null || note.isBlank())) {
+			if (!isUsableSummary(request, result)) {
 				throw new IllegalStateException("Invalid AI trend summary response");
 			}
 			return result;
@@ -72,6 +68,14 @@ public class AiTrendClient {
 		} catch (RestClientException | IllegalStateException exception) {
 			throw unavailable(exception);
 		}
+	}
+
+	public static boolean isUsableSummary(Request request, Result result) {
+		return result != null && result.appid() != null && result.appid() == request.appid()
+			&& result.summary() != null && !result.summary().isBlank()
+			&& result.usedLlm() != null && result.clean() != null
+			&& (!result.usedLlm() || result.clean()) && result.caveats() != null
+			&& result.caveats().stream().noneMatch(note -> note == null || note.isBlank());
 	}
 
 	private static BusinessException unavailable(Exception cause) {

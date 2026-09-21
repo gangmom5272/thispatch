@@ -60,7 +60,9 @@ public class AiReviewClient {
 		try {
 			Summary response = client.post().uri("/reviews/summarize")
 				.contentType(MediaType.APPLICATION_JSON).body(request).retrieve().body(Summary.class);
-			validateResponse(request, response);
+			if (!isUsableSummary(request, response)) {
+				throw new IllegalStateException("Invalid AI summary response");
+			}
 			return response;
 		} catch (RestClientException | IllegalStateException exception) {
 			// AI의 오류 본문이나 접속 주소는 화면 응답에 포함하지 않는다.
@@ -74,7 +76,7 @@ public class AiReviewClient {
 		}
 	}
 
-	private static void validateResponse(SummaryRequest request, Summary response) {
+	public static boolean isUsableSummary(SummaryRequest request, Summary response) {
 		Set<Long> reviewIds = request.reviews().stream().map(Review::reviewId).collect(Collectors.toSet());
 		if (response == null || !response.clean() || response.summary() == null || response.summary().isBlank()
 			|| response.appid() != request.appid() || !Objects.equals(response.scopeType(), request.scopeType())
@@ -82,8 +84,9 @@ public class AiReviewClient {
 			|| response.reviewCount() != request.reviews().size() || response.phrases() == null
 			|| response.phrases().stream().anyMatch(Objects::isNull) || response.evidenceIds() == null
 			|| !reviewIds.containsAll(response.evidenceIds())) {
-			throw new IllegalStateException("Invalid AI summary response");
+			return false;
 		}
+		return true;
 	}
 
 	private static BusinessException failure(Exception cause) {

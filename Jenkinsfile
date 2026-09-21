@@ -45,6 +45,7 @@ pipeline {
         //   비교해서, 실제 데이터가 있으면 통과할 수 없다.
         TEST_DB_NAME = 'thispatch_test'
         TEST_DB_CONT = 'thispatch-test-db'
+        TEST_REDIS_CONT = 'thispatch-test-redis'
         NETWORK      = 'thispatch_default'
     }
 
@@ -145,6 +146,22 @@ pipeline {
                     #   누군가 다시 넣어도 여기서 막힌다.
                     unset SPRING_PROFILES_ACTIVE
 
+                    echo "── 테스트 전용 Redis ──"
+                    docker rm -fv "$TEST_REDIS_CONT" >/dev/null 2>&1 || true
+                    docker run -d --name "$TEST_REDIS_CONT" --network "$NETWORK" \
+                      redis:8.2-alpine redis-server --save '' --appendonly no >/dev/null
+                    ok=0
+                    for i in $(seq 1 20); do
+                      if docker exec "$TEST_REDIS_CONT" redis-cli ping | grep -q PONG; then
+                        ok=1; break
+                      fi
+                      sleep 1
+                    done
+                    [ "$ok" = 1 ] || { echo "테스트 Redis 가 뜨지 않았습니다."; exit 1; }
+                    export REDIS_TEST_HOST="$TEST_REDIS_CONT"
+                    export REDIS_TEST_PORT=6379
+                    export REDIS_INTEGRATION_TEST=true
+
                     chmod +x gradlew
                     ./gradlew :common:test :backend:test --no-daemon
                 '''
@@ -152,7 +169,7 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
-                    sh 'docker rm -f "$TEST_DB_CONT" >/dev/null 2>&1 || true'
+                    sh 'docker rm -fv "$TEST_DB_CONT" "$TEST_REDIS_CONT" >/dev/null 2>&1 || true'
                 }
             }
         }
@@ -195,6 +212,7 @@ pipeline {
                 sh '''
                     set -e
                     cd "$DEPLOY_DIR/infra"
+                    docker compose -f "$COMPOSE_FILE" up -d --no-deps --wait --wait-timeout 60 redis
                     docker compose -f "$COMPOSE_FILE" up -d --no-deps backend
 
                     echo "── healthy 가 될 때까지 기다린다 ──"
@@ -233,7 +251,7 @@ pipeline {
     post {
         always {
             sh '''
-                docker rm -f "$TEST_DB_CONT" >/dev/null 2>&1 || true
+                docker rm -fv "$TEST_DB_CONT" "$TEST_REDIS_CONT" >/dev/null 2>&1 || true
                 echo "── 지금 도는 것 ──"
                 docker ps --format '  {{.Names}}  {{.Status}}'
             '''

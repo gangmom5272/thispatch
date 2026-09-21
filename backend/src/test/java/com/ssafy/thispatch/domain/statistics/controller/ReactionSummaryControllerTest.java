@@ -15,14 +15,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ssafy.thispatch.common.TimeRule;
+import com.ssafy.thispatch.client.ai.AiConfig;
 import com.ssafy.thispatch.client.ai.AiErrorCode;
 import com.ssafy.thispatch.client.ai.AiTrendClient;
+import com.ssafy.thispatch.client.ai.AiSummaryCache;
 import com.ssafy.thispatch.domain.statistics.repository.DailyStatisticsRepository;
 import com.ssafy.thispatch.domain.statistics.repository.DailyStatisticsRepository.DailyCounts;
 import com.ssafy.thispatch.domain.statistics.repository.ReactionPatchRepository;
@@ -40,7 +43,8 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 import com.ssafy.thispatch.support.ActiveMemberWebMvcTest;
 
 @WebMvcTest(ReactionSummaryController.class)
-@Import({ReactionSummaryService.class, ReactionSummaryReader.class, AnalysisContext.class, SecurityConfig.class, JwtConfig.class,
+@Import({ReactionSummaryService.class, ReactionSummaryReader.class, AiSummaryCache.class, AiConfig.class,
+	AnalysisContext.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
 class ReactionSummaryControllerTest extends ActiveMemberWebMvcTest {
@@ -53,6 +57,7 @@ class ReactionSummaryControllerTest extends ActiveMemberWebMvcTest {
 	@MockitoBean DailyStatisticsRepository repository;
 	@MockitoBean ReactionPatchRepository patches;
 	@MockitoBean AiTrendClient ai;
+	@MockitoBean StringRedisTemplate redis;
 
 	@BeforeEach
 	void gameExists() {

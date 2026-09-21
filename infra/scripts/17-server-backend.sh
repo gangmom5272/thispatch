@@ -8,7 +8,7 @@
 # 무엇을 하나
 #   1. 호스트 PostgreSQL 에 서비스 DB(thispatch)와 확장을 준비한다
 #   2. 컨테이너 -> 호스트 DB 경로를 뚫는다 (pg_hba + UFW)
-#   3. 이미지를 빌드하고 backend 만 올린다
+#   3. 이미지를 빌드하고 Redis 준비 후 backend 를 올린다
 #
 # ⚠ 저장소가 서버에 있어야 한다
 #   Dockerfile 의 빌드 컨텍스트가 저장소 루트다. 멀티모듈이라 settings.gradle
@@ -102,8 +102,9 @@ sudo docker compose -f "$COMPOSE" build backend
 sudo docker images thispatch/backend --format '    {{.Repository}}:{{.Tag}}  {{.Size}}'
 
 echo
-echo "── [6/6] backend 만 올린다 ────────────────────────────"
+echo "── [6/6] Redis 준비 후 backend 를 올린다 ─────────────"
 # ⚠ --no-deps 를 쓴다. 안 쓰면 jenkins 까지 다시 만든다.
+sudo docker compose -f "$COMPOSE" up -d --no-deps --wait --wait-timeout 60 redis
 sudo docker compose -f "$COMPOSE" up -d --no-deps backend
 
 echo

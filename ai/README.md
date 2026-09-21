@@ -67,10 +67,10 @@ Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네
 | 리뷰 토픽 분류 | 198리뷰/초 | 8,351건 42초. 토픽 붙은 리뷰 38% |
 | Qwen 사전 분석 (Ollama Q4_K_M, 요청당 2,500자 예산) | 1.2~3.6초/청크 | 시간은 문장 길이·뽑히는 변경점 수에 비례. Top50 실측 target 100%·attribute 94%, needs_review 4%(근거 검사 완화 후) |
 | 기획안 구조화 API | 3문장 4.9초 | |
-| 사례 비교 API (`/cases/compare`) | 문장 틀 0ms, Qwen 해석 13초 | 사례 변경점 40개 입력 기준 |
+| 사례 비교 API (`/cases/compare`) | `use_llm=false` 3ms · 로컬 Qwen 13~21초 · GMS gpt-4.1 4.5~5.0초 (9/21 실측) | 변경점 8·40·120개 입력 모두 13~21초(입력 크기보다 생성 길이가 지배). 폴백 미적용 — 화면에서 기다리기 어려우면 trends 처럼 GMS 폴백을 붙일 수 있음 |
 | 카드·재진술 API | 밀리초 | LLM 없음 |
-| 리뷰 요약 API (`/reviews/summarize`) | 6건 3.5~4.4초 (9/21, 도움됨 상위 20건·500자로 잘라 보냄) | 첫 호출만 워밍업으로 약 10초. **중국어·일본어 리뷰에서 外挂·反作弊 같은 용어가 한 글자씩 새면 용어 사전으로 교정하고, 그래도 규칙 위반이면 GMS gpt-4.1 로 1회 폴백**(`GMS_API_KEY` 없으면 로컬 재시도). 응답 `model` 에 실제 답한 쪽 |
-| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) · Qwen 약 30초 · GMS 약 5초 | 수치 계산은 전부 서버에서. `use_llm=true` 면 로컬 Qwen 1회. **Qwen 이 죽었거나 45초(`TREND_LOCAL_TIMEOUT`) 안에 못 답하면 GMS gpt-4.1 로 폴백**(`GMS_API_KEY`, `start.ps1` 이 저장소 밖 `api.txt` 에서 읽음). 응답 `model` 에 실제 답한 쪽이 온다. 백필 배치는 크레딧 때문에 GMS 를 쓰지 않는다 |
+| 리뷰 요약 API (`/reviews/summarize`) | 6건 4.6~5.9초 (9/21, 도움됨 상위 12건·400자) | **요약 방식 변경(9/21)**: 불만 나열 대신 가장 많이 걸린 지점 1~2개 + 긍정 1개로 초점. 중국어·일본어 용어가 새면 사전 교정 후 GMS gpt-4.1 1회 폴백. 응답 `model` 에 실제 답한 쪽 |
+| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) · Qwen 5.7~13.3초 · GMS 약 5초 | 수치 계산은 전부 서버에서. **9/21: 되돌림·반응 규모 지표 추가**(`patch_effects[].recovery`·`surge`) 및 요약 역할 변경 — 카드에 있는 총계를 되풀이하면 재시도시킨다. Qwen 이 죽었거나 45초(`TREND_LOCAL_TIMEOUT`) 안에 못 답하면 GMS gpt-4.1 로 폴백(`GMS_API_KEY`, `start.ps1` 이 저장소 밖 `api.txt` 에서 읽음). 백필 배치는 GMS 를 쓰지 않는다 |
 | 질의 임베딩 API | 밀리초 | |
 
 ## 아직 안 정해진 것

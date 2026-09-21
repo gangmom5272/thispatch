@@ -17,6 +17,8 @@ const VIEWPORT_MARGIN = 16
 const TOOLTIP_ESTIMATED_HEIGHT = 360
 /** 카드를 스치기만 할 때 툴팁이 깜빡이지 않도록 이만큼 머물러야 연다. */
 const OPEN_DELAY_MS = 250
+/** 별을 연달아 눌러도 마지막 상태만 이만큼 뒤에 한 번 요청한다. */
+const STAR_COMMIT_DELAY_MS = 400
 
 interface TooltipAnchor {
   side: "left" | "right"
@@ -41,21 +43,50 @@ const anchorClass: Record<TooltipAnchor["side"], string> & Record<TooltipAnchor[
 }
 
 /**
- * 게임 목록 카드. 카드에 0.25초 이상 마우스를 올리거나 포커스가 들어오면
- * 카드 옆에 Steam 요약 툴팁이 뜬다.
+ * 게임 목록 카드. 카드 어디를 눌러도 상세로 이동하고(별 제외),
+ * 0.25초 이상 마우스를 올리거나 포커스가 들어오면 카드 옆에 Steam 요약 툴팁이 뜬다.
+ * 별은 누르는 즉시 바뀌어 보이고, 마지막 상태가 서버와 다를 때만 디바운스 후 한 번 요청한다.
  */
 export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine: boolean }) {
   const { mutate, isPending, error } = useToggleMyGame()
   const [anchor, setAnchor] = useState<TooltipAnchor | null>(null)
+  // 서버 응답 전까지 화면에만 반영하는 별 상태. null이면 서버 값(isMine)을 그대로 쓴다.
+  const [optimisticMine, setOptimisticMine] = useState<boolean | null>(null)
+  const shownMine = optimisticMine ?? isMine
   const tooltipId = useId()
   // 툴팁 방향 계산용 카드 루트
   const rootRef = useRef<HTMLDivElement>(null)
   // 호버 지연 타이머 — 카드를 벗어나거나 언마운트되면 취소
   const openTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // 별 디바운스 타이머와, 언마운트 시 바로 실행할 대기 중 요청
+  const starTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const pendingStarCommitRef = useRef<(() => void) | null>(null)
   const detailPath = gameDetailPath(game.id)
-  const toggleMine = () => mutate({ gameId: game.id, isMine })
 
-  useEffect(() => () => clearTimeout(openTimerRef.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(openTimerRef.current)
+      clearTimeout(starTimerRef.current)
+      pendingStarCommitRef.current?.()
+    },
+    [],
+  )
+
+  const commitStar = (next: boolean) => {
+    pendingStarCommitRef.current = null
+    if (next === isMine) {
+      setOptimisticMine(null)
+      return
+    }
+    mutate({ gameId: game.id, isMine }, { onSettled: () => setOptimisticMine(null) })
+  }
+  const toggleStar = () => {
+    const next = !shownMine
+    setOptimisticMine(next)
+    clearTimeout(starTimerRef.current)
+    pendingStarCommitRef.current = () => commitStar(next)
+    starTimerRef.current = setTimeout(pendingStarCommitRef.current, STAR_COMMIT_DELAY_MS)
+  }
 
   const open = () => {
     const root = rootRef.current
@@ -87,40 +118,32 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
       <article
         className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${anchor ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        {/* 이미지 클릭도 상세로 이동(제목 스트레치 링크가 가려지므로) */}
-        <Link
-          to={detailPath}
-          draggable={false}
-          tabIndex={-1}
-          className="relative z-[1] block shrink-0"
-          aria-hidden="true"
-        >
-          <GameImage src={game.capsuleImageUrl} loading="lazy" className="h-auto w-full" />
-        </Link>
+        <GameImage src={game.capsuleImageUrl} loading="lazy" className="h-auto w-full shrink-0" />
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             {/* leading 여유로 truncate overflow가 g/y descender를 자르지 않게 함 */}
             <h3 className="min-w-0 flex-1 text-sb-title font-medium" title={game.title}>
+              {/* after 오버레이가 카드 전체를 덮어 어디를 눌러도 상세로 이동한다. 별만 z-10으로 위에 둔다. */}
               <Link
                 to={detailPath}
                 draggable={false}
                 aria-describedby={anchor ? tooltipId : undefined}
-                className="block truncate leading-[1.35] rounded-sb-tag after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+                className="block truncate leading-[1.35] rounded-sb-tag after:absolute after:inset-0 after:z-[1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
               >
                 {game.title}
               </Link>
             </h3>
             <button
               type="button"
-              aria-pressed={isMine}
+              aria-pressed={shownMine}
               aria-label={
-                isMine ? `${game.title} 내 게임 등록 해제` : `${game.title} 내 게임으로 등록`
+                shownMine ? `${game.title} 내 게임 등록 해제` : `${game.title} 내 게임으로 등록`
               }
               disabled={isPending}
-              onClick={toggleMine}
-              className={`relative z-10 shrink-0 cursor-pointer rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50 ${isMine ? "text-sb-amber-text hover:text-sb-ink-mute" : "text-sb-ink-mute hover:text-sb-ink"}`}
+              onClick={toggleStar}
+              className={`relative z-10 shrink-0 cursor-pointer rounded-sb-tag focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50 ${shownMine ? "text-sb-amber-text hover:text-sb-ink-mute" : "text-sb-ink-mute hover:text-sb-ink"}`}
             >
-              <StarIcon filled={isMine} />
+              <StarIcon filled={shownMine} />
             </button>
           </div>
           {error && (

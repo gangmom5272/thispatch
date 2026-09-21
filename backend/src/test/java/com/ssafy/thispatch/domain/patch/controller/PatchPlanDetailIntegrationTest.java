@@ -128,6 +128,28 @@ class PatchPlanDetailIntegrationTest {
 	}
 
 	@Test
+	void draftIsNotFoundUntilItsFirstSearchIsConfirmed() throws Exception {
+		long draft = jdbc.queryForObject("""
+			INSERT INTO patch_plan (member_id, appid, raw_text, structured_at)
+			VALUES (?, ?, '검색 전 원문', ?) RETURNING patch_plan_id
+			""", Long.class, memberId, gameId, CREATED_AT.minusMinutes(1));
+		restatement(draft, "최초 해석");
+		mvc.perform(request(draft)).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PATCH_PLAN_NOT_FOUND"))
+			.andExpect(jsonPath("$.data").doesNotExist()).andExpect(jsonPath("$.success").doesNotExist())
+			.andExpect(jsonPath("$.errors").doesNotExist()).andExpect(jsonPath("$.responsedAt").isString());
+		assertThat(jdbc.queryForObject("SELECT raw_text FROM patch_plan WHERE patch_plan_id = ?", String.class, draft))
+			.isEqualTo("검색 전 원문");
+		confirmed(draft, 1, "새 대상", "PLAYER", "체력", "MODIFY", "INCREASE", "20%", null);
+		jdbc.update("UPDATE patch_plan SET created_at = ? WHERE patch_plan_id = ?", CREATED_AT, draft);
+		var completed = data(draft);
+		assertThat(completed.path("planId").asLong()).isEqualTo(draft);
+		assertThat(completed.path("restatement").path("text").asText()).isEqualTo("최초 해석");
+		assertThat(completed.path("confirmedSlots").get(0).path("target").path("name").asText()).isEqualTo("새 대상");
+		assertThat(completed.path("createdAt").asText()).isEqualTo("2026-09-21T14:32:01.123456+09:00");
+	}
+
+	@Test
 	void missingAndOtherMembersPlansReturnSameNotFoundResponse() throws Exception {
 		long otherPlan = plan(otherMemberId, "비공개 원문");
 		restatement(otherPlan, "비공개 해석");

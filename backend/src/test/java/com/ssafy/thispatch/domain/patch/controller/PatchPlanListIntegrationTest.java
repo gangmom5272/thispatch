@@ -96,6 +96,35 @@ class PatchPlanListIntegrationTest {
 	}
 
 	@Test
+	void excludesDraftsFromPagesAndTotalsUntilSearchIsConfirmed() throws Exception {
+		long draft = jdbc.queryForObject("""
+			INSERT INTO patch_plan (member_id, appid, raw_text, structured_at)
+			VALUES (?, ?, '미확정 기획안', ?) RETURNING patch_plan_id
+			""", Long.class, memberId, gameId, CREATED_AT.minusHours(1));
+		assertEmpty(data(request(memberId)), 0);
+		assertEmpty(data(request(memberId).queryParam("gameId", Long.toString(gameId))), 0);
+		long older = plan(memberId, gameId, "기존 검색 내역", CREATED_AT.minusMinutes(1));
+		long newer = plan(memberId, gameId, "기존 검색 내역", CREATED_AT);
+		var first = data(request(memberId).queryParam("limit", "1"));
+		assertThat(ids(first)).containsExactly(newer);
+		assertThat(first.path("page").path("totalCount").asLong()).isEqualTo(2);
+		var second = data(request(memberId).queryParam("limit", "1")
+			.queryParam("cursor", first.path("page").path("nextCursor").asText()));
+		assertThat(ids(second)).containsExactly(older);
+		assertThat(second.path("page").path("hasNext").asBoolean()).isFalse();
+		assertThat(second.path("page").path("totalCount").asLong()).isEqualTo(2);
+
+		// 결과 0건도 검색 완료 시각과 확정 슬롯은 저장한다. 검색 결과 테이블은 없다.
+		confirmed(draft, 1, "확정 대상", "ENEMY");
+		jdbc.update("UPDATE patch_plan SET created_at = ? WHERE patch_plan_id = ?", CREATED_AT.plusMinutes(1), draft);
+		var completed = data(request(memberId).queryParam("gameId", Long.toString(gameId)));
+		assertThat(ids(completed)).containsExactly(draft, newer, older);
+		assertThat(completed.path("page").path("totalCount").asLong()).isEqualTo(3);
+		assertThat(completed.path("items").get(0).path("createdAt").asText())
+			.isEqualTo("2026-09-21T14:33:01.123456+09:00");
+	}
+
+	@Test
 	void returnsCurrentGameNameAfterUnregisterAndUsesOnlyConfirmedSlots() throws Exception {
 		long planId = plan(memberId, gameId, "원문", CREATED_AT);
 		long entity = jdbc.queryForObject("""

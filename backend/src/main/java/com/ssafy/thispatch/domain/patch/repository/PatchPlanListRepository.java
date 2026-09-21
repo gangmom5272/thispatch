@@ -51,7 +51,8 @@ public class PatchPlanListRepository {
 	}
 
 	private String filter(Long gameId) {
-		return "member_id = :memberId" + (gameId == null ? "" : " AND appid = :gameId");
+		return "member_id = :memberId AND created_at IS NOT NULL"
+			+ (gameId == null ? "" : " AND appid = :gameId");
 	}
 
 	private MapSqlParameterSource parameters(long memberId, Long gameId) {

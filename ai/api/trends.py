@@ -12,12 +12,22 @@ use_llm=false 면 문장 틀로만 만든다(밀리초).
   - 수정 리뷰의 전환 방향(긍정→부정)을 단정하지 않는다. 이전 상태를 저장하지 않는다.
 """
 import json
+import os
 import re
+import urllib.request
 
 import httpx
 
 from common import OLLAMA_URL
 from qwen_prompt import MODEL
+
+# GMS 폴백 (9/21). 요약은 이 노트북의 Qwen 이 먼저 맡고, Qwen 이 죽었거나 LOCAL_TIMEOUT 안에 답하지 못하면
+# SSAFY GMS(gpt-4.1) 로 넘어간다. 배치(백필)는 크레딧이 모자라 GMS 를 쓰지 않는다 — 요청 시 요약만.
+# 키는 환경 변수로만 받는다(start.ps1 이 저장소 밖 api.txt 에서 읽어 넣는다). 없으면 폴백 없이 문장 틀로 내려간다.
+GMS_URL = os.environ.get("GMS_URL", "https://gms.ssafy.io/gmsapi/api.openai.com/v1/responses")
+GMS_KEY = os.environ.get("GMS_API_KEY", "")
+GMS_MODEL = os.environ.get("GMS_MODEL", "gpt-4.1")
+LOCAL_TIMEOUT = float(os.environ.get("TREND_LOCAL_TIMEOUT", "45"))   # Qwen 정상 30초 안팎(9/18 실측). 넘으면 GPU 가 바쁜 것
 
 MIN_DAY_REVIEWS = 10   # 이 미만인 날은 '최저 긍정률일' 후보에서 뺀다(하루 2건으로 0% 가 나오는 것을 막는다)
 TREND_VERSION = "trend-facts-1"
@@ -204,22 +214,52 @@ def caveats(effects, has_channel):
     return out
 
 
-def summarize_trend(game, facts, effects, retry=2, timeout=180):
-    """반환: (title, summary, attempts, clean). title 이 빈 문자열이면 호출 쪽이 문장 틀 제목을 쓴다."""
+def _ask_local(msgs, timeout):
+    r = httpx.post(OLLAMA_URL + "/api/chat",
+                   json={"model": MODEL, "messages": msgs, "format": FORMAT, "stream": False, "think": False,
+                         "options": {"temperature": 0.1, "num_predict": 400}, "keep_alive": "10m"},
+                   timeout=timeout).json()
+    return r["message"]["content"]
+
+
+def _ask_gms(msgs, timeout=60):
+    body = {"model": GMS_MODEL, "temperature": 0.1,
+            "input": [{"role": m["role"], "content": m["content"]} for m in msgs],
+            "text": {"format": {"type": "json_object"}}}
+    req = urllib.request.Request(GMS_URL, data=json.dumps(body).encode("utf-8"), method="POST",
+                                 headers={"Authorization": f"Bearer {GMS_KEY}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.loads(resp.read())
+    return "".join(c.get("text", "") for o in data.get("output", []) for c in o.get("content", [])
+                   if c.get("type") == "output_text")
+
+
+def _ask(msgs, use_gms):
+    """(응답 문자열, 쓴 모델, gms 로 넘어갔는지). 로컬이 죽었거나 느리면 GMS 로 한 번 넘어가고 그 뒤로는 GMS 만 쓴다."""
+    if not use_gms:
+        try:
+            return _ask_local(msgs, LOCAL_TIMEOUT), MODEL, False
+        except (httpx.HTTPError, KeyError, ValueError, OSError):
+            if not GMS_KEY:
+                raise
+    return _ask_gms(msgs), f"gms/{GMS_MODEL}", True
+
+
+def summarize_trend(game, facts, effects, retry=2, timeout=None):
+    """반환: (title, summary, attempts, clean, model). title 이 빈 문자열이면 호출 쪽이 문장 틀 제목을 쓴다.
+    model 은 실제로 답한 쪽(로컬 Qwen 또는 gms/gpt-4.1)."""
     lines = build_lines(game, facts, effects)
     msgs = [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": lines +
              "\n\n위 수치를 바탕으로 이 기간의 반응 추세를 요약하세요."}]
     last = {"title": "", "summary": ""}
+    use_gms, model = False, MODEL
     for attempt in range(1, retry + 2):
-        r = httpx.post(OLLAMA_URL + "/api/chat",
-                       json={"model": MODEL, "messages": msgs, "format": FORMAT, "stream": False, "think": False,
-                             "options": {"temperature": 0.1, "num_predict": 400}, "keep_alive": "10m"},
-                       timeout=timeout).json()
+        content, model, use_gms = _ask(msgs, use_gms)
         try:
-            last = json.loads(r["message"]["content"])
+            last = json.loads(content)
         except Exception:  # noqa: BLE001
-            last = {"title": "", "summary": r["message"]["content"]}
+            last = {"title": "", "summary": content}
         s = tidy(last.get("summary", ""))
         title = tidy(last.get("title", ""))
         last["summary"], last["title"] = s, title
@@ -232,7 +272,7 @@ def summarize_trend(game, facts, effects, retry=2, timeout=180):
         plain = PLAIN_END.search(s)
         guess = SPECULATION.search(both)
         if not bad and not causal and not advice and not listy and not made_up and not plain and not guess and len(s) >= 30:
-            return (title if len(title) <= MAX_TITLE else ""), s, attempt, True
+            return (title if len(title) <= MAX_TITLE else ""), s, attempt, True, model
         why = []
         if bad:
             why.append(f"비한글 문자 {bad}개")
@@ -255,4 +295,4 @@ def summarize_trend(game, facts, effects, retry=2, timeout=180):
                   ". 같은 내용을 한국어 문장 2~3개로 다시 쓰되 인과·조언 표현 없이, 주어진 수치만 그대로 쓰고 "
                   "모든 문장을 '습니다' 로 끝내서 같은 JSON 형식으로 답하라."}]
     # 끝까지 규칙을 못 지킨 문장은 쓰지 않는다. 호출 쪽이 문장 틀로 내려간다.
-    return "", "", retry + 1, False
+    return "", "", retry + 1, False, model

@@ -70,7 +70,7 @@ Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네
 | 사례 비교 API (`/cases/compare`) | 문장 틀 0ms, Qwen 해석 13초 | 사례 변경점 40개 입력 기준 |
 | 카드·재진술 API | 밀리초 | LLM 없음 |
 | 리뷰 요약 API (`/reviews/summarize`) | 8건(평균 7,200자) 10초 | 짧은 리뷰면 더 빠름. 검증 루프 1회 통과 |
-| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) | 수치 계산은 전부 서버에서. `use_llm=true` 면 Qwen 1회가 더 붙는다 |
+| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) · Qwen 약 30초 · GMS 약 5초 | 수치 계산은 전부 서버에서. `use_llm=true` 면 로컬 Qwen 1회. **Qwen 이 죽었거나 45초(`TREND_LOCAL_TIMEOUT`) 안에 못 답하면 GMS gpt-4.1 로 폴백**(`GMS_API_KEY`, `start.ps1` 이 저장소 밖 `api.txt` 에서 읽음). 응답 `model` 에 실제 답한 쪽이 온다. 백필 배치는 크레딧 때문에 GMS 를 쓰지 않는다 |
 | 질의 임베딩 API | 밀리초 | |
 
 ## 아직 안 정해진 것

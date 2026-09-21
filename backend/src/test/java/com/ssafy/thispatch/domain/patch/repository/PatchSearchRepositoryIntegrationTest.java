@@ -1,6 +1,10 @@
 package com.ssafy.thispatch.domain.patch.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,9 +12,13 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import com.ssafy.thispatch.domain.patch.dto.PatchChangeCodes.*;
@@ -101,6 +109,62 @@ class PatchSearchRepositoryIntegrationTest {
 		var patch = search().get(0).patch();
 		assertThat(patch.averageDays()).isNull();
 		assertThat(patch.nextDays()).isNull();
+	}
+
+	@Test
+	void appliesChangeFilterAfterSelectingThirtyEligibleChunks() {
+		// 일치하는 변경점이 31번째라면 앞선 후보를 건너뛰고 보충하면 안 된다.
+		makeLessSimilar(chunkId);
+		for (int sequence = 2; sequence <= 31; sequence++) {
+			change(chunk(gid, sequence), "modify", "decrease", "valid");
+		}
+		assertThat(search()).isEmpty();
+	}
+
+	@Test
+	void ineligiblePatchesDoNotConsumeThirtyCandidateLimit() {
+		makeLessSimilar(chunkId);
+		for (int sequence = 1; sequence <= 40; sequence++) {
+			// 이 공지는 패치가 아니고 전후 리뷰 통계도 없다.
+			change(chunk(gid + "d", sequence), "modify", "increase", "valid");
+		}
+		assertThat(search()).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void usesHnswAndContinuesScanningPastFilteredOutNeighbors() {
+		// 벡터 UPDATE 전에 생성해야 같은 테스트 트랜잭션에서도 인덱스를 사용할 수 있다.
+		// UPDATE 후 생성하면 HOT 체인 검사(indcheckxmin)로 현재 스냅샷의 인덱스 사용이 제한된다.
+		jdbc.execute("CREATE INDEX test_patch_search_hnsw ON patch_chunk USING hnsw (embedding vector_cosine_ops)");
+		makeLessSimilar(chunkId);
+		// 초기 ef_search(100)보다 가까운 이웃이 많아도 다른 모델의 청크로 결과가 고갈되면 안 된다.
+		jdbc.update("""
+			insert into patch_chunk (gid, seq, text, extraction_status, embedding_status, embedding, embedding_model)
+			select ?, sequence, 'Other model', 'succeeded', 'succeeded', cast(? as vector), 'other-model'
+			from generate_series(2, 161) sequence
+			""", gid, "[1," + "0,".repeat(510) + "0]");
+		// 작은 fixture에서도 운영과 같은 인덱스 경로를 실행한다. DDL/설정은 테스트 종료 시 롤백된다.
+		jdbc.execute("SET LOCAL enable_seqscan = off");
+		jdbc.execute("SET LOCAL enable_sort = off");
+		var recordedJdbc = spy(new NamedParameterJdbcTemplate(jdbc));
+		var indexedRepository = new PatchSearchRepository(recordedJdbc);
+		var result = indexedRepository.search(List.of(vector), model, List.of(slot), List.of(genreId));
+		assertThat(result).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
+
+		var sql = ArgumentCaptor.forClass(String.class);
+		var parameters = ArgumentCaptor.forClass(SqlParameterSource.class);
+		verify(recordedJdbc, atLeastOnce()).query(sql.capture(), parameters.capture(), any(RowMapper.class));
+		// 최초 쿼리가 후보 검색이며, 이후 상세 정보 쿼리는 실행 계획 검증 대상이 아니다.
+		String plan = recordedJdbc.queryForObject("EXPLAIN (FORMAT JSON) " + sql.getAllValues().get(0),
+			parameters.getAllValues().get(0), String.class);
+		assertThat(plan).contains("test_patch_search_hnsw");
+		assertThat(jdbc.queryForObject("SHOW hnsw.iterative_scan", String.class)).isEqualTo("strict_order");
+	}
+
+	private void makeLessSimilar(long id) {
+		jdbc.update("update patch_chunk set embedding = cast(? as vector) where chunk_id = ?",
+			"[1,1," + "0,".repeat(509) + "0]", id);
 	}
 
 	private List<PatchSearchRepository.Candidate> search() {

@@ -2,7 +2,6 @@ import { useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import { useLanguageAnalysis } from "@/hooks/queries/languageAnalysisQueries"
-import { formatPercent } from "@/lib/format"
 import type { LanguageAnalysis, LanguageShare } from "@/types"
 import LanguageRow, { LANGUAGE_ROW_GRID } from "./components/LanguageRow"
 
@@ -47,23 +46,12 @@ function PeriodBar({ data }: { data: LanguageAnalysis }) {
   )
 }
 
-function SampleNote({ data, excluded }: { data: LanguageAnalysis; excluded: LanguageShare[] }) {
-  const { period } = data.meta
-  const excludedText =
-    excluded.length > 0
-      ? ` 비중이 낮은 언어(${excluded
-          .map((item) => `${item.languageCode} ${formatPercent(item.reviewShare)}`)
-          .join(", ")})는 목록에서 제외했습니다.`
-      : ""
+/** 언어별 분석 하단 안내. 국적·거주지와 작성 언어를 혼동하지 않도록 짧게 남긴다. */
+function SampleNote() {
   return (
     <p className="flex gap-sb-2 text-sb-ink-mute">
       <span aria-hidden="true">ⓘ</span>
-      <span>
-        분석 구간은 오늘 기준 최근 {period.dayCount}일({period.startDate} ~ {period.endDate}
-        )입니다. 긍정률은 그 구간에 수정된 해당 언어 리뷰 중 추천 비율이며, 리뷰 비중은 같은 구간
-        전체 리뷰에서 그 언어가 차지하는 몫입니다.{excludedText} 언어는 리뷰 작성 언어이며 사용자의
-        국적이나 거주지를 뜻하지 않습니다.
-      </span>
+      <span>언어는 리뷰 작성 언어이며 사용자의 국적이나 거주지를 뜻하지 않습니다.</span>
     </p>
   )
 }
@@ -82,7 +70,8 @@ function LanguageAnalysisSkeleton() {
 }
 
 function LanguageAnalysisContent({ gameId, data }: { gameId: number; data: LanguageAnalysis }) {
-  const { top, rest } = splitByShare(data.languages)
+  // top: 비중 상위 N개 언어만 목록에 표시
+  const { top } = splitByShare(data.languages)
 
   return (
     <>
@@ -120,7 +109,7 @@ function LanguageAnalysisContent({ gameId, data }: { gameId: number; data: Langu
                 ))}
               </ul>
             </div>
-            <SampleNote data={data} excluded={rest} />
+            <SampleNote />
           </div>
         )}
       </section>

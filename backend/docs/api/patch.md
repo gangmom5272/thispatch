@@ -537,6 +537,7 @@ Authorization: Bearer {ACCESS_TOKEN}
 - 미존재 내역과 다른 회원 소유의 내역은 모두 동일한 `404 PATCH_PLAN_NOT_FOUND`로 처리하여 다른 회원의 내역 존재 여부를 노출하지 않는다.
 - `rawText`는 저장된 원문 전체를 반환한다. 별도 제목, AI 요약, 축약본을 생성하거나 반환하지 않는다.
 - `restatement.text`는 저장된 `patch_plan_restatement.text`를 그대로 반환한다. 조회 시 AI 재구조화·재진술을 실행하지 않는다.
+- 본인 소유 내역에 `patch_plan_restatement` 행이 없으면 `200`과 `restatement: {"text": ""}`를 반환한다. 저장된 해석이 빈 문자열인 경우에도 그대로 반환한다.
 - `confirmedSlots`는 `patch_plan_confirmed_slot`에서 조회하며 `slot_order` 오름차순으로 반환한다. 최초 AI 구조화의 `entities`, 최초 `slots`는 반환하지 않는다.
 - `genreIds`는 검색 당시 선택값을 `patch_plan_genre`에서 조회한다. 현재 게임의 장르로 대체하지 않으며, `genreIds: []`는 기존 유사 사례 검색 계약과 동일하게 전체 장르 조건을 의미한다.
 - 게임 이름은 조회 시점의 `game.name`을 사용한다.

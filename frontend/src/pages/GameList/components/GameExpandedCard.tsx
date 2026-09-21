@@ -35,10 +35,7 @@ export default function GameExpandedCard({
   return (
     <article className="flex flex-col overflow-hidden rounded-sb-card border border-sb-primary bg-sb-canvas shadow-sb-popover">
       <Link to={detailPath} tabIndex={-1} draggable={false} className="block">
-        <GameImage
-          src={summary.headerImageUrl ?? game.capsuleImageUrl}
-          className="aspect-[460/215] w-full"
-        />
+        <GameImage src={summary.headerImageUrl ?? game.capsuleImageUrl} className="h-auto w-full" />
       </Link>
       <div className="flex flex-col gap-sb-3 p-sb-4">
         <div className="flex items-start justify-between gap-sb-2">
@@ -80,18 +77,6 @@ export default function GameExpandedCard({
 
         <hr className="border-sb-hairline" />
         <p className="leading-relaxed">{summary.description ?? "게임 설명이 없습니다."}</p>
-        {summary.userTags.length > 0 && (
-          <>
-            <p className="text-sb-caption text-sb-ink-mute">사용자 태그</p>
-            <ul className="flex flex-wrap gap-sb-1">
-              {summary.userTags.map((tag) => (
-                <li key={tag} className={tagClass}>
-                  {tag}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
 
         <hr className="border-sb-hairline" />
         <dl className="flex flex-wrap gap-sb-4">
@@ -108,7 +93,7 @@ export default function GameExpandedCard({
             <dd className="font-sb-mono">{summary.latestPatch}</dd>
           </div>
         </dl>
-        <p className="text-sb-caption text-sb-ink-mute-2">출처 · Steam Store 설명과 사용자 태그</p>
+        <p className="text-sb-caption text-sb-ink-mute-2">출처 · Steam Store</p>
       </div>
     </article>
   )

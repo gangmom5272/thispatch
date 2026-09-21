@@ -73,8 +73,11 @@ read_state() {
               where job_execution_id=$JOB_ID and status='COMPLETED';")
   P_FAIL=$(q "select count(*) from batch_step_execution
               where job_execution_id=$JOB_ID and status='FAILED';")
+  # ⚠ UNKNOWN 도 굳은 것이다. 매니저가 조각 하나 때문에 멈춰 있다가 그 조각을 손으로 FAILED 로 찍으면
+  #   파티션 핸들러가 예외를 던지고 매니저 step 이 UNKNOWN 으로 남는다(2026-09-21 실측). Spring Batch 는
+  #   "Cannot restart step from UNKNOWN status" 로 재시작을 거부한다 — STARTED 와 똑같이 FAILED 로 풀어 준다.
   P_RUN=$(q "select count(*) from batch_step_execution
-             where job_execution_id=$JOB_ID and status in ('STARTED','STARTING');")
+             where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');")
   : "${P_DONE:=0}" "${P_FAIL:=0}" "${P_RUN:=0}"
 
   # 처음 돌 때 조각을 몇 개로 나눴는가.
@@ -117,7 +120,7 @@ unstick() {
     return 1
   fi
   read_state
-  if [ "$P_RUN" = 0 ] && [ "$JOB_ST" != STARTED ]; then
+  if [ "$P_RUN" = 0 ] && [ "$JOB_ST" != STARTED ] && [ "$JOB_ST" != UNKNOWN ]; then
     echo "  굳은 것이 없다."
     return 0
   fi
@@ -127,11 +130,11 @@ unstick() {
             exit_message = coalesce(exit_message,'') ||
               '[23-collect-retry.sh] 워커가 죽은 채 STARTED 로 남아 재시작을 막고 있었다',
             end_time = coalesce(end_time, now()), last_updated = now()
-      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING');" >/dev/null
+      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');" >/dev/null
   q "update batch_job_execution
         set status='FAILED', exit_code='FAILED',
             end_time = coalesce(end_time, now()), last_updated = now()
-      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','STOPPING');" >/dev/null
+      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','STOPPING','UNKNOWN');" >/dev/null
   echo "  풀었다."
 }
 

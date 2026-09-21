@@ -77,11 +77,7 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
           className="relative z-[1] block shrink-0"
           aria-hidden="true"
         >
-          <GameImage
-            src={game.capsuleImageUrl}
-            loading="lazy"
-            className="aspect-[460/215] w-full"
-          />
+          <GameImage src={game.capsuleImageUrl} loading="lazy" className="h-auto w-full" />
         </Link>
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">

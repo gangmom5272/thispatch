@@ -9,7 +9,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PatchErrorCode implements ErrorCode {
 
-	PATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "패치를 찾을 수 없습니다.");
+	PATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "패치를 찾을 수 없습니다."),
+	PATCH_PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "기획안 내역을 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 	private final String message;

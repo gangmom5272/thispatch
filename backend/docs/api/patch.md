@@ -300,6 +300,127 @@
 - `404`
 - `500`
 
+## 기획안 내역 목록 조회
+
+### `GET /members/me/patch-plans`
+
+[기획안 내역 목록 조회 원본 명세](https://app.notion.com/p/3e2776ebfd68819bbe62e5223a843346)
+
+현재 로그인 사용자가 저장한 기획안 내역을 최종 확정 상태 기준으로 최신순 조회한다.
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables / Request Body**: 없음
+
+**Query Parameters**
+
+| Name | Type | Required | Description |
+|---|---|---:|---|
+| `gameId` | long | No | 양수. 특정 게임의 기획안 내역만 조회하며 생략하면 모든 게임 조회 |
+| `limit` | int | No | 기본 10, min 1, max 100 |
+| `cursor` | string | No | 다음 페이지 조회용 커서. 첫 조회 시 생략 |
+
+**Request Example**
+
+```http
+GET /members/me/patch-plans?gameId=730&limit=10
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-21 14:40:00",
+  "data": {
+    "items": [
+      {
+        "planId": 101,
+        "gameId": 730,
+        "gameTitle": "Slay the Spire 2",
+        "rawTextPreview": "Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다. 고통 4 이상 난이도에서만 적용하며, Wraith 계열 등장 빈도도 소폭 조정한다.",
+        "slotCount": 3,
+        "unknownEntityCount": 1,
+        "createdAt": "2026-09-21T14:32:00+09:00"
+      }
+    ],
+    "page": {
+      "limit": 10,
+      "nextCursor": null,
+      "hasNext": false,
+      "totalCount": 1
+    }
+  },
+  "success": true
+}
+```
+
+**Processing Rules / Notes — Field rules**
+
+아래 필드 경로는 `data` 내부를 기준으로 한다.
+
+| Field | Type | Description |
+|---|---|---|
+| `items` | object[] | 현재 회원과 `gameId` 필터에 해당하는 기획안 내역 목록 |
+| `items[].planId` | long | 검색 실행별로 저장한 기획안 내역 ID (`patch_plan.patch_plan_id`) |
+| `items[].gameId` | long | 기획안 대상 게임 ID (`patch_plan.appid`) |
+| `items[].gameTitle` | string | 현재 게임 테이블의 게임 이름 (`game.name`) |
+| `items[].rawTextPreview` | string | `patch_plan.raw_text` 앞부분 최대 200자. 별도 저장·AI 생성 없음 |
+| `items[].slotCount` | int | 해당 검색에 실제 제출한 최종 확정 슬롯 개수 |
+| `items[].unknownEntityCount` | int | 최종 확정 슬롯 중 `target_role = UNKNOWN`인 고유 `target_name` 수 |
+| `items[].createdAt` | string | 검색 내역 저장 시각 (`patch_plan.created_at`). ISO 8601, 한국 시간대 (`+09:00`) |
+| `page` | object | 페이지 정보 |
+| `page.limit` | int | 적용된 페이지 크기 |
+| `page.nextCursor` | string \| null | 다음 페이지 커서. 다음 페이지가 없으면 `null` |
+| `page.hasNext` | boolean | 다음 페이지 존재 여부 |
+| `page.totalCount` | long | 현재 회원과 `gameId` 필터에 해당하는 전체 내역 수. 커서 이전 내역도 포함 |
+
+**Processing Rules / Notes — Rules**
+
+- 인증된 회원의 기획안 내역만 조회하며 회원 ID를 별도로 입력받지 않는다.
+- 저장된 내역을 `created_at DESC, patch_plan_id DESC` 순서로 정렬한다. 저장 시각이 같으면 내역 ID 내림차순으로 반환한다.
+- 같은 원문으로 여러 번 검색한 경우 각각 별도의 내역으로 반환한다.
+- `rawTextPreview`는 저장된 원문을 조회 시 앞부분 최대 200자로 잘라 반환한다. 별도 저장하거나 AI로 요약하지 않으며 제목 필드도 반환하지 않는다.
+- `slotCount`는 해당 내역의 `patch_plan_confirmed_slot` 개수다. 최초 구조화 슬롯인 `patch_plan_slot` 개수를 사용하지 않는다.
+- `unknownEntityCount`는 해당 내역의 최종 확정 슬롯 중 `target_role = UNKNOWN`인 행에서 `target_name` 기준으로 중복 제거한 대상 수다. 최초 구조화 엔티티나 당시 경고 개수를 사용하지 않는다.
+- 커서는 현재 회원과 `gameId` 필터에 연결한다. 다른 회원 또는 다른 필터의 커서는 `400 INVALID_REQUEST`로 거부한다. `gameId` 생략(모든 게임)과 특정 게임 지정도 서로 다른 필터다.
+- `totalCount`는 현재 회원과 `gameId` 필터에 해당하는 전체 내역 수이며, 커서 이전 내역도 포함한다. 한 응답의 목록과 전체 개수는 동일한 DB 스냅샷으로 조회한다.
+- 빈 결과는 `200`, `items: []`, `hasNext: false`, `nextCursor: null`을 반환한다. 필터에 해당하는 전체 내역이 없으면 `totalCount`는 `0`이며, 커서 이후 결과만 비어 있으면 커서 이전 내역을 포함한 전체 개수를 유지한다.
+- 게임 이름은 조회 시점의 `game.name`을 사용한다. 내 게임 등록을 해제하더라도 이미 저장한 기획안 내역은 조회할 수 있다.
+- 저장된 검색 내역만 조회하며 AI 구조화나 유사 사례 검색을 실행하지 않는다. 기획안 상세 및 과거 유사 사례 검색 결과 조회는 이 API의 범위에 포함하지 않는다.
+
+**Error Responses**
+
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | `gameId` 양수·`limit` 범위 검증 실패 (필드별 `errors` 포함) |
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | 파라미터 타입 오류·커서 형식 오류·회원 또는 필터가 다른 커서 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회 실패 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 문자열 `code`, `message`, 한국 시간의
+`responsedAt`을 포함하고 `data`, `success`는 포함하지 않는다. 필드 검증 오류가 있을 때만 `errors`를 포함한다.
+
+입력값 검증 실패 예시:
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "입력값을 확인해주세요.",
+  "responsedAt": "2026-09-21 14:40:00",
+  "errors": [
+    {
+      "field": "limit",
+      "message": "limit은 1 이상 100 이하여야 합니다."
+    }
+  ]
+}
+```
+
 ## 패치 상세
 
 ### `GET /games/{gameId}/patches/{patchId}`

@@ -112,7 +112,7 @@ export function GameHeader({ gameId, back = "games" }: GameHeaderProps) {
 
   return (
     <header className="border-b border-sb-hairline-cool bg-sb-canvas-base">
-      <div className="border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 pt-sb-3 md:px-sb-12">
+      <div className="border-b border-sb-hairline bg-sb-canvas-surface px-sb-4 py-sb-3 md:px-sb-12">
         <Link
           to={backLink.to}
           className="inline-flex items-center gap-1.5 text-sb-body text-sb-primary hover:text-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"

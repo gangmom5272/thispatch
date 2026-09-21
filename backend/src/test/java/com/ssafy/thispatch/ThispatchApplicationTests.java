@@ -89,15 +89,15 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V12, each applied exactly once").hasSize(12);
+		assertThat(history).as("V1 through V13, each applied exactly once").hasSize(13);
 		assertThat(history).extracting(row -> row.get("version"))
-			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql",
 				"V6__add_member_email_unique.sql", "V7__add_band_topic_positive_count.sql",
 				"V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql", "V10__seed_language.sql",
-				"V11__seed_topic.sql", "V12__index_patch_chunk_change.sql");
+				"V11__seed_topic.sql", "V12__index_patch_chunk_change.sql", "V13__add_patch_plan_history.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();
@@ -115,7 +115,8 @@ class ThispatchApplicationTests {
 				"band_topic_stat", "band_stat", "recent_review", "batch_log", "game_tag", "game",
 				"language", "language_stat", "member", "batch_job", "review_topic",
 				"patch_chunk", "patch_change", "patch_change_type", "patch_change_direction", "patch_change_target_type",
-				"play_mode", "game_play_mode");
+				"play_mode", "game_play_mode", "patch_plan", "patch_plan_genre", "patch_plan_entity",
+				"patch_plan_slot", "patch_plan_restatement", "patch_plan_confirmed_slot");
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname = 'vector'", Integer.class))
 			.isEqualTo(1);
 		assertThat(jdbc.queryForObject("""

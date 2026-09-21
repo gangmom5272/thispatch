@@ -101,6 +101,7 @@ STAGES=(
   "retry|실패 조각 재투입|daily"
   "convert|리뷰 landing → delta|daily"
   "news|공지 수집|daily"
+  "news-retry|공지 실패 조각 재투입|daily"
   "news-convert|공지 landing → news_raw|daily"
   "compact|delta → base 병합|mon"
   "topics|토픽 분류|todo"
@@ -121,6 +122,8 @@ STAGES=(
 #   recent_review → … → 토픽 다시 넣음」 으로 감싼다. review_topic 적재기는 recent_review
 #   의 review_id 로 짝을 맞추므로 맨 끝에 온다.
 #   patch_chunk.gid 는 news 를, patch_change 는 patch_chunk 를 참조한다.
+#   band_stat 이 recent_review 앞이다 — recent_review.band_no 는 band_stat 의 구간 경계로 매긴다
+#   (2026-09-21: 이 칼럼이 전부 NULL 이라 구간 화면이 비었다). 오늘 경계로 오늘 리뷰를 나누는 게 맞다.
 #   band_stat 은 band_topic_stat 이 참조한다 — 그 적재기(S15P21A202-251)가 생기면 band_stat 뒤에 온다.
 #
 # ⚠ AI 산출물(patch_chunk · patch_change · review_topic)은 AI 노드가 HDFS 에 올린 것을 읽는다.
@@ -136,11 +139,11 @@ STAGES=(
 # 어제(KST)다. 오늘 증분이 이 단계 앞(collect·convert)에서 끝났기 때문이다.
 LOAD_JOBS=(
   "news|com.ssafy.thispatch.spark.NewsToPostgres|light|"
+  "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
   "review_topic_clear|com.ssafy.thispatch.spark.ReviewTopicToPostgres|light|--clear-only"
   "recent_review|com.ssafy.thispatch.spark.RecentReviewToPostgres|light|"
   "patch_chunk|com.ssafy.thispatch.spark.PatchChunkToPostgres|light|--dt YESTERDAY"
   "patch_change|com.ssafy.thispatch.spark.PatchChangeToPostgres|light|--chunk-dt YESTERDAY --change-dt YESTERDAY"
-  "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
   "patch_stat|com.ssafy.thispatch.spark.PatchStatToPostgres|heavy|--coverage-end YESTERDAY"
   "daily_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only daily"
   "language_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only language"
@@ -200,6 +203,9 @@ run_stage() {
     #   환경에 false 가 남아 있으면 조용히 전량이 된다. 파이프라인에서는 그럴 수 없다.
     collect)      guard_collect && ensure_workers                     && COLLECT_INCREMENTAL=true bash "$HERE/12-deploy-collector.sh" run ;;
     retry)        bash "$HERE/23-collect-retry.sh" now ;;
+    # ⚠ 공지도 같은 이유로 재투입이 필요하다. 2026-09-21 첫 자동 실행에서 무선 순단으로 공지 조각 3개가
+    #   FAILED 됐는데 재투입이 리뷰 전용이라 그날 공지 3,000개 게임분을 그대로 잃을 뻔했다.
+    news-retry)   JOB=news bash "$HERE/23-collect-retry.sh" now ;;
     convert)      spark_job com.ssafy.thispatch.spark.JsonToParquet && convert_today com.ssafy.thispatch.spark.JsonToParquet /review_landing ;;
     news)         ensure_workers && bash "$HERE/12-deploy-collector.sh" run-news ;;
     news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet && convert_today com.ssafy.thispatch.spark.NewsToParquet /news_landing ;;

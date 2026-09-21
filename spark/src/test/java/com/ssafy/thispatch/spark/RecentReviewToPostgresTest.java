@@ -68,6 +68,48 @@ class RecentReviewToPostgresTest {
         assertEquals(1, out.size());
     }
 
+    /** band_stat 구간(from ≤ playtime < to, 마지막은 to=null)으로 band_no 를 붙인다. 없는 게임·플레이타임 없음은 null 로 남긴다. */
+    @Test void assignsBandFromBandStatRanges() {
+        Dataset<Row> reviews = input(
+                row(1L, 730L, "a", true, 0, 5, "english", 100L, 100L, 100L),      // 0~10  → 1
+                row(2L, 730L, "b", true, 0, 10, "english", 100L, 100L, 100L),     // 10~50 → 2 (경계는 아래 구간 포함)
+                row(3L, 730L, "c", true, 0, 999, "english", 100L, 100L, 100L),    // 200~  → 4
+                row(4L, 730L, "d", true, 0, null, "english", 100L, 100L, 100L),   // 플레이타임 없음 → null
+                row(5L, 570L, "e", true, 0, 5, "english", 100L, 100L, 100L));     // band_stat 에 없는 게임 → null
+        Dataset<Row> bands = spark.createDataFrame(Arrays.asList(
+                RowFactory.create(730L, (short) 1, 0, 10), RowFactory.create(730L, (short) 2, 10, 50),
+                RowFactory.create(730L, (short) 3, 50, 200), RowFactory.create(730L, (short) 4, 200, null)),
+                RecentReviewToPostgres.BAND);
+        java.util.Map<Long, Short> got = new java.util.HashMap<>();
+        for (Row r : RecentReviewToPostgres.assignBand(reviews, bands).collectAsList()) {
+            got.put(r.getAs("recommendationid"), r.getAs("band_no"));
+        }
+        assertEquals(5, got.size());
+        assertEquals((short) 1, (short) got.get(1L));
+        assertEquals((short) 2, (short) got.get(2L));
+        assertEquals((short) 4, (short) got.get(3L));
+        assertNull(got.get(4L));
+        assertNull(got.get(5L));
+    }
+
+    /** 증분 모드는 오늘·어제 delta 파티션만 읽는다. 자정을 넘긴 수집이 어제 파티션에 남기 때문이다. */
+    @Test void incrementalReadsTodayAndYesterdayDeltaOnly() {
+        String[] paths = RecentReviewToPostgres.deltaPathsFor(java.time.LocalDate.of(2026, 9, 22), 2);
+        assertEquals(2, paths.length);
+        assertTrue(paths[0].endsWith("/review_raw/delta/dt=2026-09-22"), paths[0]);
+        assertTrue(paths[1].endsWith("/review_raw/delta/dt=2026-09-21"), paths[1]);
+    }
+
+    /** 증분은 UNIQUE 없이 간다 — UPDATE 는 recommendationid 로 찾되 더 새 판본일 때만, INSERT 는 ON CONFLICT 없이. */
+    @Test void incrementalUpdatesOnlyNewerVersionAndInsertsPlainly() {
+        String upd = RecentReviewToPostgres.updateSql();
+        assertTrue(upd.contains("WHERE recommendationid = ? AND updated_ts <= ?"), upd);
+        assertTrue(upd.contains("band_no = ?"));
+        String ins = RecentReviewToPostgres.insertSql();
+        assertFalse(ins.contains("ON CONFLICT"), ins);
+        assertTrue(ins.contains("INSERT INTO recent_review"));
+    }
+
     @Test void invalidInputCatchesWhatInsertWouldReject() {
         Dataset<Row> rows = input(
                 ok(1, 10L, 11L),                                                         // 정상

@@ -5,6 +5,10 @@
 #   bash 23-collect-retry.sh now      실패 조각이 0 이 될 때까지 다시 돌린다
 #   bash 23-collect-retry.sh unstick  STARTED 로 굳은 조각만 풀어 준다
 #
+#   JOB=news bash 23-collect-retry.sh now   공지 수집 잡(newsJob)도 똑같이. 기본은 리뷰(collectJob).
+#     2026-09-21 첫 자동 실행에서 공지 조각 3개가 무선 순단으로 FAILED 됐는데 재투입이 리뷰 전용이라
+#     그대로 잃었다. 조각 이름·매니저 유닛·실행 명령만 다르고 나머지는 같아서 잡 종류를 받게 했다.
+#
 # 왜 필요한가
 #   실패한 조각은 큐로 돌아가지 않는다. Spring Batch 의 원격 파티셔닝은
 #   실패한 스텝을 그 판 안에서 재시도하지 않는다. 사람이 잡을 다시 띄워야
@@ -41,10 +45,18 @@ BATCH_DB_PASSWORD=${BATCH_DB_PASSWORD:-dispatch-batch-local}
 # 몇 번까지 다시 돌릴 것인가. 한 번에 몇 시간이 걸리므로 크게 잡지 않는다.
 MAX_ROUNDS=${MAX_ROUNDS:-5}
 
-# 매니저를 띄우는 systemd 임시 유닛 이름.
-# ⚠ nohup 이나 & 로 띄우면 이 셸이 끝날 때 같이 죽는다. 2026-09-14 에 겪었다 —
-#   로그 파일조차 만들어지지 않았다.
-UNIT=${UNIT:-thispatch-collect}
+# 어느 잡인가. 리뷰(collectJob)가 기본, JOB=news 면 공지(newsJob).
+#   JOB_NAME     batch_job_instance.job_name
+#   STEP_PREFIX  조각 step 이름 앞부분 (collect.worker:partitionN · collect.news:partitionN)
+#   UNIT         매니저를 띄우는 systemd 임시 유닛 이름
+#                ⚠ nohup 이나 & 로 띄우면 이 셸이 끝날 때 같이 죽는다. 2026-09-14 에 겪었다 —
+#                  로그 파일조차 만들어지지 않았다.
+#   DEPLOY_CMD   12-deploy-collector.sh 의 명령. 둘 다 DT · PARTITIONS 환경변수를 받는다.
+case "${JOB:-reviews}" in
+  reviews|collect) JOB_NAME=collectJob; STEP_PREFIX=collect.worker; UNIT=${UNIT:-thispatch-collect}; DEPLOY_CMD=run ;;
+  news)            JOB_NAME=newsJob;    STEP_PREFIX=collect.news;   UNIT=${UNIT:-thispatch-news};    DEPLOY_CMD=run-news ;;
+  *) echo "모르는 JOB: ${JOB} (reviews | news)" >&2; exit 2 ;;
+esac
 
 CMD=${1:-status}
 
@@ -62,7 +74,7 @@ read_state() {
     join batch_job_instance i using(job_instance_id)
     left join batch_job_execution_params p
            on p.job_execution_id = e.job_execution_id and p.parameter_name = 'dt'
-    where i.job_name = 'collectJob'
+    where i.job_name = '$JOB_NAME'
     order by e.job_execution_id desc limit 1;")
   JOB_ID=$(echo "$row" | cut -d'|' -f1)
   JOB_ST=$(echo "$row" | cut -d'|' -f2)
@@ -73,8 +85,11 @@ read_state() {
               where job_execution_id=$JOB_ID and status='COMPLETED';")
   P_FAIL=$(q "select count(*) from batch_step_execution
               where job_execution_id=$JOB_ID and status='FAILED';")
+  # ⚠ UNKNOWN 도 굳은 것이다. 매니저가 조각 하나 때문에 멈춰 있다가 그 조각을 손으로 FAILED 로 찍으면
+  #   파티션 핸들러가 예외를 던지고 매니저 step 이 UNKNOWN 으로 남는다(2026-09-21 실측). Spring Batch 는
+  #   "Cannot restart step from UNKNOWN status" 로 재시작을 거부한다 — STARTED 와 똑같이 FAILED 로 풀어 준다.
   P_RUN=$(q "select count(*) from batch_step_execution
-             where job_execution_id=$JOB_ID and status in ('STARTED','STARTING');")
+             where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');")
   : "${P_DONE:=0}" "${P_FAIL:=0}" "${P_RUN:=0}"
 
   # 처음 돌 때 조각을 몇 개로 나눴는가.
@@ -92,7 +107,7 @@ read_state() {
     join batch_job_execution e using(job_execution_id)
     where e.job_instance_id = (select job_instance_id from batch_job_execution
                                where job_execution_id=$JOB_ID)
-      and se.step_name like 'collect.worker:partition%';")
+      and se.step_name like '$STEP_PREFIX:partition%';")
   : "${ORIG_PARTS:=0}"
 }
 
@@ -117,21 +132,32 @@ unstick() {
     return 1
   fi
   read_state
-  if [ "$P_RUN" = 0 ] && [ "$JOB_ST" != STARTED ]; then
+  if [ "$P_RUN" = 0 ] && [ "$JOB_ST" != STARTED ] && [ "$JOB_ST" != UNKNOWN ]; then
     echo "  굳은 것이 없다."
     return 0
   fi
   echo "  조각 $P_RUN 개와 잡 #$JOB_ID 를 실패로 찍는다 (재시작이 집어가게)"
   q "update batch_step_execution
         set status='FAILED', exit_code='FAILED',
-            exit_message = coalesce(exit_message,'') ||
-              '[23-collect-retry.sh] 워커가 죽은 채 STARTED 로 남아 재시작을 막고 있었다',
+            -- ⚠ exit_message 는 varchar(2500) 이고 스택트레이스로 이미 꽉 차 있는 경우가 많다.
+            --   그대로 덧붙이면 UPDATE 가 거부되고(2026-09-21 실측 "value too long") 굳은 것이 안 풀린다.
+            exit_message = left(coalesce(exit_message,''), 2300) ||
+              ' [23-collect-retry.sh] 굳은 채 남아 재시작을 막고 있었다 → FAILED',
             end_time = coalesce(end_time, now()), last_updated = now()
-      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING');" >/dev/null
+      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');" >/dev/null
+  # 정말 풀렸는지 다시 세어 본다 — q 는 오류를 숨기므로 결과로 확인한다
+  local left
+  left=$(q "select count(*) from batch_step_execution
+            where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');")
+  if [ "${left:-1}" != 0 ]; then
+    echo "  ✖ 굳은 조각 $left 개가 그대로다. UPDATE 가 거부됐다 — 직접 볼 것:" >&2
+    echo "    psql -d thispatch_batch -c \"select step_name, status, length(exit_message) from batch_step_execution where job_execution_id=$JOB_ID and status<>'COMPLETED';\"" >&2
+    return 1
+  fi
   q "update batch_job_execution
         set status='FAILED', exit_code='FAILED',
             end_time = coalesce(end_time, now()), last_updated = now()
-      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','STOPPING');" >/dev/null
+      where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','STOPPING','UNKNOWN');" >/dev/null
   echo "  풀었다."
 }
 
@@ -148,7 +174,7 @@ run_once() {
       --setenv=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
       --working-directory="$HOME" \
       --collect \
-      /bin/bash "$DEPLOY" run >/dev/null || return 1
+      /bin/bash "$DEPLOY" "$DEPLOY_CMD" >/dev/null || return 1
 
   echo -n "  돌고 있다"
   while [ "$(systemctl is-active "$UNIT" 2>/dev/null)" = active ]; do
@@ -159,13 +185,15 @@ run_once() {
 }
 
 alert() {
+  # 진행률 알림(22번)은 리뷰 수집 것이다. 공지에는 아직 없다.
+  [ "$JOB_NAME" = collectJob ] || return 0
   [ -x "$PROGRESS" ] || return 0
   bash "$PROGRESS" now -f >/dev/null 2>&1 || true
 }
 
 case "$CMD" in
 status)
-  echo "== 수집 잡 상태 =============================="
+  echo "== 수집 잡 상태 ($JOB_NAME) =============================="
   show
   ;;
 
@@ -183,7 +211,7 @@ unstick)
   ;;
 
 now)
-  echo "== 실패 조각 다시 돌리기 ======================"
+  echo "== 실패 조각 다시 돌리기 ($JOB_NAME) ======================"
   read_state
   if [ -z "$JOB_DT" ]; then
     echo "  수집 잡 기록이 없다. 처음이라면 12-deploy-collector.sh run 을 쓴다." >&2

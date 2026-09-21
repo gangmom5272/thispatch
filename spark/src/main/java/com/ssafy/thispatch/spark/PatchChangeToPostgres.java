@@ -138,7 +138,7 @@ public final class PatchChangeToPostgres {
                 Dataset<Row> withId = chunks.join(chunkKeys, new String[] {"gid", "seq"});
                 long unmapped = chunkRows - withId.count();
                 if (unmapped > 0) {
-                    System.out.println("⚠ DB 에 chunk_id 가 없는 청크  " + unmapped + "건 — 빠진다. patch_chunk 적재가 이 파티션보다 오래됐다");
+                    System.out.println("DB 에 chunk_id 가 없는 파케이 행  " + unmapped + "건 — 빠진다. 대부분 같은 청크의 옛 판본(파케이는 판본을 모두 담고 DB 는 최신본만 든다 · 2026-09-21 실측 109만). 최신본이 빠지는 것이면 patch_chunk 적재가 이 파티션보다 오래된 것이다");
                 }
 
                 // 1) 기본: 규칙 추출기. 결과는 chunk_id 기준이다.

@@ -26,8 +26,11 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.storage.StorageLevel;
 
 /**
@@ -79,6 +82,14 @@ import org.apache.spark.storage.StorageLevel;
  *
  * <h2>무엇을 빼고 얼마나 뺐는지 찍는다</h2>
  *
+ * <h2>증분 모드 ({@code --incremental})</h2>
+ *
+ * <p>전량 모드는 매일 14일치 100만 행을 비우고 다시 넣는다 — 28분(2026-09-21 실측), 그동안 화면이 비고 review_id 가 새로
+ * 매겨져 review_topic 도 같이 갈아엎어야 한다. 증분 모드는 최근 delta 파티션(오늘·어제, {@code --since-days})만 읽어
+ * <b>recommendationid 기준 upsert</b> 하고, 창 밖으로 나간 행(과 그 토픽)만 지운다. review_id 가 유지되므로 review_topic 은
+ * 비우지 않고 새 짝만 더한다. 하루 변동은 7만 행 안팎이라 1~2분이다. band_no 는 그날 band_stat 경계로 전체를 다시 매긴다.
+ * UNIQUE 제약 없이(백엔드가 판본 여러 행을 허용) 조각마다 DB 판본을 조회해 갈라 넣는다. 전량 모드는 첫 적재·복구용으로 남는다.
+ *
  * <p>NOT NULL 칼럼이 비었거나 FK(game · language)에 없는 행은 INSERT 가 통째로 실패하므로
  * 미리 갈라내 <b>이유별 건수를 찍고</b> 뺀다. 조용히 버리지 않는다. 비율이 한도를 넘으면
  * 데이터가 잘못된 것이니 멈춘다.
@@ -90,6 +101,9 @@ public final class RecentReviewToPostgres {
 
     /** 창에 더 붙이는 여유(일). 자정 전후 실행과 시계 차이를 덮는다. */
     static final int MARGIN_DAYS = 1;
+
+    /** 증분 모드가 읽는 delta 파티션 수 — 오늘과 어제. 수집이 자정을 넘기면 어제 파티션에도 오늘 것이 있다. */
+    static final int DEFAULT_SINCE_DAYS = 2;
 
     /** 백엔드가 날짜를 자르는 시간대 (backend {@code TimeRule.ZONE}). */
     static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -105,6 +119,8 @@ public final class RecentReviewToPostgres {
 
     public static void main(String[] args) {
         boolean dryRun = false;
+        boolean incremental = false;
+        int sinceDays = DEFAULT_SINCE_DAYS;
         int days = DEFAULT_WINDOW_DAYS;
         String path = null;
         for (int i = 0; i < args.length; i++) {
@@ -112,6 +128,8 @@ public final class RecentReviewToPostgres {
                 case "--dry-run" -> dryRun = true;
                 case "--days" -> days = Integer.parseInt(i + 1 < args.length ? args[++i].trim() : "");
                 case "--path" -> path = (i + 1 < args.length) ? args[++i].trim() : null;
+                case "--incremental" -> incremental = true;
+                case "--since-days" -> sinceDays = Integer.parseInt(i + 1 < args.length ? args[++i].trim() : "");
                 default -> throw new IllegalArgumentException("모르는 인자: " + args[i]);
             }
         }
@@ -120,6 +138,9 @@ public final class RecentReviewToPostgres {
         }
         if (days < 1 || days > 366) {
             throw new IllegalArgumentException("--days 는 1~366");
+        }
+        if (sinceDays < 1 || sinceDays > days) {
+            throw new IllegalArgumentException("--since-days 는 1~" + days);
         }
 
         String url = env("DB_URL");
@@ -137,7 +158,11 @@ public final class RecentReviewToPostgres {
         try {
             List<String> paths = path != null
                     ? existing(spark, new String[] {path})
+                    : incremental ? existing(spark, deltaPathsFor(today, sinceDays))
                     : existing(spark, HdfsPaths.reviewAll());
+            System.out.println(incremental
+                    ? "모드      증분 — 최근 " + sinceDays + "일 delta 만 읽어 upsert · 창 밖 행 삭제"
+                    : "모드      전량 — 비우고 다시 넣는다");
             if (paths.isEmpty()) {
                 System.out.println("읽을 것이 없다: " + String.join(", ", HdfsPaths.reviewAll()));
                 return;
@@ -207,7 +232,14 @@ public final class RecentReviewToPostgres {
                         }
                     }
                     Dataset<Row> knownLang = latest.filter(col("language_code").isin(languages.toArray()));
-                    Dataset<Row> kept = knownLang.join(games, knownLang.col("appid").equalTo(games.col("game_appid")), "left_semi")
+                    // band_no — 백엔드의 「플레이타임 구간 × 토픽」 집계와 구간별 대표 리뷰가 recent_review.band_no 를 직접 읽는다
+                    // (PlaytimeAnalysisRepository). 2026-09-21 실측: 96만 행 전부 NULL 이라 구간 화면이 비었다.
+                    // 구간 경계는 band_stat(appid 별 4분위)이 정본이라 드라이버가 읽어 브로드캐스트 조인한다.
+                    List<Row> bandRows = readBands(url, user, password);
+                    Dataset<Row> bands = spark.createDataFrame(bandRows, BAND);
+                    System.out.println("band_stat  " + bandRows.size() + "행 (드라이버가 읽음)" + (bandRows.isEmpty() ? " — 비어 있어 band_no 는 전부 NULL 이 된다. band_stat 을 먼저 적재할 것" : ""));
+                    Dataset<Row> kept = assignBand(
+                                knownLang.join(games, knownLang.col("appid").equalTo(games.col("game_appid")), "left_semi"), bands)
                             .persist(StorageLevel.DISK_ONLY());
                     try {
                         long keptRows = kept.count();
@@ -219,7 +251,8 @@ public final class RecentReviewToPostgres {
                         if (nullVotes > 0) {
                             System.out.println("⚠ votes_up 이 null 인 행  " + nullVotes + "건 — 0 으로 넣는다 (NOT NULL · 세는 값)");
                         }
-                        System.out.println("넣을 것   " + keptRows + "건");
+                        long noBand = kept.filter(col("band_no").isNull()).count();
+                        System.out.println("넣을 것   " + keptRows + "건 · band_no 없음 " + noBand + "건 (플레이타임 없음 · band_stat 에 없는 게임)");
                         System.out.println("게임별 상위:");
                         kept.groupBy("appid").count().orderBy(col("count").desc()).show(5, false);
                         if (dryRun) {
@@ -227,6 +260,14 @@ public final class RecentReviewToPostgres {
                             return;
                         }
 
+                        if (incremental) {
+                            long before = count(url, user, password, "recent_review");
+                            long[] r = upsertRecentReview(kept, cutoffEpoch, url, user, password);
+                            long after = count(url, user, password, "recent_review");
+                            System.out.println("증분 결과  창 밖 삭제 " + r[0] + "건(토픽 " + r[1] + "건) · 새 리뷰 " + r[2] + "건 · 갱신 " + r[4]
+                                    + "건 · 더 새 판본이 있어 건너뜀 " + r[5] + "건 · band_no 재배정 " + r[3] + "건 · DB recent_review " + before + " → " + after + "행");
+                            return;
+                        }
                         long topics = count(url, user, password, "review_topic");
                         if (topics > 0) {
                             throw new IllegalStateException("review_topic 에 " + topics + "행이 있다. recent_review 를 비우면 "
@@ -253,6 +294,225 @@ public final class RecentReviewToPostgres {
     }
 
     // ── 순수 Spark 부분 (테스트가 여기를 본다) ──────────────────────
+
+    /** band_stat 의 구간 경계. playtime_to 가 null 이면 마지막 구간(위로 열림). */
+    static final StructType BAND = new StructType()
+            .add("band_appid", DataTypes.LongType, false)
+            .add("band_no", DataTypes.ShortType, false)
+            .add("playtime_from", DataTypes.IntegerType, false)
+            .add("playtime_to", DataTypes.IntegerType, true);
+
+    /**
+     * 리뷰의 playtime_at_review 를 그 게임의 band_stat 구간에 넣어 band_no 를 붙인다.
+     * 규칙은 BandStatAggregator 와 같다: from ≤ playtime < to, 마지막 구간은 to 가 null.
+     * 플레이타임이 없거나 게임이 band_stat 에 없으면 null — 행은 남긴다(left join).
+     */
+    static Dataset<Row> assignBand(Dataset<Row> reviews, Dataset<Row> bands) {
+        Column on = reviews.col("appid").equalTo(bands.col("band_appid"))
+                .and(reviews.col("playtime_at_review").isNotNull())
+                .and(reviews.col("playtime_at_review").geq(bands.col("playtime_from")))
+                .and(bands.col("playtime_to").isNull().or(reviews.col("playtime_at_review").lt(bands.col("playtime_to"))));
+        return reviews.join(bands, on, "left_outer")
+                .drop("band_appid", "playtime_from", "playtime_to");
+    }
+
+    /** 증분 모드가 읽는 delta 파티션 경로 — today 부터 sinceDays 일. 없는 날짜는 existing() 이 걸러 낸다. */
+    static String[] deltaPathsFor(LocalDate today, int sinceDays) {
+        String[] out = new String[sinceDays];
+        for (int i = 0; i < sinceDays; i++) {
+            out[i] = HdfsPaths.reviewDeltaOf(today.minusDays(i).toString());
+        }
+        return out;
+    }
+
+    /**
+     * 있으면 UPDATE, 없으면 INSERT — UNIQUE 제약 없이 한다.
+     *
+     * <p>{@code ON CONFLICT} 를 쓰려면 recommendationid UNIQUE 가 필요한데, 백엔드는 같은 리뷰의 판본 여러 행을
+     * 허용하는 설계다(DISTINCT ON · ReviewTranslationRepositoryIntegrationTest 가 옛 판·새 판을 함께 넣는다).
+     * 2026-09-21 UNIQUE 를 넣었다가 그 테스트가 깨져 뺐다. 대신 들어오는 조각(5,000행)마다 DB 에 있는
+     * (recommendationid → updated_ts) 를 한 번 조회해 새 리뷰 / 갱신 / 더 새 판본이 이미 있어 건너뜀 을 가른다.
+     */
+    static String updateSql() {
+        return """
+                UPDATE recent_review SET appid = ?, review_text = ?, voted_up = ?, votes_up = ?, playtime_at_review = ?,
+                                         language_code = ?, band_no = ?, created_ts = ?, updated_ts = ?
+                WHERE recommendationid = ? AND updated_ts <= ?
+                """;
+    }
+
+    static String insertSql() {
+        return """
+                INSERT INTO recent_review (recommendationid, appid, review_text, voted_up, votes_up,
+                                           playtime_at_review, language_code, band_no, created_ts, updated_ts)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+    }
+
+    /** 조각 단위로 DB 를 조회하는 크기. 70k 행이면 14번. */
+    static final int LOOKUP_CHUNK = 5_000;
+
+    /**
+     * 증분 적재. 한 트랜잭션에서 ① 창 밖 리뷰의 토픽 삭제 ② 창 밖 리뷰 삭제 ③ 조각마다 있으면 UPDATE · 없으면 INSERT
+     * ④ band_no 전체 재배정. 돌려주는 값: [지운 리뷰, 지운 토픽, 새로 넣은 행, band_no 바뀐 행, 갱신한 행, 더 새 판본이 있어 건너뛴 행].
+     */
+    private static long[] upsertRecentReview(Dataset<Row> rows, long cutoffEpoch, String url, String user, String password) {
+        long[] out = new long[6];
+        try (Connection conn = DriverManager.getConnection(url, user, password)) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM review_topic rt USING recent_review r WHERE rt.review_id = r.review_id AND r.updated_ts < ?")) {
+                    ps.setTimestamp(1, Timestamp.from(Instant.ofEpochSecond(cutoffEpoch)));
+                    out[1] = ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM recent_review WHERE updated_ts < ?")) {
+                    ps.setTimestamp(1, Timestamp.from(Instant.ofEpochSecond(cutoffEpoch)));
+                    out[0] = ps.executeUpdate();
+                }
+                try (PreparedStatement lookup = conn.prepareStatement(
+                             "SELECT recommendationid, max(updated_ts) FROM recent_review WHERE recommendationid = ANY(?) GROUP BY recommendationid");
+                     PreparedStatement upd = conn.prepareStatement(updateSql());
+                     PreparedStatement ins = conn.prepareStatement(insertSql())) {
+                    List<Row> chunk = new ArrayList<>(LOOKUP_CHUNK);
+                    java.util.Iterator<Row> it = rows.toLocalIterator();
+                    while (it.hasNext()) {
+                        chunk.add(it.next());
+                        if (chunk.size() >= LOOKUP_CHUNK) {
+                            applyChunk(conn, lookup, upd, ins, chunk, out);
+                            chunk.clear();
+                        }
+                    }
+                    if (!chunk.isEmpty()) {
+                        applyChunk(conn, lookup, upd, ins, chunk, out);
+                    }
+                }
+                // band_stat 경계는 매일 바뀐다 — 옛 행도 오늘 경계로. 바뀌는 행만 쓴다.
+                try (Statement st = conn.createStatement()) {
+                    out[3] = st.executeUpdate("""
+                            UPDATE recent_review r SET band_no = b.band_no
+                            FROM band_stat b
+                            WHERE b.appid = r.appid AND r.playtime_at_review IS NOT NULL
+                              AND r.playtime_at_review >= b.playtime_from
+                              AND (b.playtime_to IS NULL OR r.playtime_at_review < b.playtime_to)
+                              AND r.band_no IS DISTINCT FROM b.band_no
+                            """);
+                }
+                conn.commit();
+                System.out.println("증분 반영  (한 트랜잭션)");
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("증분 적재 실패: " + e.getMessage(), e);
+        }
+        return out;
+    }
+
+    /** 한 조각: DB 에 있는 판본을 조회해 새 리뷰는 INSERT, 더 오래된 판본이 있으면 UPDATE, 더 새 판본이 있으면 건너뛴다. */
+    private static void applyChunk(Connection conn, PreparedStatement lookup, PreparedStatement upd, PreparedStatement ins,
+                                   List<Row> chunk, long[] out) throws SQLException {
+        Long[] ids = chunk.stream().map(r -> r.<Long>getAs("recommendationid")).toArray(Long[]::new);
+        java.util.Map<Long, Long> existing = new java.util.HashMap<>();
+        lookup.setArray(1, conn.createArrayOf("bigint", ids));
+        try (var rs = lookup.executeQuery()) {
+            while (rs.next()) {
+                existing.put(rs.getLong(1), rs.getTimestamp(2).toInstant().getEpochSecond());
+            }
+        }
+        int updates = 0;
+        int inserts = 0;
+        for (Row r : chunk) {
+            long id = r.<Long>getAs("recommendationid");
+            long updated = r.<Long>getAs("updated_ts");
+            Long have = existing.get(id);
+            if (have == null) {
+                bind(ins, r);
+                ins.addBatch();
+                inserts++;
+            } else if (have <= updated) {
+                bindUpdate(upd, r);
+                upd.addBatch();
+                updates++;
+            } else {
+                out[5]++;
+            }
+        }
+        if (inserts > 0) {
+            out[2] += ins.executeBatch().length;
+        }
+        if (updates > 0) {
+            for (int c : upd.executeBatch()) {
+                out[4] += Math.max(c, 0);
+            }
+        }
+    }
+
+    private static void bindUpdate(PreparedStatement ps, Row r) throws SQLException {
+        ps.setLong(1, r.<Long>getAs("appid"));
+        ps.setString(2, r.getAs("review_text"));
+        ps.setBoolean(3, r.<Boolean>getAs("voted_up"));
+        Integer votes = r.getAs("votes_up");
+        ps.setInt(4, votes == null ? 0 : votes);
+        Integer playtime = r.getAs("playtime_at_review");
+        if (playtime == null) {
+            ps.setNull(5, Types.INTEGER);
+        } else {
+            ps.setInt(5, playtime);
+        }
+        ps.setString(6, r.getAs("language_code"));
+        Short band = r.getAs("band_no");
+        if (band == null) {
+            ps.setNull(7, Types.SMALLINT);
+        } else {
+            ps.setShort(7, band);
+        }
+        ps.setTimestamp(8, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
+        Timestamp updatedTs = Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts")));
+        ps.setTimestamp(9, updatedTs);
+        ps.setLong(10, r.<Long>getAs("recommendationid"));
+        ps.setTimestamp(11, updatedTs);
+    }
+
+    private static void bind(PreparedStatement ps, Row r) throws SQLException {
+        ps.setLong(1, r.<Long>getAs("recommendationid"));
+        ps.setLong(2, r.<Long>getAs("appid"));
+        ps.setString(3, r.getAs("review_text"));
+        ps.setBoolean(4, r.<Boolean>getAs("voted_up"));
+        Integer votes = r.getAs("votes_up");
+        ps.setInt(5, votes == null ? 0 : votes);
+        Integer playtime = r.getAs("playtime_at_review");
+        if (playtime == null) {
+            ps.setNull(6, Types.INTEGER);
+        } else {
+            ps.setInt(6, playtime);
+        }
+        ps.setString(7, r.getAs("language_code"));
+        Short band = r.getAs("band_no");
+        if (band == null) {
+            ps.setNull(8, Types.SMALLINT);
+        } else {
+            ps.setShort(8, band);
+        }
+        ps.setTimestamp(9, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
+        ps.setTimestamp(10, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts"))));
+    }
+
+    private static List<Row> readBands(String url, String user, String password) {
+        List<Row> out = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(url, user, password);
+             Statement st = conn.createStatement();
+             var rs = st.executeQuery("SELECT appid, band_no, playtime_from, playtime_to FROM band_stat")) {
+            while (rs.next()) {
+                Integer to = rs.getObject(4, Integer.class);
+                out.add(RowFactory.create(rs.getLong(1), rs.getShort(2), rs.getInt(3), to));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("band_stat 조회 실패: " + e.getMessage(), e);
+        }
+        return out;
+    }
 
     /** INSERT 가 거부할 행. NOT NULL 칼럼 · 키 범위 · language_code 형식. */
     static Column invalidInput() {
@@ -294,7 +554,7 @@ public final class RecentReviewToPostgres {
         String sql = """
                 INSERT INTO recent_review (recommendationid, appid, review_text, voted_up, votes_up,
                                            playtime_at_review, language_code, band_no, created_ts, updated_ts)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         long n = 0;
         try (Connection conn = DriverManager.getConnection(url, user, password)) {
@@ -321,8 +581,14 @@ public final class RecentReviewToPostgres {
                             ps.setInt(6, playtime);
                         }
                         ps.setString(7, r.getAs("language_code"));
-                        ps.setTimestamp(8, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
-                        ps.setTimestamp(9, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts"))));
+                        Short band = r.getAs("band_no");
+                        if (band == null) {
+                            ps.setNull(8, Types.SMALLINT);
+                        } else {
+                            ps.setShort(8, band);
+                        }
+                        ps.setTimestamp(9, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
+                        ps.setTimestamp(10, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts"))));
                         ps.addBatch();
                         if (++inBatch >= BATCH) {
                             n += ps.executeBatch().length;

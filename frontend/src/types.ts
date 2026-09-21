@@ -263,9 +263,16 @@ export interface RepresentativeReview {
   languageCode: string
   helpfulCount: number
   tags: GameTag[]
-  /** 리뷰 원문. */
+  /**
+   * 표시용 본문. 원문은 originalBody ?? body, 번역문은 GET /reviews/{id}/translation.
+   */
   body: string
+  /** 원문. 없으면 body를 원문으로 쓴다. */
   originalBody?: string | null
+  /**
+   * 목록 응답에 포함될 수 있는 번역 필드(백엔드 계약 유지).
+   * 화면 번역 토글은 이 필드가 아니라 GET /reviews/{id}/translation 을 쓴다.
+   */
   translatedBody?: string | null
   reviewDate: string
 }

@@ -1,5 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react"
+import { TranslationErrorNotice } from "@/components/TranslationErrorNotice"
+import { useReviewTranslation } from "@/hooks/queries/reviewQueries"
 import { cn } from "@/lib/cn"
+import { resolveReviewBody } from "@/pages/GameDetail/Reviews/lib/resolveReviewBody"
 import type { RepresentativeReview, ReviewSentiment } from "@/types"
 
 type ReviewView = "translated" | "original"
@@ -9,6 +12,7 @@ const sentimentTone: Record<ReviewSentiment, { label: string; chip: string }> = 
   NEGATIVE: { label: "부정", chip: "bg-sb-tint-red text-sb-neg-text" },
 }
 
+/** 카드 메타(플레이타임·날짜) 한 줄을 만든다. */
 function formatReviewMeta(review: RepresentativeReview): string {
   const playtime =
     review.playtimeMinutes === null
@@ -20,12 +24,10 @@ function formatReviewMeta(review: RepresentativeReview): string {
 
 function SegmentButton({
   active,
-  disabled,
   onClick,
   children,
 }: {
   active: boolean
-  disabled?: boolean
   onClick: () => void
   children: string
 }) {
@@ -33,10 +35,9 @@ function SegmentButton({
     <button
       type="button"
       aria-pressed={active}
-      disabled={disabled}
       onClick={onClick}
       className={cn(
-        "h-[27px] cursor-pointer px-[9px] text-sb-body focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50",
+        "h-[27px] cursor-pointer px-[9px] text-sb-body focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sb-primary",
         active ? "bg-sb-canvas font-medium text-sb-ink" : "text-sb-ink-mute hover:text-sb-ink",
       )}
     >
@@ -86,11 +87,22 @@ function ClampedBody({ text, lang }: { text: string; lang?: string }) {
   )
 }
 
+/** 언어별 분석 대표 리뷰 카드. 「번역」 선택 시에만 번역 API를 조회한다. */
 export default function ReviewCard({ review }: { review: RepresentativeReview }) {
+  // view: 기본은 원문, 번역 탭에서만 API 호출
   const [view, setView] = useState<ReviewView>("original")
+  const wantsTranslation = view === "translated"
+  const translationQuery = useReviewTranslation(review.id, wantsTranslation)
   const tone = sentimentTone[review.sentiment]
-  const showOriginal = view === "original" || !review.translatedBody
-  const text = showOriginal ? review.body : (review.translatedBody ?? review.body)
+  // originalBody: 원문 필드가 없으면 body를 원문으로 사용
+  const originalBody = review.originalBody ?? review.body
+  const showTranslationError = wantsTranslation && translationQuery.isError
+  const text = resolveReviewBody(
+    originalBody,
+    translationQuery.data?.translatedText,
+    view === "original",
+    translationQuery.isPending,
+  )
 
   return (
     <article className="flex flex-col gap-sb-2 rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]">
@@ -106,20 +118,20 @@ export default function ReviewCard({ review }: { review: RepresentativeReview })
           aria-label="리뷰 표시 언어"
           className="ml-auto inline-flex overflow-hidden rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-soft"
         >
-          <SegmentButton
-            active={!showOriginal}
-            disabled={!review.translatedBody}
-            onClick={() => setView("translated")}
-          >
+          <SegmentButton active={view === "translated"} onClick={() => setView("translated")}>
             번역
           </SegmentButton>
           <span aria-hidden="true" className="w-px bg-sb-hairline-cool" />
-          <SegmentButton active={showOriginal} onClick={() => setView("original")}>
+          <SegmentButton active={view === "original"} onClick={() => setView("original")}>
             원문
           </SegmentButton>
         </div>
       </div>
-      <ClampedBody text={text} lang={showOriginal ? undefined : "ko"} />
+      {showTranslationError ? (
+        <TranslationErrorNotice error={translationQuery.error} />
+      ) : (
+        <ClampedBody text={text} lang={view === "translated" ? "ko" : undefined} />
+      )}
       <p className="font-sb-mono text-sb-ink-mute tabular-nums">
         도움됨 {review.helpfulCount.toLocaleString("en-US")}
         {review.tags.length > 0 ? ` · ${review.tags.map((tag) => tag.name).join(", ")}` : ""}

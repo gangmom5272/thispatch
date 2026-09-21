@@ -89,15 +89,16 @@ class ThispatchApplicationTests {
 
 	private void assertMigrationHistory(JdbcTemplate jdbc) {
 		var history = migrationHistory(jdbc);
-		assertThat(history).as("V1 through V15, each applied exactly once").hasSize(15);
+		assertThat(history).as("V1 through V16, each applied exactly once").hasSize(16);
 		assertThat(history).extracting(row -> row.get("version"))
-			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
+			.containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
 		assertThat(history).extracting(row -> row.get("script"))
 			.containsExactly("V1__init.sql", "V2__add_patch_analysis.sql", "V3__add_member_refresh_token.sql",
 				"V4__add_member_steam_id_unique.sql", "V5__rename_news_published_at_to_ts.sql", "V6__add_member_email_unique.sql",
 				"V7__add_band_topic_positive_count.sql", "V8__add_game_play_modes.sql", "V9__seed_steam_tags.sql",
 				"V10__seed_language.sql", "V11__seed_topic.sql", "V12__index_patch_chunk_change.sql",
-				"V13__add_patch_plan_history.sql", "V14__support_patch_plan_staged_storage.sql", "V15__index_patch_chunk_embedding_hnsw.sql");
+				"V13__add_patch_plan_history.sql", "V14__support_patch_plan_staged_storage.sql", "V15__index_patch_chunk_embedding_hnsw.sql",
+				"V16__index_service_tables_by_appid.sql");
 		assertThat(history).allSatisfy(row -> {
 			assertThat(row.get("success")).isEqualTo(true);
 			assertThat(row.get("checksum")).isNotNull();

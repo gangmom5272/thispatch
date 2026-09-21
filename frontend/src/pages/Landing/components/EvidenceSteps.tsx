@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 import RateBar from "@/components/RateBar"
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
 import { cn } from "@/lib/cn"
@@ -104,7 +104,12 @@ function StepPanel({ index }: { index: number }) {
   if (index === 0) return <PositiveRatePanel />
   if (index === 1) {
     return (
-      <TopicBars topics={DIAGNOSIS_TOPICS} reviewCount={DIAGNOSIS_REVIEW_COUNT} isOverall={false} />
+      <TopicBars
+        topics={DIAGNOSIS_TOPICS}
+        reviewCount={DIAGNOSIS_REVIEW_COUNT}
+        isOverall={false}
+        dense
+      />
     )
   }
   if (index === 2) {
@@ -118,7 +123,7 @@ function StepPanel({ index }: { index: number }) {
  * 데스크톱에서는 화면이 고정된 채 스크롤이 한 구간 내려갈 때마다 다음 단계 화면으로 넘어가고,
  * 스크롤 구간을 두지 않는 좁은 화면에서는 단계를 눌러 바꾼다.
  */
-export function EvidenceSteps() {
+export function EvidenceSteps({ heading }: { heading: ReactNode }) {
   const panelId = useId()
   const prefersReducedMotion = usePrefersReducedMotion()
   const [activeStep, setActiveStep] = useState(0)
@@ -167,7 +172,8 @@ export function EvidenceSteps() {
       </div>
 
       <div className="md:sticky md:top-sb-12">
-        <ol className="grid gap-sb-4 md:grid-cols-4">
+        {heading}
+        <ol className="mt-sb-8 grid gap-sb-4 md:grid-cols-4">
           {EVIDENCE_STEPS.map((item, index) => {
             const isActive = index === activeStep
             const select = () => {
@@ -214,7 +220,7 @@ export function EvidenceSteps() {
           })}
         </ol>
 
-        <Reveal variant="group" id={panelId} className="mt-sb-8 md:min-h-112">
+        <Reveal variant="group" id={panelId} className="mt-sb-8">
           <div
             className={cn(
               "ease-sb-enter transition-opacity duration-[180ms] motion-reduce:transition-none",

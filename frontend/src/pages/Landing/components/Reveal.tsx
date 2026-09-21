@@ -58,6 +58,8 @@ interface RevealProps {
   children: ReactNode
   variant?: keyof typeof VARIANT
   delay?: keyof typeof DELAY_CLASS
+  /** false면 뷰포트에 있어도 숨긴 채 기다린다. 앞선 연출이 끝난 뒤 등장시킬 때 쓴다. */
+  ready?: boolean
   className?: string
   id?: string
 }
@@ -66,7 +68,14 @@ interface RevealProps {
  * 뷰포트 진입 시 1회 등장. 한 번 나타난 내용은 역스크롤해도 유지한다.
  * 모션 축소이거나 IntersectionObserver를 쓸 수 없으면 처음부터 최종 상태로 보여준다.
  */
-export function Reveal({ children, variant = "title", delay = 0, className, id }: RevealProps) {
+export function Reveal({
+  children,
+  variant = "title",
+  delay = 0,
+  ready = true,
+  className,
+  id,
+}: RevealProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [shown, setShown] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -75,7 +84,7 @@ export function Reveal({ children, variant = "title", delay = 0, className, id }
 
   useLayoutEffect(() => {
     const element = ref.current
-    if (!animates || !element) return
+    if (!animates || !ready || !element) return
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return
@@ -86,7 +95,7 @@ export function Reveal({ children, variant = "title", delay = 0, className, id }
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [animates])
+  }, [animates, ready])
 
   const hidden = animates && !shown
 

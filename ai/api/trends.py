@@ -32,17 +32,19 @@ LOCAL_TIMEOUT = float(os.environ.get("TREND_LOCAL_TIMEOUT", "45"))   # Qwen 정�
 MIN_DAY_REVIEWS = 10   # 이 미만인 날은 '최저 긍정률일' 후보에서 뺀다(하루 2건으로 0% 가 나오는 것을 막는다)
 TREND_VERSION = "trend-facts-1"
 
-SYSTEM = (
-    "당신은 게임 운영팀을 위한 지표 요약기입니다. 반드시 한국어로만 답합니다. 중국어·일본어 문자를 한 글자도 쓰지 않습니다. "
-    "주어진 수치만 사용하고 새 숫자를 만들지 않습니다. 계산하지 않습니다. "
-    "인과를 단정하지 않습니다. '때문에', '탓에', '영향으로', '원인' 같은 표현을 쓰지 않고, 패치와 지표 변화는 "
-    "'같은 시기에 함께 나타났다'는 식으로만 적습니다. "
-    "예측('~할 것이다')과 조언·처방('~해야 한다', '~하는 것이 좋다')을 쓰지 않습니다. "
-    "첫 작성·수정은 리뷰가 올라온 경로일 뿐이므로 신규 유저·기존 팬으로 바꿔 부르지 않습니다. "
-    "주어진 수치 밖의 사실을 추측하지 않습니다. 출시 시점, 게임 배경, 개발사 의도, 유저 심리를 쓰지 않습니다. "
-    "모든 문장을 '습니다' 또는 '입니다' 로 끝냅니다. '나타났다', '보였다' 같은 반말체를 쓰지 않습니다. "
-    "JSON 으로만 답합니다: title(기간의 특징을 한 줄, 25자 내), summary(이어지는 한국어 문장 2~3개, 번호·목록 없음)."
-)
+# 9/21: 이전 프롬프트는 "수치를 문장으로 옮기기만" 하게 했다. 그 결과 화면 카드에 이미 있는 총계를
+# 되풀이하는 요약이 나왔다(팀 피드백 "수치해석에 치우쳐 해석이 없다"). 역할을 바꾼다 —
+# 기획자가 묻는 것은 "비슷한 패치를 하면 반응이 어떻게 움직이나"이므로, 되돌림·지속·집중을 말하게 한다.
+# 인과 단정 금지는 그대로 둔다(데이터가 인과를 증명하지 못한다). 관측 서술은 인과가 아니므로 오히려 권한다.
+SYSTEM = """당신은 게임 기획자를 돕는 반응 추세 해설자입니다. 기획자는 '비슷한 패치를 하면 반응이 어떻게 움직이는가'를 알고 싶어 합니다. 그 판단에 쓰이는 말만 씁니다.
+쓰는 법: 첫 문장에서 이 기간이 어떤 사례인지 규정합니다. 패치가 있으면 무엇을 바꾼 패치인지 제목에서 짧게 집고, 전후 차이와 되돌아왔는지·며칠 걸렸는지·반응이 얼마나 몰렸는지를 씁니다.
+기간 리뷰 총계와 기간 긍정률은 화면에 표로 이미 나와 있으므로 문장에서 되풀이하지 않습니다.
+권장 표현: '되돌아왔습니다', '이어졌습니다', '몰렸습니다', '함께 나타났습니다'. 관측된 움직임은 이렇게 적습니다.
+금지: 인과 단정('때문에', '탓에', '영향으로', '원인'). 패치와 지표 변화는 '같은 시기에 함께 나타났다'로만 잇습니다. 예측('~할 것이다')과 조언('~해야 한다', '~하는 것이 좋다'). 주어진 수치 밖의 숫자와 계산. 출시 시점·게임 배경·개발사 의도·유저 심리 추측. 첫 작성·수정을 신규 유저·기존 팬으로 바꿔 부르는 것.
+문체: 반드시 한국어, 중국어·일본어 문자 금지, 모든 문장을 '습니다' 또는 '입니다' 로 끝냅니다.
+좋은 예: '마법 하향 패치 직후 강한 반발이 엿새 이어졌다가 핫픽스와 함께 대부분 돌아온 사례입니다. 패치 전후 7일 긍정률은 75.5%와 44.1%가 함께 관측됐고, 하루 리뷰는 평소의 4.6배까지 몰렸습니다. 핫픽스 6일 뒤 긍정률은 패치 전의 84% 수준으로 돌아왔습니다.'
+나쁜 예(총계 되풀이·해석 없음): '전체 기간 16,453건의 리뷰가 작성되었으며 긍정률은 62.4%를 기록했습니다.'
+JSON 으로만 답합니다: title(이 사례의 성격을 한 줄, 25자 내. 기간이나 게임 이름을 나열하지 않습니다), summary(이어지는 한국어 문장 2~3개, 번호·목록 없음)."""
 FORMAT = {
     "type": "object", "additionalProperties": False, "required": ["title", "summary"],
     "properties": {"title": {"type": "string"}, "summary": {"type": "string"}},
@@ -61,7 +63,7 @@ NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
 MAX_TITLE = 40
 
 # Qwen3.5 가 숫자와 단위·조사 사이에 공백을 넣는다("2,256 건", "61.3% 를"). 화면에 그대로 나가므로 붙인다.
-SPACE_NUM = re.compile(r"(\d)\s+(건|일|월|년|개|명|시간|%p|%)")
+SPACE_NUM = re.compile(r"(\d)\s+(건|일|월|년|개|명|시간|배|%p|%)")
 SPACE_JOSA = re.compile(r"(%p|%|건|일|월|년|개|명)\s+(를|을|이|가|은|는|에서|까지|부터|으로|로|와|과|의|에|도|만)(?=[\s,.]|$)")
 
 
@@ -102,6 +104,70 @@ def _agg(rows):
 def _span(days, start, end):
     """[start, end) 날짜 구간 합계 → (리뷰 수, 긍정률)"""
     return _agg([d for d in days if start <= d["date"] < end])
+
+
+RECOVERY_RATIO = 0.9   # 패치 전 긍정률의 90% 이상으로 돌아오면 '되돌아왔다'로 본다
+SURGE_RATIO = 1.5      # 평소 일평균의 1.5배 이상이면 반응이 몰린 날
+
+
+def _ma(days, i, w=7):
+    """i 번째 날부터 w 일 이동 구간의 (리뷰 수, 긍정률). 구간이 모자라면 있는 만큼만 본다."""
+    seg = days[i:i + w]
+    return _agg(seg) if seg else (0, None)
+
+
+def _recovery(days, patch_date, before_p, later_patches):
+    """패치 뒤 긍정률이 패치 전 수준으로 돌아오기까지 걸린 일수.
+
+    왜 필요한가(9/21): 기획자가 묻는 것은 '떨어졌나'가 아니라 '되돌아왔나, 얼마나 걸렸나'다.
+    하루치 등락에 흔들리지 않게 7일 이동 구간으로 본다.
+    긍정률이 오른 패치(핫픽스 등)에는 계산하지 않는다 — 낮은 직전 값이 기준이 되어 '즉시 회복'이 되기 때문.
+    다음 패치가 있어도 끊지 않고 기간 끝까지 추적하되, 그 사이에 있었던 패치를 via 로 함께 준다.
+    """
+    if not before_p:
+        return None
+    idx = [i for i, d in enumerate(days) if d["date"] >= patch_date]
+    if not idx:
+        return None
+    target = before_p * RECOVERY_RATIO
+    best = None
+    for i in idx:
+        n, p = _ma(days, i)
+        if p is None or n < MIN_DAY_REVIEWS:
+            continue
+        pct = round(100.0 * p / before_p, 0)
+        if best is None or pct > best:
+            best = pct
+        if p >= target:
+            via = [d for d in later_patches if patch_date < d <= days[i]["date"]]
+            return {"recovered": True, "days": _diff_days(patch_date, days[i]["date"]),
+                    "pct_of_before": min(int(pct), 999), "level_pct": p, "via": via}
+    return {"recovered": False, "days": None, "pct_of_before": int(best) if best is not None else None,
+            "level_pct": None, "via": []}
+
+
+def _surge(days, patch_date, before_n, window_days, until_date):
+    """패치 뒤 리뷰가 평소의 몇 배로 늘었고 그 상태가 며칠 이어졌는지."""
+    base = before_n / window_days if before_n else 0
+    seg = [d for d in days if patch_date <= d["date"] < until_date]
+    if not base or not seg:
+        return None
+    after_avg = sum(d["reviews"] for d in seg[:window_days]) / min(len(seg), window_days)
+    run = 0
+    for d in seg:
+        if d["reviews"] >= base * SURGE_RATIO:
+            run += 1
+        else:
+            break
+    ratio = round(after_avg / base, 1)
+    # 줄어든 경우까지 '몰렸다'로 말하지 않도록 20% 이상 는 경우만 내보낸다
+    return {"ratio": ratio, "days": run, "base_per_day": round(base, 1)} if ratio >= 1.2 else None
+
+
+def _diff_days(a, b):
+    from datetime import date as D
+    ya, ma, da = (int(x) for x in a.split("-")); yb, mb, db = (int(x) for x in b.split("-"))
+    return (D(yb, mb, db) - D(ya, ma, da)).days
 
 
 def compute_facts(daily, patches, window_days):
@@ -151,15 +217,23 @@ def compute_facts(daily, patches, window_days):
                       "detail": f"전체 중 수정이 차지하는 비중 {_pct(en, fn + en)}%"})
 
     effects = []
+    dates = sorted(p["date"] for p in patches)
     for p in patches:
         before_n, before_p = _span(days, _shift(p["date"], -window_days), p["date"])
         after_n, after_p = _span(days, p["date"], _shift(p["date"], window_days))
         delta = round(after_p - before_p, 1) if (before_p is not None and after_p is not None) else None
+        # 회복·급증은 '다음 패치 전까지'만 본다. 다음 패치가 섞이면 무엇이 되돌린 것인지 갈린다
+        nxt = next((d for d in dates if d > p["date"]), "9999-12-31")
         effects.append({"title": p.get("title") or p.get("version") or "패치", "date": p["date"],
                         "version": p.get("version"), "gid": p.get("gid"),
                         "before": {"reviews": before_n, "positive_pct": before_p},
                         "after": {"reviews": after_n, "positive_pct": after_p},
                         "delta_pct": delta, "window_days": window_days,
+                        # 긍정률이 떨어진 패치에서만 '되돌아왔는지'를 묻는다
+                        "recovery": _recovery(days, p["date"], before_p, [d for d in dates if d > p["date"]])
+                        if (delta is not None and delta < 0) else None,
+                        "surge": _surge(days, p["date"], before_n, window_days, nxt),
+                        "next_patch_date": None if nxt == "9999-12-31" else nxt,
                         "note": None if before_n and after_n else "비교 구간에 리뷰가 없어 값을 내지 않았습니다."})
     return facts, effects
 
@@ -180,6 +254,17 @@ def build_lines(game, facts, effects):
         lines.append(f"- 패치 {e['title']}({e['date']}) 전후 {e['window_days']}일: "
                      f"긍정률 {e['before']['positive_pct']}% → {e['after']['positive_pct']}% "
                      f"({e['delta_pct']:+}%p), 리뷰 {e['before']['reviews']:,}건 → {e['after']['reviews']:,}건")
+        sg = e.get("surge")
+        if sg and sg["ratio"]:
+            lines.append(f"  · 반응 규모: 패치 뒤 하루 리뷰가 평소의 {sg['ratio']}배, 몰린 상태가 {sg['days']}일 이어짐")
+        rc = e.get("recovery")
+        if rc and rc["recovered"]:
+            via = f", 그 사이 패치 {', '.join(rc['via'])} 있었음" if rc.get("via") else ""
+            lines.append(f"  · 되돌림: 패치 {rc['days']}일 뒤 긍정률이 패치 전의 {rc['pct_of_before']}% 수준"
+                         f"({rc['level_pct']}%)으로 돌아옴{via}")
+        elif rc:
+            back = f"최고 {rc['pct_of_before']}% 수준까지" if rc["pct_of_before"] is not None else "회복 지점 없음"
+            lines.append(f"  · 되돌림: 기간 끝까지 패치 전 수준으로 돌아오지 못함({back})")
     return "\n".join(lines)
 
 
@@ -198,6 +283,14 @@ def template_summary(facts, effects):
         e = max(done, key=lambda x: abs(x["delta_pct"]))
         parts.append(f"패치 {e['title']}({e['date']}) 전후 {e['window_days']}일에는 긍정률 "
                      f"{e['before']['positive_pct']}%와 {e['after']['positive_pct']}%가 함께 관측됐습니다.")
+        rc, sg = e.get("recovery"), e.get("surge")
+        if sg and sg["ratio"]:
+            parts.append(f"이 시기 하루 리뷰는 평소의 {sg['ratio']}배였고 {sg['days']}일 동안 이어졌습니다.")
+        if rc and rc["recovered"]:
+            via = f" 그 사이 패치 {', '.join(rc['via'])}가 있었습니다." if rc.get("via") else ""
+            parts.append(f"{rc['days']}일 뒤 긍정률은 패치 전의 {rc['pct_of_before']}% 수준으로 돌아왔습니다.{via}")
+        elif rc:
+            parts.append("이후 구간에서 긍정률은 패치 전 수준으로 돌아오지 않았습니다.")
     title = by["period"]["value"] + " 반응 추세"
     return title, " ".join(parts)
 
@@ -245,13 +338,24 @@ def _ask(msgs, use_gms):
     return _ask_gms(msgs), f"gms/{GMS_MODEL}", True
 
 
+def _echoes_cards(summary, facts):
+    """요약이 기간 총계·기간 긍정률을 그대로 옮겨 적었는지. 둘 다면 카드 낭독으로 본다.
+
+    하나만 쓰는 것은 문맥상 필요할 수 있어 통과시킨다(예: 패치 구간 긍정률과 비교할 때).
+    """
+    by = {f["key"]: f["value"] for f in facts}
+    hits = [label for key, label in (("total_reviews", "기간 리뷰 총계"), ("positive_pct", "기간 긍정률"))
+            if key in by and by[key].rstrip("건%") and by[key].rstrip("건%") in summary]
+    return " · ".join(hits) if len(hits) >= 2 else ""
+
+
 def summarize_trend(game, facts, effects, retry=2, timeout=None):
     """반환: (title, summary, attempts, clean, model). title 이 빈 문자열이면 호출 쪽이 문장 틀 제목을 쓴다.
     model 은 실제로 답한 쪽(로컬 Qwen 또는 gms/gpt-4.1)."""
     lines = build_lines(game, facts, effects)
     msgs = [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": lines +
-             "\n\n위 수치를 바탕으로 이 기간의 반응 추세를 요약하세요."}]
+             "\n\n위 수치를 바탕으로 이 기간이 어떤 사례인지 요약하세요. 기간 리뷰 총계와 기간 긍정률은 화면에 이미 있으니 문장에 넣지 마세요."}]
     last = {"title": "", "summary": ""}
     use_gms, model = False, MODEL
     for attempt in range(1, retry + 2):
@@ -271,7 +375,10 @@ def summarize_trend(game, facts, effects, retry=2, timeout=None):
         made_up = unknown_numbers(both, lines)
         plain = PLAIN_END.search(s)
         guess = SPECULATION.search(both)
-        if not bad and not causal and not advice and not listy and not made_up and not plain and not guess and len(s) >= 30:
+        # 화면 카드에 이미 있는 총계를 그대로 옮겨 적으면 요약이 정보를 더하지 않는다(9/21)
+        echo = _echoes_cards(s, facts)
+        if (not bad and not causal and not advice and not listy and not made_up and not plain and not guess
+                and not echo and len(s) >= 30):
             return (title if len(title) <= MAX_TITLE else ""), s, attempt, True, model
         why = []
         if bad:
@@ -288,6 +395,8 @@ def summarize_trend(game, facts, effects, retry=2, timeout=None):
             why.append("반말체 종결")
         if guess:
             why.append(f"입력에 없는 배경 추측 '{guess.group(0)}'")
+        if echo:
+            why.append("화면 카드에 이미 있는 " + echo + " 되풀이")
         if len(s) < 30:
             why.append(f"길이 {len(s)}자")
         msgs += [{"role": "assistant", "content": json.dumps(last, ensure_ascii=False)},

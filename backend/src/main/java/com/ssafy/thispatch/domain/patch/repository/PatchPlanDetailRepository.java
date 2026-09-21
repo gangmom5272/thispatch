@@ -29,7 +29,7 @@ public class PatchPlanDetailRepository {
 			FROM patch_plan p
 			JOIN game g ON g.appid = p.appid
 			LEFT JOIN patch_plan_restatement r ON r.patch_plan_id = p.patch_plan_id
-			WHERE p.member_id = :memberId AND p.patch_plan_id = :planId
+			WHERE p.member_id = :memberId AND p.patch_plan_id = :planId AND p.created_at IS NOT NULL
 			""", Map.of("memberId", memberId, "planId", planId),
 			(row, index) -> new PlanRow(row.getLong("patch_plan_id"), row.getLong("appid"), row.getString("name"),
 				row.getString("raw_text"), row.getString("restatement"),

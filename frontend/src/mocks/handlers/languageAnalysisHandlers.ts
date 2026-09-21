@@ -183,6 +183,43 @@ const fallbackSeed = {
   ] satisfies ReviewSeed[],
 }
 
+/** 언어 코드별 목 리뷰 id 베이스(번역 API MSW 조회용). */
+const LANGUAGE_REVIEW_ID_BASE: Record<string, number> = {
+  english: 910_000,
+  korean: 911_000,
+  japanese: 912_000,
+  schinese: 913_000,
+}
+
+/**
+ * 언어 분석 대표 리뷰 id → 한국어 표시 본문(body).
+ * GET /reviews/{id}/translation MSW가 조회한다.
+ */
+export const languageAnalysisTranslationById = new Map<number, string>()
+
+/** 시드 리뷰에 고유 id를 붙이고 번역 맵을 채운다. */
+function withReviewIds(languageCode: string, reviews: ReviewSeed[]): RepresentativeReview[] {
+  // base: 언어별 id 구간 시작
+  const base = LANGUAGE_REVIEW_ID_BASE[languageCode] ?? 919_000
+  return reviews.map((review, index) => {
+    // id: 언어 구간 + 1-based index
+    const id = base + index + 1
+    languageAnalysisTranslationById.set(id, review.body)
+    return {
+      ...review,
+      id,
+      languageCode,
+      isUpdated: index === 0,
+    }
+  })
+}
+
+// 번역 API MSW가 상세 조회 전에도 id를 찾을 수 있게 시드를 미리 등록한다.
+for (const [languageCode, seed] of Object.entries(reviewSeeds)) {
+  withReviewIds(languageCode, seed.reviews)
+}
+withReviewIds("fallback", fallbackSeed.reviews)
+
 function unauthorized() {
   return HttpResponse.json(errorBody("401", "인증이 필요합니다."), { status: 401 })
 }
@@ -243,12 +280,7 @@ export const languageAnalysisHandlers = [
             description: `${language.reviewCount}건 중 도움됨 상위 ${usedReviewCount}건`,
           },
         },
-        representativeReviews: seed.reviews.map((review, index) => ({
-          ...review,
-          id: index + 1,
-          languageCode,
-          isUpdated: index === 0,
-        })),
+        representativeReviews: withReviewIds(languageCode, seed.reviews),
       }
       return HttpResponse.json(okEnvelope(data))
     },

@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type FocusEvent } from "react"
+import {
+  useEffect,
+  useId,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+  type FocusEvent,
+} from "react"
 import { Link } from "react-router"
 import { isApiError } from "../../../api/error"
 import { GameImage } from "@/components/GameImage"
@@ -48,44 +56,59 @@ const anchorClass: Record<TooltipAnchor["side"], string> & Record<TooltipAnchor[
  * 별은 누르는 즉시 바뀌어 보이고, 마지막 상태가 서버와 다를 때만 디바운스 후 한 번 요청한다.
  */
 export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine: boolean }) {
-  const { mutate, isPending, error } = useToggleMyGame()
+  const { mutateAsync, isPending, error } = useToggleMyGame()
   const [anchor, setAnchor] = useState<TooltipAnchor | null>(null)
-  // 서버 응답 전까지 화면에만 반영하는 별 상태. null이면 서버 값(isMine)을 그대로 쓴다.
-  const [optimisticMine, setOptimisticMine] = useState<boolean | null>(null)
-  const shownMine = optimisticMine ?? isMine
+  // 별 클릭 트랜지션이 진행 중인 동안만 화면에 보이는 값. 끝나면 서버 값(isMine)으로 돌아간다.
+  const [shownMine, setShownMine] = useOptimistic(isMine)
+  const [, startStarTransition] = useTransition()
   const tooltipId = useId()
   // 툴팁 방향 계산용 카드 루트
   const rootRef = useRef<HTMLDivElement>(null)
   // 호버 지연 타이머 — 카드를 벗어나거나 언마운트되면 취소
   const openTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // 별 디바운스 타이머와, 언마운트 시 바로 실행할 대기 중 요청
-  const starTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const pendingStarCommitRef = useRef<(() => void) | null>(null)
+  // 디바운스 대기 중인 별 클릭. 다음 클릭이 오면 false로, 시간이 지나거나 언마운트되면 true로 풀린다.
+  const starWaitRef = useRef<{
+    timer: ReturnType<typeof setTimeout>
+    resolve: (isLast: boolean) => void
+  } | null>(null)
   const detailPath = gameDetailPath(game.id)
 
   useEffect(
     () => () => {
       clearTimeout(openTimerRef.current)
-      clearTimeout(starTimerRef.current)
-      pendingStarCommitRef.current?.()
+      const waiting = starWaitRef.current
+      if (waiting) {
+        clearTimeout(waiting.timer)
+        waiting.resolve(true)
+      }
     },
     [],
   )
 
-  const commitStar = (next: boolean) => {
-    pendingStarCommitRef.current = null
-    if (next === isMine) {
-      setOptimisticMine(null)
-      return
-    }
-    mutate({ gameId: game.id, isMine }, { onSettled: () => setOptimisticMine(null) })
-  }
+  const waitForLastStarClick = () =>
+    new Promise<boolean>((resolve) => {
+      const previous = starWaitRef.current
+      if (previous) {
+        clearTimeout(previous.timer)
+        previous.resolve(false)
+      }
+      starWaitRef.current = {
+        resolve,
+        timer: setTimeout(() => {
+          starWaitRef.current = null
+          resolve(true)
+        }, STAR_COMMIT_DELAY_MS),
+      }
+    })
   const toggleStar = () => {
     const next = !shownMine
-    setOptimisticMine(next)
-    clearTimeout(starTimerRef.current)
-    pendingStarCommitRef.current = () => commitStar(next)
-    starTimerRef.current = setTimeout(pendingStarCommitRef.current, STAR_COMMIT_DELAY_MS)
+    startStarTransition(async () => {
+      setShownMine(next)
+      const isLast = await waitForLastStarClick()
+      if (!isLast || next === isMine) return
+      // 실패는 useMutation의 error로 아래 알림에 표시되므로 여기서는 트랜지션만 끝낸다.
+      await mutateAsync({ gameId: game.id, isMine }).catch(() => undefined)
+    })
   }
 
   const open = () => {

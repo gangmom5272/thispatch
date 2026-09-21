@@ -154,6 +154,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
             onSearchCases={() =>
               navigate(gameCasesPath(gameId), {
                 state: {
+                  planId: structure.data.planId,
                   slots: editedSlots ?? structure.data.slots,
                   genreIds: selectedGenreIds,
                 },

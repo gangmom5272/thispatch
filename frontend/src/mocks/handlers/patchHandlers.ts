@@ -15,7 +15,11 @@ import { errorBody, okEnvelope } from "../lib/envelope"
 
 const baseURL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "")
 
-const sample: Omit<PlanStructure, "gameId" | "rawText" | "genreIds"> = {
+/** 구조화가 발급한 planId. 후속 검색에서 소유 기획안인지 확인하는 데 쓴다. */
+const structuredPlanIds = new Set<number>()
+let nextPlanId = 1000
+
+const sample: Omit<PlanStructure, "planId" | "gameId" | "rawText" | "genreIds"> = {
   entities: [
     { id: 1, name: "Axebot", role: "ENEMY", source: "RULE", editable: false },
     { id: 2, name: "고통 4", role: "DIFFICULTY", source: "GAME_LEXICON", editable: false },
@@ -445,7 +449,10 @@ export const patchHandlers = [
     if (!text) {
       return HttpResponse.json(errorBody("400", "기획안 본문이 비어 있습니다."), { status: 400 })
     }
+    const planId = nextPlanId++
+    structuredPlanIds.add(planId)
     const data: PlanStructure = {
+      planId,
       gameId: game.id,
       rawText: text,
       genreIds: game.tags.map((tag) => tag.id),
@@ -467,6 +474,20 @@ export const patchHandlers = [
       return HttpResponse.json(
         errorBody("400", "요청 본문의 필수 필드 또는 형식이 올바르지 않습니다."),
         { status: 400 },
+      )
+    }
+    if (typeof body.planId !== "number" || !Number.isInteger(body.planId) || body.planId < 1) {
+      return HttpResponse.json(errorBody("VALIDATION_FAILED", "입력값을 확인해주세요."), {
+        status: 400,
+      })
+    }
+    if (
+      !structuredPlanIds.has(body.planId) &&
+      !samplePlans.some((plan) => plan.planId === body.planId)
+    ) {
+      return HttpResponse.json(
+        errorBody("PATCH_PLAN_NOT_FOUND", "기획안 내역을 찾을 수 없습니다."),
+        { status: 404 },
       )
     }
     const genreIds = body.genreIds ?? []

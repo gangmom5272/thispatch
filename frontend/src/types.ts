@@ -127,7 +127,10 @@ export interface PlanRestatement {
   warnings: PlanWarning[]
 }
 
+/** POST /games/{gameId}/plan-structures */
 export interface PlanStructure {
+  /** 서버가 저장한 기획안 ID. 후속 유사 사례 검색 요청에 그대로 전달한다. */
+  planId: number
   gameId: number
   rawText: string
   genreIds: number[]
@@ -150,6 +153,8 @@ export interface ConfirmedSlot {
 }
 
 export interface CaseSearchInput {
+  /** 구조화 응답 또는 기존 내역에서 받은 기획안 ID. 원문·최초 엔티티·해석은 재전송하지 않는다. */
+  planId: number
   confirmedSlots: ConfirmedSlot[]
   genreIds: number[]
   sort: CaseSearchSort
@@ -192,8 +197,8 @@ export interface CaseGroup {
   cases: SimilarCase[]
 }
 
-/** POST /games/{gameId}/case-searches */
-export interface CaseSearch extends CaseSearchInput {
+/** POST /games/{gameId}/case-searches — 응답에는 planId가 없다. */
+export interface CaseSearch extends Omit<CaseSearchInput, "planId"> {
   status: string
   gameId: number
   totalCount: number

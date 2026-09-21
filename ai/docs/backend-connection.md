@@ -115,10 +115,25 @@ restrict,port-forwarding,command="/bin/false" ssh-ed25519 AAAA... thispatch-ai-t
 
 ```powershell
 .\api\start.ps1      # AI 서버 기동, /health 가 ready 가 될 때까지 대기
-.\api\tunnel.ps1     # 역터널 연결, 끊기면 재연결
+.\api\tunnel.ps1     # 역터널 연결, 끊기면 재연결(로그는 ai/logs/tunnel-*.log)
 ```
 
 WSL 이면 `bash api/start.sh`, `bash api/tunnel.sh`.
+
+### 끊겼을 때 (9/21)
+
+노트북이 유선·무선을 오가거나 절전에 들어가면 터널이 끊긴다. 스크립트가 스스로 다시 붙지만,
+**서버1 에 방금 끊긴 접속이 남아 8100 을 잡고 있으면 새 연결이 곧바로 거부된다**
+(`remote port forwarding failed for listen port 8100`). 이 상태는 몇 분이면 저절로 풀리므로
+스크립트는 30초 간격으로 계속 다시 시도한다(`-PortBusyRetrySeconds`, `-PortBusyMaxMinutes`).
+10분을 넘기면 멈추고 알린다 — 그때는 서버1 에서 `sudo ss -tlnp | grep 8100` 으로 남은
+`sshd: ubuntu` 세션을 정리해야 한다.
+
+키·권한·`GatewayPorts` 같은 설정 문제는 기다려도 낫지 않으므로 지금처럼 바로 멈춘다.
+어느 쪽이었는지는 `ai/logs/tunnel-*.log` 에 ssh 오류 원문과 함께 남는다.
+
+`autossh` 는 쓰지 않는다. 자동 재연결은 이 스크립트가 이미 하고 있고(`ServerAliveInterval=30`,
+`ServerAliveCountMax=3`), autossh 도 원격 포트가 잡혀 있으면 같은 자리에서 막힌다.
 
 ## 확인 방법
 

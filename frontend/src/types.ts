@@ -292,3 +292,36 @@ export interface LanguageAnalysisDetail {
   summary: LanguageSummary
   representativeReviews: RepresentativeReview[]
 }
+
+export interface PatchPlanHistoryItem {
+  planId: number
+  gameId: number
+  gameTitle: string
+  rawTextPreview: string
+  slotCount: number
+  unknownEntityCount: number
+  createdAt: string
+}
+
+/** GET /members/me/patch-plans */
+export interface PatchPlanHistoryList {
+  items: PatchPlanHistoryItem[]
+  page: {
+    limit: number
+    nextCursor: string | null
+    hasNext: boolean
+    totalCount: number
+  }
+}
+
+/** GET /members/me/patch-plans/{planId} */
+export interface PatchPlanHistoryDetail {
+  planId: number
+  gameId: number
+  gameTitle: string
+  rawText: string
+  restatement: { text: string }
+  genreIds: number[]
+  confirmedSlots: ConfirmedSlot[]
+  createdAt: string
+}

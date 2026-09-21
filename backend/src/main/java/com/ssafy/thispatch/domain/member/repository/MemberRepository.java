@@ -48,6 +48,14 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	int setNicknameIfUnset(@Param("memberId") long memberId, @Param("nickname") String nickname,
 		@Param("updatedAt") Instant updatedAt);
 
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update Member m set m.nickname = :nickname, m.updatedAt = :updatedAt
+		where m.memberId = :memberId and m.status = 'ACTIVE'
+		""")
+	int changeNicknameIfActive(@Param("memberId") long memberId, @Param("nickname") String nickname,
+		@Param("updatedAt") Instant updatedAt);
+
 	// PostgreSQL의 UNIQUE 충돌을 문장 수준에서 처리해 트랜잭션이 rollback-only가 되지 않게 한다.
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query(value = """

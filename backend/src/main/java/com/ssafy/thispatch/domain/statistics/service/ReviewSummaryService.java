@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.ssafy.thispatch.client.ai.AiErrorCode;
 import com.ssafy.thispatch.client.ai.AiReviewClient;
+import com.ssafy.thispatch.client.ai.AiSummaryCache;
 import com.ssafy.thispatch.client.ai.AiReviewClient.Review;
 import com.ssafy.thispatch.client.ai.AiReviewClient.SummaryRequest;
 import com.ssafy.thispatch.domain.review.dto.response.ReviewItem;
@@ -30,6 +31,7 @@ public class ReviewSummaryService {
 	private final AnalysisContext context;
 	private final SummaryReviewReader reader;
 	private final AiReviewClient ai;
+	private final AiSummaryCache summaryCache;
 
 	public PlaytimeSummary playtime(long gameId, LocalDate startDate, Integer bandNo) {
 		if (bandNo != null && (bandNo < 1 || bandNo > 4)) {
@@ -70,7 +72,9 @@ public class ReviewSummaryService {
 		}
 		List<Review> selected = input.reviews().stream().limit(limit).map(ReviewSummaryService::aiReview).toList();
 		try {
-			var result = ai.summarize(new SummaryRequest(gameId, input.gameName(), scopeType, scopeKey, selected));
+			var request = new SummaryRequest(gameId, input.gameName(), scopeType, scopeKey, selected);
+			var result = summaryCache.getOrCompute("reviews", List.of(period, request), AiReviewClient.Summary.class,
+				() -> ai.summarize(request), response -> AiReviewClient.isUsableSummary(request, response));
 			return new SummaryBody("COMPLETED", result.summary(), result.phrases(), Period.of(period),
 				input.targetCount(), selected.size(), selection, null, null);
 		} catch (BusinessException exception) {

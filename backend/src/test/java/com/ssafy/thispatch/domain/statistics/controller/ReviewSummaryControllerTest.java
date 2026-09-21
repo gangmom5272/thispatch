@@ -18,14 +18,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.ssafy.thispatch.client.ai.AiReviewClient;
+import com.ssafy.thispatch.client.ai.AiConfig;
 import com.ssafy.thispatch.client.ai.AiErrorCode;
+import com.ssafy.thispatch.client.ai.AiReviewClient;
 import com.ssafy.thispatch.client.ai.AiReviewClient.Summary;
 import com.ssafy.thispatch.client.ai.AiReviewClient.SummaryRequest;
+import com.ssafy.thispatch.client.ai.AiSummaryCache;
 import com.ssafy.thispatch.domain.review.dto.response.ReviewItem.Tag;
 import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository.ReviewRow;
 import com.ssafy.thispatch.domain.statistics.service.*;
@@ -38,7 +41,7 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 import com.ssafy.thispatch.support.ActiveMemberWebMvcTest;
 
 @WebMvcTest(ReviewSummaryController.class)
-@Import({ReviewSummaryService.class, SecurityConfig.class, JwtConfig.class,
+@Import({ReviewSummaryService.class, AiSummaryCache.class, AiConfig.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
 class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
@@ -49,6 +52,7 @@ class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
 	@MockitoBean AnalysisContext context;
 	@MockitoBean SummaryReviewReader reader;
 	@MockitoBean AiReviewClient ai;
+	@MockitoBean StringRedisTemplate redis;
 
 	@BeforeEach
 	void setup() {

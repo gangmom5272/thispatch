@@ -8,6 +8,8 @@ interface TypingTextProps {
   speed?: number
   /** 화면에 들어온 뒤 첫 글자까지의 지연(ms) */
   delay?: number
+  /** 마지막 글자를 찍은 뒤 호출. 모션 축소처럼 애니메이션이 없으면 마운트 직후 호출한다. */
+  onComplete?: () => void
   className?: string
 }
 
@@ -16,7 +18,13 @@ interface TypingTextProps {
  * 모션 라이브러리 없이 IntersectionObserver로 시작 시점을 잡는다.
  * 보조 기술에는 완성된 문장을 한 번에 전달하고, 모션 축소에서는 처음부터 전부 보여준다.
  */
-export function TypingText({ text, speed = 55, delay = 0, className }: TypingTextProps) {
+export function TypingText({
+  text,
+  speed = 55,
+  delay = 0,
+  onComplete,
+  className,
+}: TypingTextProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const graphemes = useMemo(() => Array.from(text), [text])
   const ref = useRef<HTMLSpanElement>(null)
@@ -47,6 +55,11 @@ export function TypingText({ text, speed = 55, delay = 0, className }: TypingTex
     )
     return () => clearTimeout(timer)
   }, [animates, started, typedCount, graphemes.length, delay, speed])
+
+  const completed = !animates || typedCount >= graphemes.length
+  useEffect(() => {
+    if (completed) onComplete?.()
+  }, [completed, onComplete])
 
   // 커서는 첫 글자가 찍힌 뒤부터 다 찍기 전까지만 보여 준다.
   const showCaret = animates && typedCount > 0 && typedCount < graphemes.length

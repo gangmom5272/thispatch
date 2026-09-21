@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router"
 import { cn } from "@/lib/cn"
 import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
@@ -15,21 +16,8 @@ const SECTION_CLASS =
 const PRIMARY_ACTION_CLASS =
   "group inline-flex cursor-pointer items-center gap-sb-3 rounded-sb-control bg-sb-primary px-sb-6 text-sb-body font-medium text-sb-on-primary transition duration-200 hover:bg-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary active:scale-[0.98] active:bg-sb-primary-deep motion-reduce:transition-none"
 
-const FOOTER_LINKS = ["데이터 출처", "한계와 범위", "시연 데이터 안내"]
-
 /** 결과군 카드는 100ms 간격으로 순차 등장한다 (plan 3절 04). */
 const CASE_DELAYS = [0, 100, 200] as const
-
-function ActionArrow() {
-  return (
-    <span
-      aria-hidden
-      className="transition-transform duration-200 group-hover:translate-x-[3px] motion-reduce:transition-none"
-    >
-      ↗
-    </span>
-  )
-}
 
 /**
  * Hero CTA. magicui shimmer-button 구조를 따라 테두리를 따라 도는 빛을 얹는다.
@@ -49,8 +37,7 @@ function HeroCtaLink() {
           <span className="absolute -inset-full w-auto animate-sb-spin-around [background:conic-gradient(from_225deg,transparent_0,var(--color-sb-ink)_90deg,transparent_90deg)] motion-reduce:animate-none" />
         </span>
       </span>
-      게임 목록에서 시작
-      <ActionArrow />
+      게임 탐색으로 이동
       <span
         aria-hidden
         className="absolute inset-0 size-full rounded-sb-control shadow-[inset_0_-8px_10px_#ffffff1f] transition-shadow duration-300 ease-in-out group-hover:shadow-[inset_0_-6px_10px_#ffffff3f] group-active:shadow-[inset_0_-10px_10px_#ffffff3f] motion-reduce:transition-none"
@@ -149,23 +136,27 @@ function EvidenceSection() {
   return (
     <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
-        <Reveal variant="eyebrow">
-          <p className="font-sb-mono text-sb-caption text-sb-primary">01 — 이 게임의 반응을 읽다</p>
-        </Reveal>
-        <Reveal variant="title" delay={80} className="mt-sb-4">
-          <h2 className="max-w-2xl text-sb-section font-medium text-balance text-sb-ink">
-            평점 아래에 있는 진짜 이야기, 요약에서 원문까지.
-          </h2>
-        </Reveal>
-        <Reveal variant="lead" delay={140} className="mt-sb-3">
-          <p className="max-w-2xl text-sb-body text-pretty text-sb-ink-mute">
-            선택한 게임의 패치 전후 리뷰를 모아, 반응이 어디서 어떻게 움직였는지 봅니다.
-          </p>
-        </Reveal>
-
-        <div className="mt-sb-8">
-          <EvidenceSteps />
-        </div>
+        <EvidenceSteps
+          heading={
+            <>
+              <Reveal variant="eyebrow">
+                <p className="font-sb-mono text-sb-caption text-sb-primary">
+                  01 — 이 게임의 반응을 읽다
+                </p>
+              </Reveal>
+              <Reveal variant="title" delay={80} className="mt-sb-4">
+                <h2 className="max-w-2xl text-sb-section font-medium text-balance text-sb-ink">
+                  평점 아래에 있는 진짜 이야기, 요약에서 원문까지.
+                </h2>
+              </Reveal>
+              <Reveal variant="lead" delay={140} className="mt-sb-3">
+                <p className="max-w-2xl text-sb-body text-pretty text-sb-ink-mute">
+                  선택한 게임의 패치 전후 리뷰를 모아, 반응이 어디서 어떻게 움직였는지 봅니다.
+                </p>
+              </Reveal>
+            </>
+          }
+        />
       </div>
     </section>
   )
@@ -175,7 +166,7 @@ function EvidenceSection() {
  * 04 비교 섹션 — 기획안을 적고 유사 사례를 찾는 흐름.
  * 기획안 화면의 입력 패널을 그대로 옮긴 표시용 화면이며 실제 입력을 받지 않는다.
  */
-function PlanSearchFlow() {
+function PlanSearchFlow({ typed, onTyped }: { typed: boolean; onTyped: () => void }) {
   return (
     <div className="flex flex-col items-center">
       <Reveal variant="panel" className="w-full">
@@ -188,7 +179,7 @@ function PlanSearchFlow() {
           </div>
           <div className="flex flex-col gap-sb-3 p-sb-4">
             <p className="rounded-sb-control border border-sb-hairline-strong bg-sb-canvas-soft px-sb-3 py-sb-2 text-left text-sb-body text-sb-ink">
-              <TypingText text={PLAN_DRAFT_TEXT} speed={45} />
+              <TypingText text={PLAN_DRAFT_TEXT} speed={25} onComplete={onTyped} />
             </p>
             <ul className="flex flex-wrap gap-sb-2">
               {PLAN_DRAFT_SLOTS.map((slot) => (
@@ -205,7 +196,7 @@ function PlanSearchFlow() {
         </div>
       </Reveal>
 
-      <Reveal variant="cta" delay={200} className="flex flex-col items-center">
+      <Reveal variant="cta" ready={typed} className="flex flex-col items-center">
         <span
           aria-hidden
           className="block h-8 w-px bg-linear-to-b from-sb-hairline-strong to-sb-primary"
@@ -222,6 +213,7 @@ function PlanSearchFlow() {
 }
 
 function ComparisonSection() {
+  const [typed, setTyped] = useState(false)
   return (
     <section className="bg-sb-canvas-base">
       <div className={SECTION_CLASS}>
@@ -246,10 +238,10 @@ function ComparisonSection() {
         </div>
 
         <div className="mt-sb-8">
-          <PlanSearchFlow />
+          <PlanSearchFlow typed={typed} onTyped={() => setTyped(true)} />
         </div>
 
-        <Reveal variant="lead" delay={100} className="mt-sb-6">
+        <Reveal variant="lead" ready={typed} delay={100} className="mt-sb-6">
           <p className="text-center font-sb-mono text-sb-caption text-sb-ink-mute">
             유사 사례 {OUTCOME_CASES.length}건 · 결과군별로 나눠 보여줍니다
           </p>
@@ -258,7 +250,7 @@ function ComparisonSection() {
         <ul className="mt-sb-4 grid gap-sb-4 lg:grid-cols-3">
           {OUTCOME_CASES.map((item, index) => (
             <li key={item.gameName}>
-              <Reveal variant="group" delay={CASE_DELAYS[index]} className="h-full">
+              <Reveal variant="group" ready={typed} delay={CASE_DELAYS[index]} className="h-full">
                 <OutcomeCaseCard item={item} />
               </Reveal>
             </li>
@@ -278,48 +270,14 @@ function CtaSection() {
             다음 패치의 시작, 유저의 반응에서.
           </h2>
         </Reveal>
-        <Reveal variant="cta" delay={100} className="mt-sb-6">
-          <div className="flex flex-wrap items-center gap-sb-6">
-            <Link to={paths.games} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
-              게임 목록 열기
-              <ActionArrow />
-            </Link>
-            <p className="text-sb-body text-sb-ink-mute">공개된 Steam 데이터로 시작합니다.</p>
-          </div>
-        </Reveal>
+        <div className="flex flex-wrap mt-sb-6 items-center gap-sb-6">
+          <Link to={paths.games} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
+            게임 탐색으로 이동
+          </Link>
+          <p className="text-sb-body text-sb-ink-mute">공개된 Steam 데이터로 시작합니다.</p>
+        </div>
       </div>
     </section>
-  )
-}
-
-function LandingFooter() {
-  return (
-    <footer className="border-t border-sb-hairline bg-sb-canvas-base break-keep">
-      <div className="mx-auto max-w-sb-page px-sb-4 py-sb-8 md:px-sb-landing-gutter">
-        <div className="flex flex-wrap items-center justify-between gap-sb-4 text-sb-body text-sb-ink-mute">
-          <span className="font-medium">ThisPatch</span>
-          <ul className="flex flex-wrap gap-sb-6">
-            <li>
-              <Link
-                to={paths.methodology}
-                className="cursor-pointer rounded-sb-control hover:text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-              >
-                방법론
-              </Link>
-            </li>
-            {FOOTER_LINKS.map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-        </div>
-        <hr className="my-sb-5 border-sb-hairline" />
-        <p className="text-sb-body leading-relaxed text-sb-ink-mute">
-          Steam 및 관련 상표는 Valve Corporation의 자산이며 ThisPatch는 Valve와 제휴 관계가
-          없습니다. 분석에는 공개된 Steam 리뷰·패치노트·상점 정보만 사용합니다. 화면의 수치는 관측된
-          값이며 향후 리뷰 수정에 따라 과거 집계가 달라질 수 있습니다.
-        </p>
-      </div>
-    </footer>
   )
 }
 
@@ -339,7 +297,6 @@ export default function LandingPage() {
         <ComparisonSection />
         <CtaSection />
       </main>
-      <LandingFooter />
     </>
   )
 }

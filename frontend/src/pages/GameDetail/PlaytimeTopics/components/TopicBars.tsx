@@ -6,6 +6,8 @@ interface TopicBarsProps {
   reviewCount: number
   /** true면 전체 선택 — differencePp/최고 구간 컬럼 표현이 달라짐 */
   isOverall: boolean
+  /** true면 행 간격과 막대 높이를 줄여 고정 높이 화면(랜딩)에 맞춘다 */
+  dense?: boolean
 }
 
 /**
@@ -13,7 +15,7 @@ interface TopicBarsProps {
  * 빨간 막대=선택 구간 mentionRate, 흰 선=전체 overallMentionRate.
  * 토픽은 다중 라벨이라 합이 100%를 넘을 수 있다.
  */
-export function TopicBars({ topics, reviewCount, isOverall }: TopicBarsProps) {
+export function TopicBars({ topics, reviewCount, isOverall, dense = false }: TopicBarsProps) {
   // chartMax: 막대 스케일 상한(%). 합 100%로 정규화하지 않는다.
   const chartMax = Math.max(
     100,
@@ -42,7 +44,7 @@ export function TopicBars({ topics, reviewCount, isOverall }: TopicBarsProps) {
       {topics.length === 0 ? (
         <p className="text-sb-body text-sb-ink-mute">표시할 토픽이 없습니다.</p>
       ) : (
-        <ul className="flex flex-col gap-sb-4">
+        <ul className={dense ? "flex flex-col gap-sb-2" : "flex flex-col gap-sb-4"}>
           {topics.map((topic) => (
             <TopicBarRow
               key={topic.topicId}
@@ -50,6 +52,7 @@ export function TopicBars({ topics, reviewCount, isOverall }: TopicBarsProps) {
               reviewCount={reviewCount}
               chartMax={chartMax}
               isOverall={isOverall}
+              dense={dense}
             />
           ))}
         </ul>
@@ -63,10 +66,11 @@ interface TopicBarRowProps {
   reviewCount: number
   chartMax: number
   isOverall: boolean
+  dense: boolean
 }
 
-/** 단일 토픽 행: 라벨·비중·막대·전체 대비. */
-function TopicBarRow({ topic, reviewCount, chartMax, isOverall }: TopicBarRowProps) {
+/** 단일 토픽 행: 라벨·비중·막대·전체 대비. dense면 라벨과 수치를 한 줄로 접는다. */
+function TopicBarRow({ topic, reviewCount, chartMax, isOverall, dense }: TopicBarRowProps) {
   // barPct / linePct: 차트 너비 대비 위치(%)
   const barPct = Math.min(100, (topic.mentionRate / chartMax) * 100)
   const linePct = Math.min(100, (topic.overallMentionRate / chartMax) * 100)
@@ -74,14 +78,20 @@ function TopicBarRow({ topic, reviewCount, chartMax, isOverall }: TopicBarRowPro
 
   return (
     <li className="grid gap-sb-2 md:grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)_auto] md:items-center">
-      <div>
+      <div className={dense ? "flex flex-wrap items-baseline gap-x-sb-2" : undefined}>
         <p className="text-sb-body text-sb-ink">{topic.name}</p>
         <p className="font-sb-mono text-sb-caption text-sb-ink-mute">
           {reviewCount.toLocaleString("en-US")}건 중 {topic.mentionCount.toLocaleString("en-US")}건
         </p>
       </div>
 
-      <div className="relative h-8 overflow-hidden rounded-sb-tag bg-sb-canvas">
+      <div
+        className={
+          dense
+            ? "relative h-6 overflow-hidden rounded-sb-tag bg-sb-canvas"
+            : "relative h-8 overflow-hidden rounded-sb-tag bg-sb-canvas"
+        }
+      >
         <div
           className="absolute inset-y-1 left-0 rounded-sb-tag bg-sb-neg"
           style={{ width: `${barPct}%` }}
@@ -94,7 +104,13 @@ function TopicBarRow({ topic, reviewCount, chartMax, isOverall }: TopicBarRowPro
         />
       </div>
 
-      <div className="min-w-28 text-right font-sb-mono text-sb-caption tabular-nums">
+      <div
+        className={
+          dense
+            ? "flex min-w-28 justify-end gap-x-sb-2 text-right font-sb-mono text-sb-caption tabular-nums"
+            : "min-w-28 text-right font-sb-mono text-sb-caption tabular-nums"
+        }
+      >
         <p className="text-sb-ink">{topic.mentionRate.toFixed(1)}%</p>
         {isOverall ? (
           <p className="text-sb-ink-mute">

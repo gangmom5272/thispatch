@@ -58,8 +58,19 @@
 | `attribute` | string | 속성 (health). 같음 |
 | `evidence_quote` | string | 근거 문장 원문 |
 | `validation_status` | string | `valid/needs_review/rejected` |
+| `model_version` | string | 이 행을 만든 쪽. `rule-v2`(규칙) 또는 `qwen3.5-9b-q4km/service-facts-2`(Qwen). 9/18 추가 |
 
-같은 `(gid, seq)`의 변경점은 Loader가 **삭제 후 재삽입**한다(Qwen 덮어쓰기 대응).
+**DB `patch_change` 를 채우는 규칙 (9/18 합의, 4-2 보완):**
+
+```
+기본     Spark PatchChangeExtractor 산출 → 전 청크          (4-2 정본)
+덮어쓰기 이 파일에서 model_version LIKE 'qwen%' AND validation_status = 'valid' 인 행만
+         → 같은 (gid, seq) 의 기존 행 삭제 후 재삽입
+```
+
+- `model_version = 'rule-v2'` 행은 **DB 에 넣지 않는다.** Spark 규칙과 같은 성질의 값이라 넣을 이유가 없다.
+- Qwen 행은 시간 예산 안에서 인기 게임·최근 공지부터 며칠에 걸쳐 늘어난다. 적재기는 매일 다시 돌 수 있어야 한다.
+- 규칙 값 위에 Qwen 값이 덮이는 이유는 부록 B. Qwen 이 채우는 `target`·`attribute` 가 화면 05(사례 비교)의 알맹이다.
 
 ### 3-3. `/review_topic/dt=D/*.parquet` → 테이블 `review_topic`
 
@@ -70,7 +81,18 @@
 | `topic_id` | int16 | `topic` 테이블 ID. **리뷰 하나에 여러 행** 가능(다중 라벨). AI 쪽 고정값: balance=1, bug=2, ui=3, ops=4, bm=5 → `topic` 시드를 이 순서로 |
 | `score` | float32 | 분류기 확률. DB에는 안 넣어도 됨 |
 
-토픽이 하나도 안 붙은 리뷰는 행이 없다. **토픽은 영어·한국어 리뷰에만 붙인다**(`language_code in ('english','koreana')`, 기본값). 9/14 검수에서 러시아어 2%·중국어 42% 로 못 쓸 수준이었고, 한국어는 9/16 사람 라벨 180건으로 영어와 같은 수준을 확인해 v2 부터 포함했다. 화면 02 토픽 비율의 분모는 '영어·한국어 · 30바이트 초과' 리뷰 수로 표기한다.
+토픽이 하나도 안 붙은 리뷰는 행이 없다. **파일에는 전 언어를 분류해 담고, DB 에는 검증된 8개 언어만 넣는다** (9/19 결정):
+
+```
+english · koreana · schinese · russian · japanese · german · french · spanish
+```
+
+- 영어·한국어는 사람 라벨 490건으로 검증(micro-F1 0.56). 나머지 6개는 9/19 GMS gpt-4.1 라벨 80건/언어 교차 검증에서 같은 심판 기준 영·한(0.47)과 동급(중 0.52 · 일 0.50 · 독 0.50 · 러 0.50 · 프 0.42 · 스 0.42)이었다. 터키어 0.35 · 브라질 포르투갈어 0.37 은 제외.
+- 9/14 의 "러시아어 2%·중국어 42%" 는 v1 분류기 기준이라 더 쓰지 않는다.
+- 알려진 편향: 러시아어·중국어는 balance 를 과다하게 붙인다(정밀도 0.5~0.6, 재현율 0.8~0.9).
+- **Loader 는 `recent_review.language_code` 가 위 8개일 때만 `review_topic` 을 넣는다.** 언어를 더하거나 빼는 것은 이 목록만 바꾸면 된다(AI 재실행 불필요).
+- **같은 리뷰는 dt 파일들 전체에서 한 번만 나온다.** 초기 수집이 dt 조각으로 나뉘어 같은 리뷰가 여러 dt 에 있었는데(09-18 은 09-14·16 과 34% 겹침), AI 가 앞 dt 에 남기고 뒤 dt 에서 제거했다(9/20). `(recommendationid, topic_id)` 는 파일 전체에서 유일하므로 PK 충돌 없이 넣을 수 있다. 다만 Loader 는 안전하게 upsert(`ON CONFLICT DO NOTHING`) 를 권장한다 — 일일 배치에서 수정된 리뷰가 다시 올 수 있다.
+- 화면 02 토픽 비율의 분모는 '8개 언어 · 30바이트 초과' 리뷰 수로 표기한다.
 
 ### 3-4. 언제 읽어야 하나 (Loader 쪽에서 볼 것)
 
@@ -115,7 +137,7 @@ put       out/embeddings/patch_chunk/dt=D
 ## 4. 정해야 남은 것 (상대 확인 필요)
 
 1. **합의 완료:** `/news_raw`에 `is_patch`, `patch_reason`을 저장한다. 판정은 Spark `PatchClassifier`, DB 적재는 -25 담당이다. 판정·패치 리뷰 집계는 AI와 연결하지 않는다.
-2. **합의 완료(9/16):** 변경점 추출 정본은 Spark `PatchChangeExtractor`(`change-rules-2`)다. AI `rules.py`(`rule-v2`)는 DB `patch_change` 의 출처가 아니다. 구역 분리는 Spark `PatchChangeSectioner.split` 이 소제목 기준으로 하고, **토큰 한도에 맞춘 최종 청크 생성과 임베딩은 AI 노드**가 한다([PATCH_PROCESSING.md](../spark/PATCH_PROCESSING.md) 명시). 대조 결과는 부록 C 참고.
+2. **합의 완료(9/16, 9/18 보완):** 변경점 추출 정본은 Spark `PatchChangeExtractor`(`change-rules-2`)다. AI `rules.py`(`rule-v2`)는 DB `patch_change` 의 출처가 아니다. **단 Qwen 판본 행(`model_version LIKE 'qwen%'`, `valid`)은 같은 `(gid, seq)` 를 덮어쓴다** — 3-2 의 채우기 규칙 참고. 구역 분리는 Spark `PatchChangeSectioner.split` 이 소제목 기준으로 하고, **토큰 한도에 맞춘 최종 청크 생성과 임베딩은 AI 노드**가 한다([PATCH_PROCESSING.md](../spark/PATCH_PROCESSING.md) 명시). 대조 결과는 부록 C 참고.
 3. `target`, `attribute` 컬럼 채택 여부 — ERD 담당 (미채택이면 Loader가 두 컬럼만 버림, AI 쪽 변경 없음)
 4. 초기 적재 시 `review_raw/base` 전체를 토픽 분류할지, 패치 창(전후 7일) 안 리뷰만 할지 — 백엔드. 기본값: 전체
 
@@ -163,7 +185,7 @@ String patchReason = result.reason();
 
 ## 부록 B. 규칙 슬롯과 Qwen 의 관계 (검토 요청 회신)
 
-- `patch_change` 의 정규화 값은 **Qwen 출력이 최종**이다. 규칙(`rules.py`)은 같은 컬럼을 먼저 채우는 임시값이며 `patch_chunk.model_version` 으로 구분한다(`rule-v1` → `qwen3.5-9b-q4km`).
+- `patch_change` 의 정규화 값은 **Qwen 출력이 최종**이다. 규칙(`rules.py`)은 같은 컬럼을 먼저 채우는 임시값이며 `model_version` 으로 구분한다(`rule-v2` → `qwen3.5-9b-q4km/...`). DB 에서는 임시값 자리를 Spark 산출이 맡고, Qwen 행만 그 위에 덮인다(3-2, 4-2).
 - 규칙이 남는 이유 세 가지: ① 변경 문장 청크만 골라 Qwen 호출을 1/3 로 줄임(10,428 → 7,074) ② Qwen 이 그날 못 돈 공지도 방향·변경 유형은 당일 채워 검색 후보에서 빠지지 않게 ③ Qwen 결과가 근거 불일치(needs_review, 테스트 24%)일 때 대체값.
 - 규칙이 하지 않는 것: 대상 이름·속성·조건(Qwen 전용). 대상 종류는 규칙 50~62% 라 Qwen 이 덮어쓰면 끝.
 

@@ -9,6 +9,7 @@ import { TypingText } from "@/pages/Landing/components/TypingText"
 import { UnknownTrendChart } from "@/pages/Landing/components/UnknownTrendChart"
 import { OUTCOME_CASES, PLAN_DRAFT_SLOTS, PLAN_DRAFT_TEXT } from "@/pages/Landing/demoData"
 import { paths } from "@/router/paths"
+import { useSession } from "@/hooks/queries/sessionQueries"
 
 const SECTION_CLASS =
   "mx-auto max-w-sb-page px-sb-4 py-sb-12 md:px-sb-landing-gutter md:py-sb-landing-section"
@@ -19,14 +20,24 @@ const PRIMARY_ACTION_CLASS =
 /** 결과군 카드는 100ms 간격으로 순차 등장한다 (plan 3절 04). */
 const CASE_DELAYS = [0, 100, 200] as const
 
+/** 비로그인이면 CTA를 로그인 페이지로 보내고 문구를 바꾼다. 세션 확인 중에는 기본 문구를 유지한다. */
+function useStartCta() {
+  const session = useSession()
+  const loggedOut = session.isSuccess && !session.data.authenticated
+  return loggedOut
+    ? { to: paths.login, label: "로그인 후 시작" }
+    : { to: paths.games, label: "게임 탐색으로 이동" }
+}
+
 /**
  * Hero CTA. magicui shimmer-button 구조를 따라 테두리를 따라 도는 빛을 얹는다.
  * 빛은 뒤판(backdrop)이 가리고 남은 테두리 폭에서만 보인다.
  */
 function HeroCtaLink() {
+  const cta = useStartCta()
   return (
     <Link
-      to={paths.games}
+      to={cta.to}
       className="group relative z-0 inline-flex h-13 transform-gpu cursor-pointer items-center justify-center gap-sb-3 overflow-hidden rounded-sb-control border border-sb-ink/10 bg-sb-primary px-sb-6 text-sb-body font-medium whitespace-nowrap text-sb-on-primary transition-transform duration-200 ease-in-out hover:bg-sb-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary active:translate-y-px active:bg-sb-primary-deep motion-reduce:transition-none"
     >
       <span
@@ -37,7 +48,7 @@ function HeroCtaLink() {
           <span className="absolute -inset-full w-auto animate-sb-spin-around [background:conic-gradient(from_225deg,transparent_0,var(--color-sb-ink)_90deg,transparent_90deg)] motion-reduce:animate-none" />
         </span>
       </span>
-      게임 탐색으로 이동
+      {cta.label}
       <span
         aria-hidden
         className="absolute inset-0 size-full rounded-sb-control shadow-[inset_0_-8px_10px_#ffffff1f] transition-shadow duration-300 ease-in-out group-hover:shadow-[inset_0_-6px_10px_#ffffff3f] group-active:shadow-[inset_0_-10px_10px_#ffffff3f] motion-reduce:transition-none"
@@ -262,6 +273,7 @@ function ComparisonSection() {
 }
 
 function CtaSection() {
+  const cta = useStartCta()
   return (
     <section className="bg-sb-canvas-night">
       <div className={SECTION_CLASS}>
@@ -271,8 +283,8 @@ function CtaSection() {
           </h2>
         </Reveal>
         <div className="flex flex-wrap mt-sb-6 items-center gap-sb-6">
-          <Link to={paths.games} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
-            게임 탐색으로 이동
+          <Link to={cta.to} className={cn(PRIMARY_ACTION_CLASS, "h-sb-control")}>
+            {cta.label}
           </Link>
           <p className="text-sb-body text-sb-ink-mute">공개된 Steam 데이터로 시작합니다.</p>
         </div>

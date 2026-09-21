@@ -92,6 +92,22 @@ class RecentReviewToPostgresTest {
         assertNull(got.get(5L));
     }
 
+    /** 증분 모드는 오늘·어제 delta 파티션만 읽는다. 자정을 넘긴 수집이 어제 파티션에 남기 때문이다. */
+    @Test void incrementalReadsTodayAndYesterdayDeltaOnly() {
+        String[] paths = RecentReviewToPostgres.deltaPathsFor(java.time.LocalDate.of(2026, 9, 22), 2);
+        assertEquals(2, paths.length);
+        assertTrue(paths[0].endsWith("/review_raw/delta/dt=2026-09-22"), paths[0]);
+        assertTrue(paths[1].endsWith("/review_raw/delta/dt=2026-09-21"), paths[1]);
+    }
+
+    /** upsert 는 recommendationid 로 부딪히고, 더 새 판본일 때만 덮어쓴다. */
+    @Test void upsertOnlyOverwritesWithNewerVersion() {
+        String sql = RecentReviewToPostgres.upsertSql();
+        assertTrue(sql.contains("ON CONFLICT (recommendationid) DO UPDATE"));
+        assertTrue(sql.contains("WHERE recent_review.updated_ts <= EXCLUDED.updated_ts"));
+        assertTrue(sql.contains("band_no = EXCLUDED.band_no"));
+    }
+
     @Test void invalidInputCatchesWhatInsertWouldReject() {
         Dataset<Row> rows = input(
                 ok(1, 10L, 11L),                                                         // 정상

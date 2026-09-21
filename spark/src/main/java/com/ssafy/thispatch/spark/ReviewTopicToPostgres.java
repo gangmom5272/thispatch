@@ -73,10 +73,13 @@ public final class ReviewTopicToPostgres {
     public static void main(String[] args) {
         boolean dryRun = false;
         boolean clearOnly = false;
+        boolean incremental = false;
         for (String a : args) {
             switch (a.trim()) {
                 case "--dry-run" -> dryRun = true;
                 case "--clear-only" -> clearOnly = true;
+                // 증분: recent_review 가 upsert 로 유지되어 review_id 가 안 바뀔 때. 비우지 않고 새 짝만 더한다(ON CONFLICT DO NOTHING).
+                case "--incremental" -> incremental = true;
                 default -> throw new IllegalArgumentException("모르는 인자: " + a);
             }
         }
@@ -152,6 +155,18 @@ public final class ReviewTopicToPostgres {
                     assigned.groupBy("topic_id").count().orderBy("topic_id").show(10, false);
                     if (dryRun) {
                         System.out.println("--dry-run 이라 쓰지 않는다.");
+                        return;
+                    }
+                    String insert = "INSERT INTO review_topic (review_id, topic_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+                    LoaderSupport.RowBinder binder = (ps, r) -> {
+                        ps.setLong(1, r.<Long>getAs("review_id"));
+                        ps.setShort(2, r.<Short>getAs("topic_id"));
+                    };
+                    if (incremental) {
+                        long before = LoaderSupport.count(url, user, password, "review_topic");
+                        long sent = LoaderSupport.appendTable(assigned, url, user, password, insert, BATCH, binder);
+                        long after = LoaderSupport.count(url, user, password, "review_topic");
+                        System.out.println("증분 결과  보낸 " + sent + "건 · 새로 들어간 " + (after - before) + "건 (나머지는 이미 있던 짝) · DB review_topic " + before + " → " + after + "행");
                         return;
                     }
                     long written = LoaderSupport.replaceTable(new String[] {"review_topic"}, assigned, url, user, password,

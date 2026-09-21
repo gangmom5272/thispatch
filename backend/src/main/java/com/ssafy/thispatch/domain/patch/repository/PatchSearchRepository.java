@@ -52,6 +52,9 @@ public class PatchSearchRepository {
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public List<Candidate> search(List<List<Double>> vectors, String model,
 		List<ConfirmedSlot> slots, List<Integer> genreIds) {
+		// 필터에서 탈락한 후보만큼 HNSW 탐색을 이어 간다. 설정은 이 트랜잭션에서만 유지한다.
+		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.iterative_scan = 'strict_order'");
+		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.ef_search = 100");
 		Map<String, Match> bestByPatch = new LinkedHashMap<>();
 		for (int index = 0; index < slots.size(); index++) {
 			for (Match match : nearest(vectors.get(index), model, slots.get(index), genreIds)) {
@@ -89,17 +92,23 @@ public class PatchSearchRepository {
 			genreFilter = "and exists (select 1 from game_tag gt where gt.appid = n.appid and gt.tag_id in (:genres))";
 			parameters.addValue("genres", genreIds);
 		}
+		// OFFSET 0은 자격 확인을 대량 조인으로 풀지 않게 한다. 벡터 인덱스에서 가까운 순서로
+		// 읽으면서 자격을 확인하고, 통과한 30개에만 변경 종류·방향 필터를 적용한다.
 		return jdbc.query("""
-			with nearest as (
+			with nearest as materialized (
 				select c.chunk_id, c.gid, c.embedding <=> cast(:vector as vector) as distance
-				from patch_chunk c join news n on n.gid = c.gid
-				join patch_stat s on s.gid = n.gid and s.appid = n.appid
-				where n.is_patch = true and c.embedding_status = 'succeeded'
+				from patch_chunk c
+				where c.embedding_status = 'succeeded'
 				  and c.embedding is not null and c.embedding_model = :model
-				  and s.before_review_count > 0 and s.after_review_count > 0
-				  and s.before_positive_pct is not null and s.after_positive_pct is not null
-				%s
-				order by c.embedding <=> cast(:vector as vector), c.chunk_id limit :limit
+				  and exists (
+					select 1 from news n join patch_stat s on s.gid = n.gid and s.appid = n.appid
+					where n.gid = c.gid and n.is_patch = true
+					  and s.before_review_count > 0 and s.after_review_count > 0
+					  and s.before_positive_pct is not null and s.after_positive_pct is not null
+					%s
+					offset 0
+				  )
+				order by c.embedding <=> cast(:vector as vector) limit :limit
 			)
 			select t.gid, t.chunk_id, 1 - t.distance as cosine from nearest t
 			where exists (

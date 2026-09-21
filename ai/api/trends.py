@@ -295,16 +295,18 @@ def template_summary(facts, effects):
     return title, " ".join(parts)
 
 
-def caveats(effects, has_channel):
-    out = []
-    if effects:
-        out.append("패치 전후 수치는 같은 시기에 함께 관측된 값이며, 패치가 변화를 일으켰다는 뜻이 아닙니다.")
-    if has_channel:
-        out.append("첫 작성·수정은 리뷰가 올라온 경로이며 신규 유저·기존 유저 구분이 아닙니다.")
-        out.append("이전 리뷰 상태를 저장하지 않아 수정이 긍정에서 부정으로 바뀐 것인지는 알 수 없습니다.")
-    out.append(f"리뷰 {MIN_DAY_REVIEWS}건 미만인 날은 긍정률 비교에서 제외했습니다.")
-    out.append("일별 집계는 리뷰 수정일 기준이라 과거 날짜의 값이 나중에 바뀔 수 있습니다.")
-    return out
+def caveats(effects, has_channel):  # noqa: ARG001
+    """화면에 함께 붙는 한계 문구.
+
+    9/21: 다섯 줄이던 것을 한 줄로 줄였다. 백엔드가 요약과 이 문구를 한 문자열로 합쳐 내려보내는데
+    (backend statistics.md), 다섯 줄이 요약 세 문장보다 길어 정작 읽어야 할 해석을 밀어냈다.
+    '첫 작성=신규 유저 아님'은 화면의 분포 카드에 이미 적혀 있어 중복이었고,
+    표본 하한·수정일 기준은 기획 판단을 바꾸지 않는다.
+    인과 한 줄만 남긴다 — 긍정률 하락과 패치 시점을 나란히 보여주므로 오해가 실제로 생길 수 있다.
+    """
+    if not effects:
+        return []
+    return ["패치 전후 수치는 같은 시기에 함께 관측된 값이며, 패치가 변화를 일으켰다는 뜻이 아닙니다."]
 
 
 def _ask_local(msgs, timeout):

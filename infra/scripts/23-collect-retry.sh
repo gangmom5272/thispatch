@@ -5,6 +5,10 @@
 #   bash 23-collect-retry.sh now      실패 조각이 0 이 될 때까지 다시 돌린다
 #   bash 23-collect-retry.sh unstick  STARTED 로 굳은 조각만 풀어 준다
 #
+#   JOB=news bash 23-collect-retry.sh now   공지 수집 잡(newsJob)도 똑같이. 기본은 리뷰(collectJob).
+#     2026-09-21 첫 자동 실행에서 공지 조각 3개가 무선 순단으로 FAILED 됐는데 재투입이 리뷰 전용이라
+#     그대로 잃었다. 조각 이름·매니저 유닛·실행 명령만 다르고 나머지는 같아서 잡 종류를 받게 했다.
+#
 # 왜 필요한가
 #   실패한 조각은 큐로 돌아가지 않는다. Spring Batch 의 원격 파티셔닝은
 #   실패한 스텝을 그 판 안에서 재시도하지 않는다. 사람이 잡을 다시 띄워야
@@ -41,10 +45,18 @@ BATCH_DB_PASSWORD=${BATCH_DB_PASSWORD:-dispatch-batch-local}
 # 몇 번까지 다시 돌릴 것인가. 한 번에 몇 시간이 걸리므로 크게 잡지 않는다.
 MAX_ROUNDS=${MAX_ROUNDS:-5}
 
-# 매니저를 띄우는 systemd 임시 유닛 이름.
-# ⚠ nohup 이나 & 로 띄우면 이 셸이 끝날 때 같이 죽는다. 2026-09-14 에 겪었다 —
-#   로그 파일조차 만들어지지 않았다.
-UNIT=${UNIT:-thispatch-collect}
+# 어느 잡인가. 리뷰(collectJob)가 기본, JOB=news 면 공지(newsJob).
+#   JOB_NAME     batch_job_instance.job_name
+#   STEP_PREFIX  조각 step 이름 앞부분 (collect.worker:partitionN · collect.news:partitionN)
+#   UNIT         매니저를 띄우는 systemd 임시 유닛 이름
+#                ⚠ nohup 이나 & 로 띄우면 이 셸이 끝날 때 같이 죽는다. 2026-09-14 에 겪었다 —
+#                  로그 파일조차 만들어지지 않았다.
+#   DEPLOY_CMD   12-deploy-collector.sh 의 명령. 둘 다 DT · PARTITIONS 환경변수를 받는다.
+case "${JOB:-reviews}" in
+  reviews|collect) JOB_NAME=collectJob; STEP_PREFIX=collect.worker; UNIT=${UNIT:-thispatch-collect}; DEPLOY_CMD=run ;;
+  news)            JOB_NAME=newsJob;    STEP_PREFIX=collect.news;   UNIT=${UNIT:-thispatch-news};    DEPLOY_CMD=run-news ;;
+  *) echo "모르는 JOB: ${JOB} (reviews | news)" >&2; exit 2 ;;
+esac
 
 CMD=${1:-status}
 
@@ -62,7 +74,7 @@ read_state() {
     join batch_job_instance i using(job_instance_id)
     left join batch_job_execution_params p
            on p.job_execution_id = e.job_execution_id and p.parameter_name = 'dt'
-    where i.job_name = 'collectJob'
+    where i.job_name = '$JOB_NAME'
     order by e.job_execution_id desc limit 1;")
   JOB_ID=$(echo "$row" | cut -d'|' -f1)
   JOB_ST=$(echo "$row" | cut -d'|' -f2)
@@ -95,7 +107,7 @@ read_state() {
     join batch_job_execution e using(job_execution_id)
     where e.job_instance_id = (select job_instance_id from batch_job_execution
                                where job_execution_id=$JOB_ID)
-      and se.step_name like 'collect.worker:partition%';")
+      and se.step_name like '$STEP_PREFIX:partition%';")
   : "${ORIG_PARTS:=0}"
 }
 
@@ -162,7 +174,7 @@ run_once() {
       --setenv=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
       --working-directory="$HOME" \
       --collect \
-      /bin/bash "$DEPLOY" run >/dev/null || return 1
+      /bin/bash "$DEPLOY" "$DEPLOY_CMD" >/dev/null || return 1
 
   echo -n "  돌고 있다"
   while [ "$(systemctl is-active "$UNIT" 2>/dev/null)" = active ]; do
@@ -173,13 +185,15 @@ run_once() {
 }
 
 alert() {
+  # 진행률 알림(22번)은 리뷰 수집 것이다. 공지에는 아직 없다.
+  [ "$JOB_NAME" = collectJob ] || return 0
   [ -x "$PROGRESS" ] || return 0
   bash "$PROGRESS" now -f >/dev/null 2>&1 || true
 }
 
 case "$CMD" in
 status)
-  echo "== 수집 잡 상태 =============================="
+  echo "== 수집 잡 상태 ($JOB_NAME) =============================="
   show
   ;;
 
@@ -197,7 +211,7 @@ unstick)
   ;;
 
 now)
-  echo "== 실패 조각 다시 돌리기 ======================"
+  echo "== 실패 조각 다시 돌리기 ($JOB_NAME) ======================"
   read_state
   if [ -z "$JOB_DT" ]; then
     echo "  수집 잡 기록이 없다. 처음이라면 12-deploy-collector.sh run 을 쓴다." >&2

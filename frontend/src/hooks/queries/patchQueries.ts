@@ -1,11 +1,22 @@
-import { mutationOptions, queryOptions, useMutation, useQuery } from "@tanstack/react-query"
+import {
+  infiniteQueryOptions,
+  mutationOptions,
+  queryOptions,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+} from "@tanstack/react-query"
 import {
   createCaseSearch,
   createPlanStructure,
   getPatch,
+  getPatchPlan,
+  getPatchPlans,
   getPatchTranslation,
 } from "../../api/patch"
 import type { CaseSearchInput } from "../../types"
+
+const PLAN_HISTORY_LIMIT = 20
 
 interface CreatePlanStructureVariables {
   gameId: number
@@ -19,6 +30,9 @@ export const patchKeys = {
   detail: (gameId: number, patchId: string) =>
     [...patchKeys.all, "detail", gameId, patchId] as const,
   translation: (patchId: string) => [...patchKeys.all, "translation", patchId] as const,
+  plans: () => [...patchKeys.all, "plans"] as const,
+  planList: (limit: number) => [...patchKeys.plans(), "list", limit] as const,
+  planDetail: (planId: number) => [...patchKeys.plans(), "detail", planId] as const,
 }
 
 export const createPlanStructureOptions = () =>
@@ -41,7 +55,7 @@ export function useCaseSearch(gameId: number, input: CaseSearchInput | null) {
   return useQuery({
     ...caseSearchOptions(
       gameId,
-      input ?? { confirmedSlots: [], genreIds: [], sort: "REVIEW_COUNT_DESC" },
+      input ?? { planId: 0, confirmedSlots: [], genreIds: [], sort: "REVIEW_COUNT_DESC" },
     ),
     enabled: input !== null,
   })
@@ -74,4 +88,27 @@ export function usePatchTranslation(patchId: string, enabled: boolean) {
     ...patchTranslationOptions(patchId),
     enabled: enabled && patchId.length > 0,
   })
+}
+
+export const patchPlanListOptions = (limit: number) =>
+  infiniteQueryOptions({
+    queryKey: patchKeys.planList(limit),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) => getPatchPlans(limit, pageParam, signal),
+    getNextPageParam: (lastPage) =>
+      lastPage?.page?.hasNext ? (lastPage.page.nextCursor ?? undefined) : undefined,
+  })
+
+export function usePatchPlanList() {
+  return useInfiniteQuery(patchPlanListOptions(PLAN_HISTORY_LIMIT))
+}
+
+export const patchPlanDetailOptions = (planId: number) =>
+  queryOptions({
+    queryKey: patchKeys.planDetail(planId),
+    queryFn: ({ signal }) => getPatchPlan(planId, signal),
+  })
+
+export function usePatchPlanDetail(planId: number | null) {
+  return useQuery({ ...patchPlanDetailOptions(planId ?? 0), enabled: planId !== null })
 }

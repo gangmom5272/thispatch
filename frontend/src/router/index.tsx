@@ -26,6 +26,7 @@ import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAn
 import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
 import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
 import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"
+import PlansPage from "@/pages/Plans/PlansPage"
 
 export const router = createBrowserRouter([
   {
@@ -90,7 +91,7 @@ export const router = createBrowserRouter([
           },
           {
             path: routeSegment(paths.plans),
-            element: <PlaceholderPage title="기획안 내역" />,
+            element: <PlansPage />,
           },
         ],
       },

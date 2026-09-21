@@ -21,6 +21,7 @@ const linkClass =
   "rounded-sb-tag text-sb-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
 
 interface SearchState {
+  planId: number
   slots: PlanSlot[]
   genreIds: number[]
 }
@@ -28,7 +29,13 @@ interface SearchState {
 function isSearchState(value: unknown): value is SearchState {
   if (!value || typeof value !== "object") return false
   const state = value as Partial<SearchState>
-  return Array.isArray(state.slots) && state.slots.length > 0 && Array.isArray(state.genreIds)
+  return (
+    typeof state.planId === "number" &&
+    state.planId > 0 &&
+    Array.isArray(state.slots) &&
+    state.slots.length > 0 &&
+    Array.isArray(state.genreIds)
+  )
 }
 
 function toConfirmedSlot(slot: PlanSlot): ConfirmedSlot {
@@ -68,6 +75,7 @@ function CaseSearchContent({ gameId }: { gameId: number }) {
   const sort = isSort(rawSort) ? rawSort : DEFAULT_SORT
 
   const input: CaseSearchInput | null = state && {
+    planId: state.planId,
     confirmedSlots: state.slots.map(toConfirmedSlot),
     genreIds: state.genreIds,
     sort,

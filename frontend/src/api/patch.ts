@@ -1,4 +1,11 @@
-import type { CaseSearch, CaseSearchInput, PatchDetail, PlanStructure } from "../types"
+import type {
+  CaseSearch,
+  CaseSearchInput,
+  PatchDetail,
+  PatchPlanHistoryDetail,
+  PatchPlanHistoryList,
+  PlanStructure,
+} from "../types"
 import { api } from "./client"
 
 /** GET /patches/{patchId}/translation 응답 data. */
@@ -44,6 +51,29 @@ export function getPatchTranslation(
 ): Promise<PatchTranslation> {
   return api.get<PatchTranslation>({
     path: `/patches/${patchId}/translation`,
+    config: { signal },
+  })
+}
+
+/** GET /members/me/patch-plans — 로그인 사용자의 기획안 내역을 최신순으로 조회한다. */
+export function getPatchPlans(
+  limit?: number,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<PatchPlanHistoryList> {
+  return api.get<PatchPlanHistoryList>({
+    path: "/members/me/patch-plans",
+    config: { params: { limit, cursor }, signal },
+  })
+}
+
+/** GET /members/me/patch-plans/{planId} */
+export function getPatchPlan(
+  planId: number,
+  signal?: AbortSignal,
+): Promise<PatchPlanHistoryDetail> {
+  return api.get<PatchPlanHistoryDetail>({
+    path: `/members/me/patch-plans/${planId}`,
     config: { signal },
   })
 }

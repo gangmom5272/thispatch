@@ -4,6 +4,7 @@ import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
 import { GameHeader } from "@/components/GameHeader"
 import PlanSteps from "@/components/PlanSteps"
+import ScrollToTopButton from "@/components/ScrollToTopButton"
 import { useCaseSearch } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
 import { GAME_DETAIL_TABS, gameDetailTabPath, paths } from "@/router/paths"
@@ -239,6 +240,7 @@ function CaseSearchContent({ gameId }: { gameId: number }) {
           </>
         )}
       </main>
+      <ScrollToTopButton />
     </>
   )
 }

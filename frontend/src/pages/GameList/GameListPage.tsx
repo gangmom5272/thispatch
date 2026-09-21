@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router"
 import { isApiError } from "../../api/error"
 import LoadMoreSentinel from "../../components/LoadMoreSentinel"
+import ScrollToTopButton from "../../components/ScrollToTopButton"
 import {
   DEFAULT_GAME_FILTER,
   DEFAULT_GAME_SORT,
@@ -164,6 +165,7 @@ export default function GameListPage() {
           )}
         </section>
       </main>
+      <ScrollToTopButton />
 
       {isFilterOpen && (
         <GameFilterDialog

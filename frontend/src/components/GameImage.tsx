@@ -1,6 +1,7 @@
 import { useState } from "react"
-import gamePlaceholder from "@/assets/game-placeholder.jpg"
 import { cn } from "@/lib/cn"
+
+const gamePlaceholder = `${import.meta.env.BASE_URL}game-placeholder.jpg`
 
 interface GameImageProps {
   /** Steam 이미지 URL — null/빈 값이면 대체 이미지를 쓴다. */

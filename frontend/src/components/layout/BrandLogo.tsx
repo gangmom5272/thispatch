@@ -1,5 +1,4 @@
 import { Link } from "react-router"
-import logo from "@/assets/logo.png"
 import { cn } from "@/lib/cn"
 import { paths } from "@/router/paths"
 
@@ -12,7 +11,7 @@ interface BrandLogoProps {
 export function BrandLogo({ size = 22, interactive = true, className }: BrandLogoProps) {
   const content = (
     <img
-      src={logo}
+      src={`${import.meta.env.BASE_URL}logo.png`}
       alt="ThisPatch"
       width={1254}
       height={314}

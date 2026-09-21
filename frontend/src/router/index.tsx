@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router"
 import { AppShell } from "@/components/layout/AppShell"
+import { RequireAuth } from "@/components/layout/RequireAuth"
 import LoginPage from "@/pages/login/LoginPage"
 import NotFound from "@/pages/NotFound"
 import { PlaceholderPage } from "@/pages/PlaceholderPage"
@@ -36,57 +37,62 @@ export const router = createBrowserRouter([
         element: <LandingPage />,
       },
       {
-        path: routeSegment(paths.games),
-        element: <GameListPage />,
-      },
-      {
-        path: routeSegment(paths.gameDetailPattern),
-        element: <GameDetailPage />,
+        element: <RequireAuth />,
         children: [
           {
-            index: true,
-            element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
+            path: routeSegment(paths.games),
+            element: <GameListPage />,
           },
-          ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
-            path: tab,
-            element:
-              tab === GAME_DETAIL_TABS.reactionTrends ? (
-                <ReactionTrendsPage />
-              ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
-                <PlaytimeTopicsPage />
-              ) : tab === GAME_DETAIL_TABS.reviews ? (
-                <ReviewsPage />
-              ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
-                <LanguageAnalysisPage />
-              ) : (
-                <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
-              ),
-          })),
+          {
+            path: routeSegment(paths.gameDetailPattern),
+            element: <GameDetailPage />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
+              },
+              ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
+                path: tab,
+                element:
+                  tab === GAME_DETAIL_TABS.reactionTrends ? (
+                    <ReactionTrendsPage />
+                  ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
+                    <PlaytimeTopicsPage />
+                  ) : tab === GAME_DETAIL_TABS.reviews ? (
+                    <ReviewsPage />
+                  ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
+                    <LanguageAnalysisPage />
+                  ) : (
+                    <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
+                  ),
+              })),
+            ],
+          },
+          {
+            path: routeSegment(paths.gamePlanPattern),
+            element: <PlanStructurePage />,
+          },
+          {
+            path: routeSegment(paths.gameCasesPattern),
+            element: <CaseSearchPage />,
+          },
+          {
+            path: routeSegment(paths.gameCaseDetailPattern),
+            element: <CaseDetailPage />,
+          },
+          {
+            path: routeSegment(paths.myGames),
+            element: <MyGamesPage />,
+          },
+          {
+            path: routeSegment(paths.myPage),
+            element: <MyPage />,
+          },
+          {
+            path: routeSegment(paths.plans),
+            element: <PlaceholderPage title="기획안 내역" />,
+          },
         ],
-      },
-      {
-        path: routeSegment(paths.gamePlanPattern),
-        element: <PlanStructurePage />,
-      },
-      {
-        path: routeSegment(paths.gameCasesPattern),
-        element: <CaseSearchPage />,
-      },
-      {
-        path: routeSegment(paths.gameCaseDetailPattern),
-        element: <CaseDetailPage />,
-      },
-      {
-        path: routeSegment(paths.myGames),
-        element: <MyGamesPage />,
-      },
-      {
-        path: routeSegment(paths.myPage),
-        element: <MyPage />,
-      },
-      {
-        path: routeSegment(paths.plans),
-        element: <PlaceholderPage title="기획안 내역" />,
       },
       {
         path: routeSegment(paths.methodology),

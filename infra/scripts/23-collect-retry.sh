@@ -127,10 +127,21 @@ unstick() {
   echo "  조각 $P_RUN 개와 잡 #$JOB_ID 를 실패로 찍는다 (재시작이 집어가게)"
   q "update batch_step_execution
         set status='FAILED', exit_code='FAILED',
-            exit_message = coalesce(exit_message,'') ||
-              '[23-collect-retry.sh] 워커가 죽은 채 STARTED 로 남아 재시작을 막고 있었다',
+            -- ⚠ exit_message 는 varchar(2500) 이고 스택트레이스로 이미 꽉 차 있는 경우가 많다.
+            --   그대로 덧붙이면 UPDATE 가 거부되고(2026-09-21 실측 "value too long") 굳은 것이 안 풀린다.
+            exit_message = left(coalesce(exit_message,''), 2300) ||
+              ' [23-collect-retry.sh] 굳은 채 남아 재시작을 막고 있었다 → FAILED',
             end_time = coalesce(end_time, now()), last_updated = now()
       where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');" >/dev/null
+  # 정말 풀렸는지 다시 세어 본다 — q 는 오류를 숨기므로 결과로 확인한다
+  local left
+  left=$(q "select count(*) from batch_step_execution
+            where job_execution_id=$JOB_ID and status in ('STARTED','STARTING','UNKNOWN');")
+  if [ "${left:-1}" != 0 ]; then
+    echo "  ✖ 굳은 조각 $left 개가 그대로다. UPDATE 가 거부됐다 — 직접 볼 것:" >&2
+    echo "    psql -d thispatch_batch -c \"select step_name, status, length(exit_message) from batch_step_execution where job_execution_id=$JOB_ID and status<>'COMPLETED';\"" >&2
+    return 1
+  fi
   q "update batch_job_execution
         set status='FAILED', exit_code='FAILED',
             end_time = coalesce(end_time, now()), last_updated = now()

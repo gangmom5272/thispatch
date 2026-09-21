@@ -122,6 +122,8 @@ STAGES=(
 #   recent_review → … → 토픽 다시 넣음」 으로 감싼다. review_topic 적재기는 recent_review
 #   의 review_id 로 짝을 맞추므로 맨 끝에 온다.
 #   patch_chunk.gid 는 news 를, patch_change 는 patch_chunk 를 참조한다.
+#   band_stat 이 recent_review 앞이다 — recent_review.band_no 는 band_stat 의 구간 경계로 매긴다
+#   (2026-09-21: 이 칼럼이 전부 NULL 이라 구간 화면이 비었다). 오늘 경계로 오늘 리뷰를 나누는 게 맞다.
 #   band_stat 은 band_topic_stat 이 참조한다 — 그 적재기(S15P21A202-251)가 생기면 band_stat 뒤에 온다.
 #
 # ⚠ AI 산출물(patch_chunk · patch_change · review_topic)은 AI 노드가 HDFS 에 올린 것을 읽는다.
@@ -137,11 +139,11 @@ STAGES=(
 # 어제(KST)다. 오늘 증분이 이 단계 앞(collect·convert)에서 끝났기 때문이다.
 LOAD_JOBS=(
   "news|com.ssafy.thispatch.spark.NewsToPostgres|light|"
+  "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
   "review_topic_clear|com.ssafy.thispatch.spark.ReviewTopicToPostgres|light|--clear-only"
   "recent_review|com.ssafy.thispatch.spark.RecentReviewToPostgres|light|"
   "patch_chunk|com.ssafy.thispatch.spark.PatchChunkToPostgres|light|--dt YESTERDAY"
   "patch_change|com.ssafy.thispatch.spark.PatchChangeToPostgres|light|--chunk-dt YESTERDAY --change-dt YESTERDAY"
-  "band_stat|com.ssafy.thispatch.spark.BandStatToPostgres|heavy|"
   "patch_stat|com.ssafy.thispatch.spark.PatchStatToPostgres|heavy|--coverage-end YESTERDAY"
   "daily_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only daily"
   "language_stat|com.ssafy.thispatch.spark.ReviewStatsToPostgres|heavy|--only language"

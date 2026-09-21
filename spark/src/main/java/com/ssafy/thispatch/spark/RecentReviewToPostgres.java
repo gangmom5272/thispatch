@@ -26,8 +26,11 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.storage.StorageLevel;
 
 /**
@@ -207,7 +210,14 @@ public final class RecentReviewToPostgres {
                         }
                     }
                     Dataset<Row> knownLang = latest.filter(col("language_code").isin(languages.toArray()));
-                    Dataset<Row> kept = knownLang.join(games, knownLang.col("appid").equalTo(games.col("game_appid")), "left_semi")
+                    // band_no — 백엔드의 「플레이타임 구간 × 토픽」 집계와 구간별 대표 리뷰가 recent_review.band_no 를 직접 읽는다
+                    // (PlaytimeAnalysisRepository). 2026-09-21 실측: 96만 행 전부 NULL 이라 구간 화면이 비었다.
+                    // 구간 경계는 band_stat(appid 별 4분위)이 정본이라 드라이버가 읽어 브로드캐스트 조인한다.
+                    List<Row> bandRows = readBands(url, user, password);
+                    Dataset<Row> bands = spark.createDataFrame(bandRows, BAND);
+                    System.out.println("band_stat  " + bandRows.size() + "행 (드라이버가 읽음)" + (bandRows.isEmpty() ? " — 비어 있어 band_no 는 전부 NULL 이 된다. band_stat 을 먼저 적재할 것" : ""));
+                    Dataset<Row> kept = assignBand(
+                                knownLang.join(games, knownLang.col("appid").equalTo(games.col("game_appid")), "left_semi"), bands)
                             .persist(StorageLevel.DISK_ONLY());
                     try {
                         long keptRows = kept.count();
@@ -219,7 +229,8 @@ public final class RecentReviewToPostgres {
                         if (nullVotes > 0) {
                             System.out.println("⚠ votes_up 이 null 인 행  " + nullVotes + "건 — 0 으로 넣는다 (NOT NULL · 세는 값)");
                         }
-                        System.out.println("넣을 것   " + keptRows + "건");
+                        long noBand = kept.filter(col("band_no").isNull()).count();
+                        System.out.println("넣을 것   " + keptRows + "건 · band_no 없음 " + noBand + "건 (플레이타임 없음 · band_stat 에 없는 게임)");
                         System.out.println("게임별 상위:");
                         kept.groupBy("appid").count().orderBy(col("count").desc()).show(5, false);
                         if (dryRun) {
@@ -253,6 +264,42 @@ public final class RecentReviewToPostgres {
     }
 
     // ── 순수 Spark 부분 (테스트가 여기를 본다) ──────────────────────
+
+    /** band_stat 의 구간 경계. playtime_to 가 null 이면 마지막 구간(위로 열림). */
+    static final StructType BAND = new StructType()
+            .add("band_appid", DataTypes.LongType, false)
+            .add("band_no", DataTypes.ShortType, false)
+            .add("playtime_from", DataTypes.IntegerType, false)
+            .add("playtime_to", DataTypes.IntegerType, true);
+
+    /**
+     * 리뷰의 playtime_at_review 를 그 게임의 band_stat 구간에 넣어 band_no 를 붙인다.
+     * 규칙은 BandStatAggregator 와 같다: from ≤ playtime < to, 마지막 구간은 to 가 null.
+     * 플레이타임이 없거나 게임이 band_stat 에 없으면 null — 행은 남긴다(left join).
+     */
+    static Dataset<Row> assignBand(Dataset<Row> reviews, Dataset<Row> bands) {
+        Column on = reviews.col("appid").equalTo(bands.col("band_appid"))
+                .and(reviews.col("playtime_at_review").isNotNull())
+                .and(reviews.col("playtime_at_review").geq(bands.col("playtime_from")))
+                .and(bands.col("playtime_to").isNull().or(reviews.col("playtime_at_review").lt(bands.col("playtime_to"))));
+        return reviews.join(bands, on, "left_outer")
+                .drop("band_appid", "playtime_from", "playtime_to");
+    }
+
+    private static List<Row> readBands(String url, String user, String password) {
+        List<Row> out = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(url, user, password);
+             Statement st = conn.createStatement();
+             var rs = st.executeQuery("SELECT appid, band_no, playtime_from, playtime_to FROM band_stat")) {
+            while (rs.next()) {
+                Integer to = rs.getObject(4, Integer.class);
+                out.add(RowFactory.create(rs.getLong(1), rs.getShort(2), rs.getInt(3), to));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("band_stat 조회 실패: " + e.getMessage(), e);
+        }
+        return out;
+    }
 
     /** INSERT 가 거부할 행. NOT NULL 칼럼 · 키 범위 · language_code 형식. */
     static Column invalidInput() {
@@ -294,7 +341,7 @@ public final class RecentReviewToPostgres {
         String sql = """
                 INSERT INTO recent_review (recommendationid, appid, review_text, voted_up, votes_up,
                                            playtime_at_review, language_code, band_no, created_ts, updated_ts)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         long n = 0;
         try (Connection conn = DriverManager.getConnection(url, user, password)) {
@@ -321,8 +368,14 @@ public final class RecentReviewToPostgres {
                             ps.setInt(6, playtime);
                         }
                         ps.setString(7, r.getAs("language_code"));
-                        ps.setTimestamp(8, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
-                        ps.setTimestamp(9, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts"))));
+                        Short band = r.getAs("band_no");
+                        if (band == null) {
+                            ps.setNull(8, Types.SMALLINT);
+                        } else {
+                            ps.setShort(8, band);
+                        }
+                        ps.setTimestamp(9, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
+                        ps.setTimestamp(10, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts"))));
                         ps.addBatch();
                         if (++inBatch >= BATCH) {
                             n += ps.executeBatch().length;

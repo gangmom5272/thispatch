@@ -100,12 +100,14 @@ class RecentReviewToPostgresTest {
         assertTrue(paths[1].endsWith("/review_raw/delta/dt=2026-09-21"), paths[1]);
     }
 
-    /** upsert 는 recommendationid 로 부딪히고, 더 새 판본일 때만 덮어쓴다. */
-    @Test void upsertOnlyOverwritesWithNewerVersion() {
-        String sql = RecentReviewToPostgres.upsertSql();
-        assertTrue(sql.contains("ON CONFLICT (recommendationid) DO UPDATE"));
-        assertTrue(sql.contains("WHERE recent_review.updated_ts <= EXCLUDED.updated_ts"));
-        assertTrue(sql.contains("band_no = EXCLUDED.band_no"));
+    /** 증분은 UNIQUE 없이 간다 — UPDATE 는 recommendationid 로 찾되 더 새 판본일 때만, INSERT 는 ON CONFLICT 없이. */
+    @Test void incrementalUpdatesOnlyNewerVersionAndInsertsPlainly() {
+        String upd = RecentReviewToPostgres.updateSql();
+        assertTrue(upd.contains("WHERE recommendationid = ? AND updated_ts <= ?"), upd);
+        assertTrue(upd.contains("band_no = ?"));
+        String ins = RecentReviewToPostgres.insertSql();
+        assertFalse(ins.contains("ON CONFLICT"), ins);
+        assertTrue(ins.contains("INSERT INTO recent_review"));
     }
 
     @Test void invalidInputCatchesWhatInsertWouldReject() {

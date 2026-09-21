@@ -88,7 +88,7 @@ import org.apache.spark.storage.StorageLevel;
  * 매겨져 review_topic 도 같이 갈아엎어야 한다. 증분 모드는 최근 delta 파티션(오늘·어제, {@code --since-days})만 읽어
  * <b>recommendationid 기준 upsert</b> 하고, 창 밖으로 나간 행(과 그 토픽)만 지운다. review_id 가 유지되므로 review_topic 은
  * 비우지 않고 새 짝만 더한다. 하루 변동은 7만 행 안팎이라 1~2분이다. band_no 는 그날 band_stat 경계로 전체를 다시 매긴다.
- * upsert 는 {@code recommendationid} 의 UNIQUE 인덱스(V17)가 있어야 한다. 전량 모드는 첫 적재·복구용으로 남는다.
+ * UNIQUE 제약 없이(백엔드가 판본 여러 행을 허용) 조각마다 DB 판본을 조회해 갈라 넣는다. 전량 모드는 첫 적재·복구용으로 남는다.
  *
  * <p>NOT NULL 칼럼이 비었거나 FK(game · language)에 없는 행은 INSERT 가 통째로 실패하므로
  * 미리 갈라내 <b>이유별 건수를 찍고</b> 뺀다. 조용히 버리지 않는다. 비율이 한도를 넘으면
@@ -264,9 +264,8 @@ public final class RecentReviewToPostgres {
                             long before = count(url, user, password, "recent_review");
                             long[] r = upsertRecentReview(kept, cutoffEpoch, url, user, password);
                             long after = count(url, user, password, "recent_review");
-                            long inserted = after - (before - r[0]);
-                            System.out.println("증분 결과  창 밖 삭제 " + r[0] + "건(토픽 " + r[1] + "건) · 보낸 " + r[2] + "건 = 새 리뷰 " + inserted
-                                    + " + 갱신 " + (r[2] - inserted) + " · band_no 재배정 " + r[3] + "건 · DB recent_review " + before + " → " + after + "행");
+                            System.out.println("증분 결과  창 밖 삭제 " + r[0] + "건(토픽 " + r[1] + "건) · 새 리뷰 " + r[2] + "건 · 갱신 " + r[4]
+                                    + "건 · 더 새 판본이 있어 건너뜀 " + r[5] + "건 · band_no 재배정 " + r[3] + "건 · DB recent_review " + before + " → " + after + "행");
                             return;
                         }
                         long topics = count(url, user, password, "review_topic");
@@ -326,27 +325,39 @@ public final class RecentReviewToPostgres {
         return out;
     }
 
-    /** upsert 문. 같은 recommendationid 가 있으면 더 새 판본(updated_ts 가 크거나 같은 것)일 때만 덮어쓴다. */
-    static String upsertSql() {
+    /**
+     * 있으면 UPDATE, 없으면 INSERT — UNIQUE 제약 없이 한다.
+     *
+     * <p>{@code ON CONFLICT} 를 쓰려면 recommendationid UNIQUE 가 필요한데, 백엔드는 같은 리뷰의 판본 여러 행을
+     * 허용하는 설계다(DISTINCT ON · ReviewTranslationRepositoryIntegrationTest 가 옛 판·새 판을 함께 넣는다).
+     * 2026-09-21 UNIQUE 를 넣었다가 그 테스트가 깨져 뺐다. 대신 들어오는 조각(5,000행)마다 DB 에 있는
+     * (recommendationid → updated_ts) 를 한 번 조회해 새 리뷰 / 갱신 / 더 새 판본이 이미 있어 건너뜀 을 가른다.
+     */
+    static String updateSql() {
+        return """
+                UPDATE recent_review SET appid = ?, review_text = ?, voted_up = ?, votes_up = ?, playtime_at_review = ?,
+                                         language_code = ?, band_no = ?, created_ts = ?, updated_ts = ?
+                WHERE recommendationid = ? AND updated_ts <= ?
+                """;
+    }
+
+    static String insertSql() {
         return """
                 INSERT INTO recent_review (recommendationid, appid, review_text, voted_up, votes_up,
                                            playtime_at_review, language_code, band_no, created_ts, updated_ts)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (recommendationid) DO UPDATE SET
-                    appid = EXCLUDED.appid, review_text = EXCLUDED.review_text, voted_up = EXCLUDED.voted_up,
-                    votes_up = EXCLUDED.votes_up, playtime_at_review = EXCLUDED.playtime_at_review,
-                    language_code = EXCLUDED.language_code, band_no = EXCLUDED.band_no,
-                    created_ts = EXCLUDED.created_ts, updated_ts = EXCLUDED.updated_ts
-                WHERE recent_review.updated_ts <= EXCLUDED.updated_ts
                 """;
     }
 
+    /** 조각 단위로 DB 를 조회하는 크기. 70k 행이면 14번. */
+    static final int LOOKUP_CHUNK = 5_000;
+
     /**
-     * 증분 적재. 한 트랜잭션에서 ① 창 밖 리뷰의 토픽 삭제 ② 창 밖 리뷰 삭제 ③ upsert ④ band_no 전체 재배정.
-     * 돌려주는 값: [지운 리뷰, 지운 토픽, 보낸 행, band_no 바뀐 행].
+     * 증분 적재. 한 트랜잭션에서 ① 창 밖 리뷰의 토픽 삭제 ② 창 밖 리뷰 삭제 ③ 조각마다 있으면 UPDATE · 없으면 INSERT
+     * ④ band_no 전체 재배정. 돌려주는 값: [지운 리뷰, 지운 토픽, 새로 넣은 행, band_no 바뀐 행, 갱신한 행, 더 새 판본이 있어 건너뛴 행].
      */
     private static long[] upsertRecentReview(Dataset<Row> rows, long cutoffEpoch, String url, String user, String password) {
-        long[] out = new long[4];
+        long[] out = new long[6];
         try (Connection conn = DriverManager.getConnection(url, user, password)) {
             conn.setAutoCommit(false);
             try {
@@ -359,19 +370,21 @@ public final class RecentReviewToPostgres {
                     ps.setTimestamp(1, Timestamp.from(Instant.ofEpochSecond(cutoffEpoch)));
                     out[0] = ps.executeUpdate();
                 }
-                try (PreparedStatement ps = conn.prepareStatement(upsertSql())) {
-                    int inBatch = 0;
+                try (PreparedStatement lookup = conn.prepareStatement(
+                             "SELECT recommendationid, max(updated_ts) FROM recent_review WHERE recommendationid = ANY(?) GROUP BY recommendationid");
+                     PreparedStatement upd = conn.prepareStatement(updateSql());
+                     PreparedStatement ins = conn.prepareStatement(insertSql())) {
+                    List<Row> chunk = new ArrayList<>(LOOKUP_CHUNK);
                     java.util.Iterator<Row> it = rows.toLocalIterator();
                     while (it.hasNext()) {
-                        bind(ps, it.next());
-                        ps.addBatch();
-                        if (++inBatch >= BATCH) {
-                            out[2] += ps.executeBatch().length;
-                            inBatch = 0;
+                        chunk.add(it.next());
+                        if (chunk.size() >= LOOKUP_CHUNK) {
+                            applyChunk(conn, lookup, upd, ins, chunk, out);
+                            chunk.clear();
                         }
                     }
-                    if (inBatch > 0) {
-                        out[2] += ps.executeBatch().length;
+                    if (!chunk.isEmpty()) {
+                        applyChunk(conn, lookup, upd, ins, chunk, out);
                     }
                 }
                 // band_stat 경계는 매일 바뀐다 — 옛 행도 오늘 경계로. 바뀌는 행만 쓴다.
@@ -395,6 +408,71 @@ public final class RecentReviewToPostgres {
             throw new IllegalStateException("증분 적재 실패: " + e.getMessage(), e);
         }
         return out;
+    }
+
+    /** 한 조각: DB 에 있는 판본을 조회해 새 리뷰는 INSERT, 더 오래된 판본이 있으면 UPDATE, 더 새 판본이 있으면 건너뛴다. */
+    private static void applyChunk(Connection conn, PreparedStatement lookup, PreparedStatement upd, PreparedStatement ins,
+                                   List<Row> chunk, long[] out) throws SQLException {
+        Long[] ids = chunk.stream().map(r -> r.<Long>getAs("recommendationid")).toArray(Long[]::new);
+        java.util.Map<Long, Long> existing = new java.util.HashMap<>();
+        lookup.setArray(1, conn.createArrayOf("bigint", ids));
+        try (var rs = lookup.executeQuery()) {
+            while (rs.next()) {
+                existing.put(rs.getLong(1), rs.getTimestamp(2).toInstant().getEpochSecond());
+            }
+        }
+        int updates = 0;
+        int inserts = 0;
+        for (Row r : chunk) {
+            long id = r.<Long>getAs("recommendationid");
+            long updated = r.<Long>getAs("updated_ts");
+            Long have = existing.get(id);
+            if (have == null) {
+                bind(ins, r);
+                ins.addBatch();
+                inserts++;
+            } else if (have <= updated) {
+                bindUpdate(upd, r);
+                upd.addBatch();
+                updates++;
+            } else {
+                out[5]++;
+            }
+        }
+        if (inserts > 0) {
+            out[2] += ins.executeBatch().length;
+        }
+        if (updates > 0) {
+            for (int c : upd.executeBatch()) {
+                out[4] += Math.max(c, 0);
+            }
+        }
+    }
+
+    private static void bindUpdate(PreparedStatement ps, Row r) throws SQLException {
+        ps.setLong(1, r.<Long>getAs("appid"));
+        ps.setString(2, r.getAs("review_text"));
+        ps.setBoolean(3, r.<Boolean>getAs("voted_up"));
+        Integer votes = r.getAs("votes_up");
+        ps.setInt(4, votes == null ? 0 : votes);
+        Integer playtime = r.getAs("playtime_at_review");
+        if (playtime == null) {
+            ps.setNull(5, Types.INTEGER);
+        } else {
+            ps.setInt(5, playtime);
+        }
+        ps.setString(6, r.getAs("language_code"));
+        Short band = r.getAs("band_no");
+        if (band == null) {
+            ps.setNull(7, Types.SMALLINT);
+        } else {
+            ps.setShort(7, band);
+        }
+        ps.setTimestamp(8, Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("created_ts"))));
+        Timestamp updatedTs = Timestamp.from(Instant.ofEpochSecond(r.<Long>getAs("updated_ts")));
+        ps.setTimestamp(9, updatedTs);
+        ps.setLong(10, r.<Long>getAs("recommendationid"));
+        ps.setTimestamp(11, updatedTs);
     }
 
     private static void bind(PreparedStatement ps, Row r) throws SQLException {

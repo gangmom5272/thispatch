@@ -120,7 +120,7 @@ export function AppHeader() {
   const user = data?.authenticated ? data.user : null
 
   return (
-    <header className="border-b border-sb-hairline bg-sb-canvas-header">
+    <header className="sticky top-0 z-30 border-b border-sb-hairline bg-sb-canvas-header">
       <div className="mx-auto flex max-w-sb-page flex-wrap items-center gap-x-3.5 px-sb-4 md:h-sb-header md:flex-nowrap md:px-sb-12">
         <div className="flex h-sb-header items-center">
           <BrandLogo />

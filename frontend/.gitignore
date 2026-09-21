@@ -14,7 +14,8 @@ dist-ssr
 
 # Env
 .env
-.env.local
+.env.*
+!.env.example
 
 # Testing / CI
 playwright-report

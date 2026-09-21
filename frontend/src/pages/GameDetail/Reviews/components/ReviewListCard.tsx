@@ -1,4 +1,6 @@
 import { useState } from "react"
+import { TranslationErrorNotice } from "@/components/TranslationErrorNotice"
+import { useReviewTranslation } from "@/hooks/queries/reviewQueries"
 import type { Review } from "@/types/review"
 import { formatPlaytimeMinutes } from "@/pages/GameDetail/PlaytimeTopics/lib/format"
 import { formatShortMd } from "@/lib/seoulDate"
@@ -14,20 +16,28 @@ interface ReviewListCardProps {
 /**
  * 필터 목록용 가로형 리뷰 카드.
  * 좌: 뱃지·날짜·본문·태그 / 우: 번역·원문·메타.
- * 본문은 2줄 클램프·더보기, 번역 필드가 있으면 토글한다.
+ * 「번역」 클릭 시에만 번역 API를 조회하고, 본문은 2줄 클램프·더보기를 쓴다.
  */
 export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps) {
-  // showOriginal: true면 원문(body), false면 번역(있으면)
+  // showOriginal: true면 원문(body), false면 번역 API 결과
   const [showOriginal, setShowOriginal] = useState(true)
+  // wantsTranslation: 번역 탭이 선택된 뒤에만 조회
+  const wantsTranslation = !showOriginal
+  const translationQuery = useReviewTranslation(review.id, wantsTranslation)
   const isNegative = review.sentiment === "NEGATIVE"
   // channelLabel: 작성 채널(수정 / 첫 작성)
   const channelLabel = review.isUpdated ? "수정" : "첫 작성"
   // hasFilter: 칩이 하나라도 선택된 상태
   const hasFilter = selectedTopicIds.length > 0
-  // canTranslate: 번역 본문이 있을 때만 번역 토글이 의미 있음
-  const canTranslate = Boolean(review.translatedBody)
-  // displayBody: 토글·번역 유무에 따른 표시 문자열
-  const displayBody = resolveReviewBody(review, showOriginal)
+  // showTranslationError: 번역 탭에서만 에러 UI
+  const showTranslationError = wantsTranslation && translationQuery.isError
+  // displayBody: 원문 또는 번역/로딩 문구
+  const displayBody = resolveReviewBody(
+    review.body,
+    translationQuery.data?.translatedText,
+    showOriginal,
+    translationQuery.isPending,
+  )
 
   return (
     <article className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas p-sb-4">
@@ -48,7 +58,13 @@ export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps
             </span>
           </div>
 
-          <ReviewBodyExpandable key={displayBody} text={displayBody} />
+          {showTranslationError ? (
+            <div className="mt-sb-3">
+              <TranslationErrorNotice error={translationQuery.error} />
+            </div>
+          ) : (
+            <ReviewBodyExpandable key={displayBody} text={displayBody} />
+          )}
 
           {review.tags.length > 0 ? (
             <ul className="mt-sb-3 flex flex-wrap gap-sb-2">
@@ -77,11 +93,10 @@ export function ReviewListCard({ review, selectedTopicIds }: ReviewListCardProps
             <button
               type="button"
               onClick={() => setShowOriginal(false)}
-              disabled={!canTranslate}
               className={
                 !showOriginal
-                  ? "h-sb-control flex-1 cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-2 text-sb-caption text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
-                  : "h-sb-control flex-1 cursor-pointer rounded-sb-control px-sb-2 text-sb-caption text-sb-ink-mute hover:text-sb-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  ? "h-sb-control flex-1 cursor-pointer rounded-sb-control bg-sb-canvas-active px-sb-2 text-sb-caption text-sb-ink"
+                  : "h-sb-control flex-1 cursor-pointer rounded-sb-control px-sb-2 text-sb-caption text-sb-ink-mute hover:text-sb-ink"
               }
             >
               번역

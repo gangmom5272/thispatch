@@ -5,7 +5,7 @@ import {
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query"
-import { getRepresentativeReviews, getReviews } from "@/api/review"
+import { getRepresentativeReviews, getReviews, getReviewTranslation } from "@/api/review"
 
 export const reviewKeys = {
   all: ["reviews"] as const,
@@ -14,6 +14,7 @@ export const reviewKeys = {
   lists: () => [...reviewKeys.all, "list"] as const,
   list: (gameId: number, topicKey: string) => [...reviewKeys.lists(), gameId, topicKey] as const,
   total: (gameId: number) => [...reviewKeys.all, "total", gameId] as const,
+  translation: (reviewId: number) => [...reviewKeys.all, "translation", reviewId] as const,
 }
 
 /** topicIds를 쿼리 키 문자열로 정규화한다. */
@@ -79,5 +80,24 @@ export function useReviewsTotalCount(gameId: number | null) {
     select: (data) => data.page.totalCount,
     enabled: gameId !== null,
     staleTime: 60_000,
+  })
+}
+
+/** 리뷰 번역 쿼리 옵션. enabled가 false면 요청하지 않는다. */
+export const reviewTranslationOptions = (reviewId: number) =>
+  queryOptions({
+    queryKey: reviewKeys.translation(reviewId),
+    queryFn: ({ signal }) => getReviewTranslation(reviewId, signal),
+    staleTime: Infinity,
+  })
+
+/**
+ * 리뷰 번역을 구독한다. 「번역」 토글이 켜진 뒤에만 조회한다.
+ * @param enabled false면 네트워크 요청을 하지 않는다
+ */
+export function useReviewTranslation(reviewId: number, enabled: boolean) {
+  return useQuery({
+    ...reviewTranslationOptions(reviewId),
+    enabled,
   })
 }

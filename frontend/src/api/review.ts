@@ -1,6 +1,11 @@
 import { api } from "@/api/client"
 import type { Review, ReviewsListData, ReviewsListParams } from "@/types/review"
 
+/** GET /reviews/{reviewId}/translation 응답 data. */
+export interface ReviewTranslation {
+  translatedText: string
+}
+
 /**
  * 최근 대표 리뷰(최대 4건)를 조회한다.
  * GET /games/{gameId}/reviews/representative
@@ -34,5 +39,19 @@ export function getReviews(
       },
       signal,
     },
+  })
+}
+
+/**
+ * 리뷰 본문 한국어 번역을 온디맨드로 조회한다.
+ * GET /reviews/{reviewId}/translation — 원문은 body로 보내지 않는다.
+ */
+export function getReviewTranslation(
+  reviewId: number,
+  signal?: AbortSignal,
+): Promise<ReviewTranslation> {
+  return api.get<ReviewTranslation>({
+    path: `/reviews/${reviewId}/translation`,
+    config: { signal },
   })
 }

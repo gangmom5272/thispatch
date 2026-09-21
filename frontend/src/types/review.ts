@@ -21,8 +21,8 @@ export interface Review {
   /** 원문 본문 */
   body: string
   /**
-   * 한국어 번역 본문. 없으면 null.
-   * 번역 API는 없고 응답에 필드가 올 때만 토글로 표시한다.
+   * 목록 응답에 포함될 수 있는 번역 필드(백엔드 계약 유지).
+   * 화면 번역 토글은 이 필드가 아니라 GET /reviews/{id}/translation 을 쓴다.
    */
   translatedBody?: string | null
   reviewDate: string

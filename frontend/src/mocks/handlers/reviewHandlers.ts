@@ -1,6 +1,7 @@
 import { delay, http, HttpResponse } from "msw"
 import { mockGames } from "@/mocks/games"
 import { userFromAuthHeader } from "@/mocks/lib/authStore"
+import { languageAnalysisTranslationById } from "@/mocks/handlers/languageAnalysisHandlers"
 import { addDaysIso, todaySeoul } from "@/lib/seoulDate"
 import { REVIEW_TOPICS, type Review, type ReviewsListData } from "@/types/review"
 
@@ -272,6 +273,39 @@ function buildListPayload(
 }
 
 export const reviewHandlers = [
+  http.get(`${baseURL}/reviews/:reviewId/translation`, async ({ params, request }) => {
+    await delay(180)
+    if (!isAuthorized(request)) {
+      return respond(401, "인증이 필요합니다.")
+    }
+
+    // reviewId: 경로 파라미터(숫자). 매직 id로 404/502 목 응답을 검증한다.
+    const reviewId = Number(params.reviewId)
+    if (!Number.isInteger(reviewId) || reviewId < 1) {
+      return respond(404, "번역 대상을 찾을 수 없습니다.")
+    }
+    if (reviewId === 404404) {
+      return respond(404, "번역 대상을 찾을 수 없습니다.")
+    }
+    if (reviewId === 502502) {
+      return respond(502, "번역 서비스에 일시적으로 문제가 있습니다.")
+    }
+
+    // matched: 목 리뷰 풀에서 id로 찾은 항목(없으면 짧은 한국어 폴백)
+    const matched = mockGames
+      .flatMap((game) => buildReviewPool(game.id))
+      .find((review) => review.id === reviewId)
+
+    // translatedText: 목록 translatedBody → 언어 분석 body → 짧은 한국어 폴백
+    const translatedText =
+      matched?.translatedBody ??
+      matched?.body ??
+      languageAnalysisTranslationById.get(reviewId) ??
+      "이 리뷰의 한국어 번역본입니다."
+
+    return respond(200, "OK", { translatedText })
+  }),
+
   http.get(`${baseURL}/games/:gameId/reviews/representative`, async ({ params, request }) => {
     await delay(200)
     if (!isAuthorized(request)) {

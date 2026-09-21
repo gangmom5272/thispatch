@@ -87,14 +87,24 @@ function HeroSection() {
         </Reveal>
       </div>
 
-      <div className="relative flex justify-center px-sb-4 pb-sb-6 md:px-sb-landing-gutter">
-        <span aria-hidden className="hidden flex-col items-center gap-sb-2 md:flex">
-          <span className="font-sb-mono text-sb-caption tracking-[0.3em] text-sb-ink-mute-2">
-            SCROLL
-          </span>
-          <span className="block h-8 w-px animate-sb-scroll-hint bg-linear-to-b from-transparent to-sb-ink-mute motion-reduce:animate-none" />
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-sb-6 hidden flex-col items-center gap-sb-2 md:flex"
+      >
+        <span className="font-sb-mono text-sb-caption tracking-[0.3em] text-sb-ink-mute-2">
+          SCROLL
         </span>
-      </div>
+        <svg viewBox="0 0 20 32" className="h-8 w-5 text-sb-ink-mute" fill="none">
+          <rect x="1" y="1" width="18" height="30" rx="9" stroke="currentColor" strokeWidth="1.5" />
+          <circle
+            cx="10"
+            cy="9"
+            r="1.75"
+            fill="currentColor"
+            className="animate-sb-scroll-hint motion-reduce:animate-none"
+          />
+        </svg>
+      </span>
     </section>
   )
 }

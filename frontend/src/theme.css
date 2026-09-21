@@ -187,26 +187,21 @@
     }
   }
 
-  /* 스크롤 안내 선. 위에서 아래로 자란 뒤 위쪽부터 빠져나간다. */
+  /* 스크롤 안내 마우스의 휠 점. 위에서 아래로 내려가며 사라진다. */
   --animate-sb-scroll-hint: sb-scroll-hint 2s ease-in-out infinite;
 
   @keyframes sb-scroll-hint {
     0% {
-      transform: scaleY(0);
-      transform-origin: top;
+      opacity: 0;
+      transform: translateY(0);
     }
-    45% {
-      transform: scaleY(1);
-      transform-origin: top;
+    25% {
+      opacity: 1;
     }
-    45.1% {
-      transform: scaleY(1);
-      transform-origin: bottom;
-    }
-    90%,
+    75%,
     100% {
-      transform: scaleY(0);
-      transform-origin: bottom;
+      opacity: 0;
+      transform: translateY(7px);
     }
   }
 

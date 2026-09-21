@@ -1,12 +1,14 @@
 package com.ssafy.thispatch.domain.statistics.service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.springframework.stereotype.Service;
 
 import com.ssafy.thispatch.client.ai.AiErrorCode;
 import com.ssafy.thispatch.client.ai.AiTrendClient;
+import com.ssafy.thispatch.client.ai.AiSummaryCache;
 
 import com.ssafy.thispatch.domain.statistics.dto.response.AnalysisMeta.CollectionMeta;
 import com.ssafy.thispatch.domain.statistics.dto.response.AnalysisMeta.Period;
@@ -23,6 +25,7 @@ public class ReactionSummaryService {
 	private final AnalysisContext context;
 	private final ReactionSummaryReader reader;
 	private final AiTrendClient ai;
+	private final AiSummaryCache summaryCache;
 
 	public ReactionSummary getSummary(long gameId, LocalDate startDate, LocalDate endDate) {
 		ReviewPeriod period = context.periodBetween(startDate, endDate);
@@ -36,7 +39,9 @@ public class ReactionSummaryService {
 			summary = new Summary("SKIPPED", null, Period.of(period), "INSUFFICIENT_SAMPLE", null);
 		} else {
 			try {
-				AiTrendClient.Result result = ai.summarize(request);
+				AiTrendClient.Result result = summaryCache.getOrCompute("trends", List.of(period, request),
+					AiTrendClient.Result.class, () -> ai.summarize(request), response ->
+						AiTrendClient.isUsableSummary(request, response) && response.usedLlm() && response.clean());
 				String text = result.summary();
 				if (!result.caveats().isEmpty()) {
 					// 별도 각주 필드가 없는 화면 계약에서도 해석의 한계를 빠뜨리지 않는다.

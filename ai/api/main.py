@@ -83,9 +83,19 @@ def error_body(code, message, errors=None):
 @app.exception_handler(RequestValidationError)
 async def on_validation(_: Request, exc: RequestValidationError):
     # 잘못된 JSON·본문 누락은 INVALID_REQUEST, 필드 검증 실패는 VALIDATION_FAILED + errors (백엔드 공통 코드 표와 동일)
+    # 어느 쪽이든 서버 로그에 이유와 본문 앞부분을 남긴다. 9/21 연동 중 400 만 보이고 이유를 몰라 헤맸다.
+    import logging
+    log = logging.getLogger("uvicorn.error")
+    try:
+        raw = (await _.body())[:300].decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        raw = "?"
     if any(e.get("type") == "json_invalid" or (e.get("type") == "missing" and tuple(e.get("loc", ())) == ("body",)) for e in exc.errors()):
+        log.warning("400 INVALID_REQUEST %s content-type=%s body=%r", _.url.path, _.headers.get("content-type"), raw)
         return JSONResponse(status_code=400, content=error_body("INVALID_REQUEST", "올바르지 않은 요청입니다."))
     errors = [{"field": ".".join(str(p) for p in e["loc"] if p != "body"), "message": e["msg"]} for e in exc.errors()]
+    log.warning("400 VALIDATION_FAILED %s %s | body=%r", _.url.path,
+                "; ".join(f"{e['field']}: {e['message']}" for e in errors)[:400], raw[:200])
     return JSONResponse(status_code=400, content=error_body("VALIDATION_FAILED", "입력값을 확인해주세요.", errors))
 
 
@@ -417,12 +427,12 @@ def reviews_summarize(q: SummarizeIn):
     t0 = time.time()
     label = {"BAND": f"플레이타임 {q.scope_key}구간", "LANGUAGE": f"언어 {q.scope_key}", "ALL": "전체"}[q.scope_type]
     try:
-        out, attempts, clean = summarize(q.game or str(q.appid), label, [r.model_dump() for r in q.reviews])
+        out, attempts, clean, used_model = summarize(q.game or str(q.appid), label, [r.model_dump() for r in q.reviews])
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"Qwen 호출 실패: {type(e).__name__}") from e
     return SummarizeOut(appid=q.appid, scope_type=q.scope_type, scope_key=q.scope_key, title=out.get("title", ""),
                         summary=out.get("summary", ""), phrases=out.get("phrases", []), evidence_ids=out.get("evidence_ids", []),
-                        review_count=len(q.reviews), model=MODEL, attempts=attempts, clean=clean,
+                        review_count=len(q.reviews), model=used_model, attempts=attempts, clean=clean,
                         elapsed_ms=int((time.time() - t0) * 1000))
 
 

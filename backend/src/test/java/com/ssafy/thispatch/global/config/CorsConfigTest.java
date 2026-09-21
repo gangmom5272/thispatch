@@ -47,6 +47,17 @@ class CorsConfigTest extends com.ssafy.thispatch.support.ActiveMemberWebMvcTest 
 	}
 
 	@Test
+	void nicknameChangePreflightAllowsPatchBeforeAuthentication() {
+		var response = rest.exchange("/members/me/nickname", HttpMethod.OPTIONS,
+			new HttpEntity<>(preflightHeaders("http://localhost:5173", "PATCH", "authorization,content-type")), String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getHeaders().getAccessControlAllowOrigin()).isEqualTo("http://localhost:5173");
+		assertThat(response.getHeaders().getAccessControlAllowMethods()).contains(HttpMethod.PATCH);
+		assertThat(response.getHeaders().getAccessControlAllowHeaders()).contains("authorization", "content-type");
+		assertThat(response.getHeaders().containsKey(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS)).isFalse();
+	}
+
+	@Test
 	void rejectsUnlistedOrigin() {
 		var response = rest.exchange("/auth/steam/signup", HttpMethod.OPTIONS,
 			new HttpEntity<>(preflightHeaders("https://untrusted.example", "POST", "authorization")), String.class);

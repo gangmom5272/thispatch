@@ -13,7 +13,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
-public record SteamNicknameRequest(
+public record NicknameRequest(
 	@NotNull(message = "닉네임을 입력해주세요.")
 	@Pattern(regexp = "(?s).*[^\\p{javaWhitespace}\\p{Z}].*", message = "닉네임을 입력해주세요.")
 	@CodePointLength(max = 50, message = "닉네임은 50자 이하로 입력해주세요.")

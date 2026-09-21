@@ -30,7 +30,11 @@ import org.apache.spark.storage.StorageLevel;
  * <h2>입력 (ai/CONTRACT.md 3-3)</h2>
  *
  * <p>{@code /review_topic/dt=D/*.parquet} — {@code recommendationid long · appid long · topic_id int16 · score float32}.
- * 리뷰 하나에 토픽 여러 행(다중 라벨). 토픽은 영어 리뷰에만 붙는다. {@code score} 는 넣지 않는다.
+ * 리뷰 하나에 토픽 여러 행(다중 라벨). {@code score} 는 넣지 않는다.
+ *
+ * <p><b>언어 8개만 넣는다</b> (CONTRACT 3-3 · 2026-09-19 결정). 파일에는 전 언어가 분류돼 있지만 검증된 것은
+ * {@link #LANGUAGES} 뿐이다. 필터는 파일이 아니라 {@code recent_review.language_code} 로 건다 — 언어를
+ * 더하거나 빼는 것은 이 목록만 바꾸면 되고 AI 재실행이 필요 없다. 2026-09-21 실측: recent_review 96만 중 82만(85%).
  * 여러 날짜 파티션에 같은 (recommendationid, topic_id) 가 있으면 하나로 본다 — 표의 PK 가 그 둘이다.
  *
  * <h2>왜 recommendationid 를 review_id 로 바꾸는가</h2>
@@ -53,6 +57,10 @@ import org.apache.spark.storage.StorageLevel;
 public final class ReviewTopicToPostgres {
 
     private static final int BATCH = 2_000;
+
+    /** review_topic 을 넣는 언어. CONTRACT 3-3 의 검증된 8개 — 순서는 의미 없다. */
+    static final List<String> LANGUAGES = List.of(
+            "english", "koreana", "schinese", "russian", "japanese", "german", "french", "spanish");
 
     /** 브로드캐스트 조인용 (recommendationid, review_id) 짝의 스키마. */
     static final StructType PAIR = new StructType()
@@ -116,7 +124,9 @@ public final class ReviewTopicToPostgres {
                 // 참조 목록은 드라이버가 읽는다 (클래스 주석 · LoaderSupport)
                 List<Row> pairRows = readPairs(url, user, password);
                 List<Long> topicIds = LoaderSupport.readLongs(url, user, password, "SELECT topic_id FROM topic");
-                System.out.println("recent_review " + pairRows.size() + "건 · topic " + topicIds.size() + "개 (드라이버가 읽음)");
+                long allRecent = LoaderSupport.count(url, user, password, "recent_review");
+                System.out.println("recent_review " + pairRows.size() + "건 (언어 " + LANGUAGES.size() + "개만 · 전체 " + allRecent
+                        + "건) · topic " + topicIds.size() + "개 (드라이버가 읽음)");
                 if (topicIds.isEmpty()) {
                     throw new IllegalStateException("topic 표가 비어 있다. FK 때문에 review_topic 을 넣을 수 없다 — 시드 마이그레이션(V11)을 볼 것.");
                 }
@@ -145,15 +155,20 @@ public final class ReviewTopicToPostgres {
                         return;
                     }
                     long written = LoaderSupport.replaceTable(new String[] {"review_topic"}, assigned, url, user, password,
-                            "INSERT INTO review_topic (review_id, topic_id) VALUES (?, ?)", BATCH,
+                            // 같은 (review_id, topic_id) 가 와도 넘어간다 — CONTRACT 3-3 이 권하는 upsert. 표를 비운 뒤 넣고
+                            // 넣는 것도 distinct 라 실제로 부딪힐 일은 없지만, 일일 배치에서 수정된 리뷰가 다시 올 때의 안전장치다.
+                            "INSERT INTO review_topic (review_id, topic_id) VALUES (?, ?) ON CONFLICT DO NOTHING", BATCH,
                             (ps, r) -> {
                                 ps.setLong(1, r.<Long>getAs("review_id"));
                                 ps.setShort(2, r.<Short>getAs("topic_id"));
                             });
                     long inDb = LoaderSupport.count(url, user, password, "review_topic");
                     System.out.println("넣었다    " + written + "건 · DB review_topic " + inDb + "행");
-                    if (written != inDb) {
-                        throw new IllegalStateException("넣은 수와 DB 행 수가 다르다: " + written + " vs " + inDb);
+                    if (inDb > written) {
+                        throw new IllegalStateException("DB 행 수가 넣은 수보다 많다: " + inDb + " vs " + written);
+                    }
+                    if (inDb < written) {
+                        System.out.println("⚠ ON CONFLICT 로 넘어간 행  " + (written - inDb) + "건");
                     }
                 } finally {
                     assigned.unpersist();
@@ -187,11 +202,20 @@ public final class ReviewTopicToPostgres {
 
     // ── DB ─────────────────────────────────────────────────────────
 
+    /** 언어 8개의 (recommendationid, review_id). 언어 이름은 이 클래스의 상수라 SQL 에 그대로 넣는다. */
+    static String pairsSql() {
+        StringBuilder in = new StringBuilder();
+        for (String l : LANGUAGES) {
+            in.append(in.length() == 0 ? "'" : ", '").append(l).append('\'');
+        }
+        return "SELECT recommendationid, review_id FROM recent_review WHERE language_code IN (" + in + ")";
+    }
+
     private static List<Row> readPairs(String url, String user, String password) {
         List<Row> out = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(url, user, password);
              Statement st = conn.createStatement();
-             var rs = st.executeQuery("SELECT recommendationid, review_id FROM recent_review")) {
+             var rs = st.executeQuery(pairsSql())) {
             while (rs.next()) {
                 out.add(RowFactory.create(rs.getLong(1), rs.getLong(2)));
             }

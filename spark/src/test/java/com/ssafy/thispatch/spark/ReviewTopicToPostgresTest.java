@@ -1,6 +1,8 @@
 package com.ssafy.thispatch.spark;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.ssafy.thispatch.common.SparkSessions;
 import java.util.Arrays;
@@ -64,6 +66,17 @@ class ReviewTopicToPostgresTest {
         // 날짜 파티션 둘에서 같은 (리뷰, 토픽) 이 다시 나와도 PK (review_id, topic_id) 는 하나다
         Dataset<Row> pairs = topics(t(11, 1), t(11, 1), t(11, 1)).select("recommendationid", "topic_id").distinct();
         assertEquals(1, ReviewTopicToPostgres.assign(pairs, recent(11L, 1001L), known(1L)).count());
+    }
+
+    /** CONTRACT 3-3 — recent_review.language_code 가 검증된 8개일 때만 짝을 읽는다. */
+    @Test void pairQueryKeepsOnlyEightVerifiedLanguages() {
+        String sql = ReviewTopicToPostgres.pairsSql();
+        assertEquals(8, ReviewTopicToPostgres.LANGUAGES.size());
+        for (String l : List.of("english", "koreana", "schinese", "russian", "japanese", "german", "french", "spanish")) {
+            assertTrue(sql.contains("'" + l + "'"), l);
+        }
+        assertTrue(sql.contains("WHERE language_code IN ("));
+        assertFalse(sql.contains("turkish"));
     }
 
     @Test void invalidKeysAreCaught() {

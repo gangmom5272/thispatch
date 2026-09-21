@@ -2,46 +2,51 @@
 """Qwen 사전 분석 백필: 청크 문장 → 대상·속성·조건 슬롯 → patch_change 덮어쓰기.
 
 입력  {AI_WORK_DIR}/out/embeddings/patch_chunk/dt=D, patch_change/dt=D  (embed_chunks.py 결과)
-      {AI_WORK_DIR}/in/news_raw/dt=D  (published_ts 로 우선순위)
+      {AI_WORK_DIR}/in/news_raw/dt=*  (gid → appid·published_ts, 우선순위용)
+      {AI_WORK_DIR}/state/app_rank.csv  (appid,reviews,rank — 게임 인기 순위. 없으면 최신순만)
 출력  같은 두 폴더를 다시 쓴다. 처리한 청크의 규칙 변경점은 Qwen 결과로 교체, model_version=qwen3.5-9b-q4km/<prompt>.
       Qwen 원본 응답은 {AI_WORK_DIR}/out/embeddings/qwen_raw/dt=D/*.jsonl 에 그대로 보관(재매핑용).
       진행 상태 {AI_WORK_DIR}/state/qwen_done.jsonl (재실행 시 건너뜀).
-실행  python qwen_backfill.py --dt 2026-09-11 [--max-seconds 28800] [--limit N] [--include-skipped]
 
-실측(2026-09-11, 4070 8GB, Ollama Q4_K_M, 6청크/요청): 1.2초/청크. 동시 요청은 이득 없음.
-우선순위: 최근 공지 먼저 → 같은 문장(공지 간 중복 16%)은 1회만 호출하고 결과를 복사.
+실행
+  한 대로            python qwen_backfill.py --dt D [--max-seconds 14400] [--top-apps 500 --since-days 730]
+  여러 대로 나눌 때  python qwen_backfill.py --dt D --make-shards 5 --top-apps 500 --since-days 730
+                     → state/shards/shard-01..05.jsonl 을 각 노트북에서 qwen_worker.py 로 돌린다
+                     python qwen_backfill.py --dt D --apply results1 results2 ...   ← 결과 jsonl 폴더들 반영
+
+우선순위(9/18): 인기 게임(app_rank) 순 → 같은 게임 안에서 최근 공지 순. --top-apps K 로 상위 K 게임만,
+--since-days N 으로 최근 N 일 공지만 남긴다. 176만 청크 전량은 730시간이라 처음부터 못 채우는 양이고,
+사례로 뽑히는 패치는 사람들이 많이 하는 게임의 최근 패치이므로 상위 500 게임 × 2년(7.8만 청크, 4.4%)이 기본 권장값.
+같은 문장(공지 간 중복 16%)은 1회만 호출하고 결과를 복사한다(qwen_worker).
+
+큰 파일 주의: patch_chunk 는 embedding 이 있어 pandas 로 통째 올리면 죽는다(2.8M행 × 512).
+그래서 고를 때는 필요한 칼럼만 읽고, 덮어쓸 때는 part 파일 하나씩 pyarrow 로 두 칼럼만 바꿔 쓴다.
 """
 import argparse
-import hashlib
 import json
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
 
-import httpx
 import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import (OLLAMA_URL, PATCH_CHANGE_SCHEMA, PATCH_CHUNK_SCHEMA, WORK, in_dir, now_ts,  # noqa: E402
-                    out_dir, read_parquet_dir, write_parquet_dir)
-from qwen_prompt import FORMAT, MESSAGES, MODEL, MODEL_TAG, OPTIONS  # noqa: E402
+from common import (PATCH_CHANGE_SCHEMA, SUCCESS, WORK, now_ts, out_dir, read_news,  # noqa: E402
+                    read_parquet_dir, write_parquet_dir)
+from qwen_prompt import MODEL_TAG  # noqa: E402
+from rules import RULE_VERSION  # noqa: E402
+import qwen_worker  # noqa: E402
 
-CHAR_BUDGET = 2500   # 요청당 본문+문맥 글자 합 상한
-MAX_ITEMS = 6        # 스키마 items maxItems=6 (qwen_prompt.FORMAT)
 STATE = WORK / "state" / "qwen_done.jsonl"
+APP_RANK = WORK / "state" / "app_rank.csv"
+SHARDS = WORK / "state" / "shards"
 _FROMTO = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*%?\s*(?:->|→|to)\s*(\d[\d,]*(?:\.\d+)?)", re.I)
 TARGET_TYPES = {"player", "enemy", "weapon", "item", "skill", "map", "system", "other", "unknown"}
-
-
-def split_text(text):
-    """patch_chunk.text('title: T | text: Context: C\\nChange: X') → (title, context, change)"""
-    title, _, rest = text.partition(" | text: ")
-    title = title.removeprefix("title: ")
-    if rest.startswith("Context: "):
-        ctx, _, chg = rest[len("Context: "):].partition("\nChange: ")
-        return title, ctx, chg
-    return title, "", rest
 
 
 def to_codes(change):
@@ -68,14 +73,6 @@ def to_codes(change):
         x, y = float(m.group(1).replace(",", "")), float(m.group(2).replace(",", ""))
         d = "increase" if y > x else "decrease" if y < x else "none"
     return "modify", d
-
-
-def call_qwen(client, items):
-    body = {"model": MODEL, "messages": MESSAGES + [{"role": "user", "content": json.dumps(items, ensure_ascii=False)}],
-            "format": FORMAT, "options": OPTIONS, "stream": False, "think": False, "keep_alive": "10m"}
-    r = client.post(OLLAMA_URL + "/api/chat", json=body, timeout=300).json()
-    out = json.loads(r["message"]["content"])
-    return {it["id"]: it.get("changes", []) for it in out.get("items", [])}
 
 
 GENERIC_TARGETS = {"player", "players", "game", "system", "ui", "hud", "server", "servers", "client", "menu", "settings",
@@ -113,117 +110,164 @@ def facts_to_rows(gid, seq, context, text, changes):
         rows.append({"gid": gid, "seq": seq, "change_seq": n, "change_type": codes[0], "direction": codes[1],
                      "target_type": c.get("target_type") if c.get("target_type") in TARGET_TYPES else "unknown",
                      "target": target, "attribute": (c.get("attribute") or None),
-                     "evidence_quote": text, "validation_status": "valid" if grounded else "needs_review"})
+                     "evidence_quote": text, "validation_status": "valid" if grounded else "needs_review",
+                     "model_version": MODEL_TAG})
     return rows
 
 
 def load_done():
     if not STATE.exists():
-        return {}
-    return {json.loads(l)["key"]: json.loads(l) for l in STATE.open(encoding="utf-8") if l.strip()}
+        return set()
+    return {json.loads(l)["key"] for l in STATE.open(encoding="utf-8") if l.strip()}
+
+
+# ---- 1. 고르기 ----
+def select_todo(dt, include_skipped=False, top_apps=0, since_days=0):
+    """아직 Qwen 을 안 거친 청크를 우선순위 순으로. embedding 칼럼은 읽지 않는다."""
+    ck = read_parquet_dir(out_dir("embeddings/patch_chunk", dt),
+                          columns=["gid", "seq", "text", "embedding_status", "model_version"])
+    if ck.empty:
+        sys.exit("patch_chunk 없음. embed_chunks.py 먼저")
+    done = load_done()
+    ck["key"] = ck.gid + ":" + ck.seq.astype(str)
+    todo = ck[~ck.key.isin(done) & (ck.model_version != MODEL_TAG)]
+    if not include_skipped:
+        todo = todo[todo.embedding_status != "skipped"]   # 규칙이 변경점을 못 찾은 청크는 기본 제외(호출 1/3 절약)
+    print(f"chunks total={len(ck):,} done={len(done):,} todo={len(todo):,}")
+
+    news = read_news(None, columns=["gid", "appid", "published_ts"], patch_only=False)[["gid", "appid", "published_ts"]]
+    todo = todo.merge(news, on="gid", how="left")
+    if since_days:
+        cut = time.time() - since_days * 86400
+        todo = todo[todo.published_ts.fillna(0) >= cut]
+        print(f"  최근 {since_days}일 공지만: {len(todo):,}")
+    if APP_RANK.exists():
+        rank = pd.read_csv(APP_RANK)[["appid", "rank"]]
+        todo = todo.merge(rank, on="appid", how="left")
+        todo["rank"] = todo["rank"].fillna(10**9)
+        if top_apps:
+            todo = todo[todo["rank"] <= top_apps]
+            print(f"  인기 상위 {top_apps} 게임만: {len(todo):,} (게임 {todo.appid.nunique():,})")
+        todo = todo.sort_values(["rank", "published_ts"], ascending=[True, False])
+    else:
+        if top_apps:
+            print(f"  경고: {APP_RANK} 없음 — --top-apps 무시, 최신순만")
+        todo = todo.sort_values("published_ts", ascending=False)
+    print(f"  대상 {len(todo):,} 청크 ≈ {len(todo)*1.5/3600:.0f}시간(1.5초/청크, 한 대)")
+    return todo[["key", "gid", "seq", "text", "appid", "published_ts"]].reset_index(drop=True)
+
+
+def write_shards(todo, n, d=SHARDS):
+    """우선순위 순서를 유지하며 n 개로 돌려 나눈다(각 조각이 인기·최신 순으로 같은 분포)."""
+    d = Path(d); d.mkdir(parents=True, exist_ok=True)
+    for f in d.glob("shard-*.jsonl"):
+        f.unlink()
+    files = [(d / f"shard-{i+1:02d}.jsonl").open("w", encoding="utf-8") for i in range(n)]
+    for i, r in enumerate(todo.itertuples(index=False)):
+        files[i % n].write(json.dumps({"key": r.key, "gid": r.gid, "seq": int(r.seq), "text": r.text},
+                                      ensure_ascii=False) + "\n")
+    for f in files:
+        f.close()
+    each = len(todo) / n
+    print(f"shards={n} × {each:,.0f} 청크 ≈ 대당 {each*1.5/3600:.1f}시간 → {d}")
+
+
+# ---- 3. 반영 ----
+def apply(dt, raw_dirs):
+    """워커 결과 jsonl 을 읽어 patch_change 를 교체하고 patch_chunk.model_version 을 바꾼다."""
+    recs = {}
+    files = [f for d in raw_dirs for f in sorted(Path(d).glob("facts-*.jsonl"))]
+    for f in files:
+        for line in f.open(encoding="utf-8"):
+            if line.strip():
+                r = json.loads(line)
+                recs[f"{r['gid']}:{r['seq']}"] = r      # 같은 청크가 두 번 있으면 뒤(최근) 것
+    done = load_done()
+    new = {k: r for k, r in recs.items() if k not in done}
+    print(f"결과 파일 {len(files)}개 · 청크 {len(recs):,} · 새로 반영 {len(new):,}")
+    if not new:
+        return
+
+    # 원본 응답 보관 (HDFS /embeddings/qwen_raw/dt=D). 컬럼·매핑을 바꿔도 재실행 없이 여기서 다시 뽑는다
+    raw_dir = out_dir("embeddings/qwen_raw", dt); raw_dir.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        if f.parent.resolve() != raw_dir.resolve():
+            shutil.copy2(f, raw_dir / f"{f.parent.name}-{f.name}")
+    (raw_dir / SUCCESS).touch()
+
+    rows = []
+    for r in new.values():
+        rows += facts_to_rows(r["gid"], int(r["seq"]), r["context"], r["text"], r["changes"])
+    keys = set(new)
+
+    ch_dir = out_dir("embeddings/patch_change", dt)
+    ch = read_parquet_dir(ch_dir)
+    if "model_version" not in ch:
+        ch["model_version"] = RULE_VERSION   # 9/18 이전 embed_chunks 산출물(칼럼 없음) 호환
+    ch["key"] = ch.gid + ":" + ch.seq.astype(str)
+    ch = ch[~ch.key.isin(keys)].drop(columns="key")
+    ch = pd.concat([ch, pd.DataFrame(rows, columns=PATCH_CHANGE_SCHEMA.names)], ignore_index=True)
+    write_parquet_dir(ch.sort_values(["gid", "seq", "change_seq"]), ch_dir, schema=PATCH_CHANGE_SCHEMA)
+
+    # patch_chunk 는 part 파일마다 두 칼럼만 바꾼다(embedding 을 pandas 로 올리지 않는다)
+    ck_dir = out_dir("embeddings/patch_chunk", dt)
+    ts, keyset, touched = now_ts(), pa.array(sorted(keys)), 0
+    for f in sorted(ck_dir.glob("part-*.parquet")):
+        t = pq.read_table(f)
+        key = pc.binary_join_element_wise(t["gid"], pc.cast(t["seq"], pa.string()), ":")
+        mask = pc.is_in(key, value_set=keyset)
+        if not pc.any(mask).as_py():
+            continue
+        t = t.set_column(t.schema.get_field_index("model_version"), "model_version",
+                         pc.if_else(mask, pa.scalar(MODEL_TAG), t["model_version"]))
+        t = t.set_column(t.schema.get_field_index("processed_at"), "processed_at",
+                         pc.if_else(mask, pa.scalar(ts, pa.int64()), t["processed_at"]))
+        tmp = f.with_suffix(".parquet.tmp")
+        pq.write_table(t, tmp, compression="snappy"); tmp.replace(f)
+        touched += pc.sum(pc.cast(mask, pa.int64())).as_py()
+    (ck_dir / SUCCESS).touch()
+
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    with STATE.open("a", encoding="utf-8") as f:
+        for k in keys:
+            f.write(json.dumps({"key": k, "dt": dt, "model": MODEL_TAG, "ts": ts}) + "\n")
+    print(f"반영: patch_chunk {touched:,}행 model_version 갱신 · patch_change {len(rows):,}행 교체")
+    if rows:
+        df = pd.DataFrame(rows)
+        print("  target filled", f"{df.target.notna().mean():.0%}", "| attribute filled", f"{df.attribute.notna().mean():.0%}",
+              "| needs_review", f"{(df.validation_status == 'needs_review').mean():.0%}")
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dt", required=True)
-    ap.add_argument("--max-seconds", type=int, default=8 * 3600, help="근무 시간 예산. 넘으면 중간 저장 후 종료")
+    ap.add_argument("--max-seconds", type=int, default=8 * 3600, help="시간 예산. 넘으면 중간 저장 후 종료")
     ap.add_argument("--limit", type=int, default=0, help="청크 수 제한(테스트)")
     ap.add_argument("--include-skipped", action="store_true", help="규칙이 변경점을 못 찾은 청크도 보냄")
+    ap.add_argument("--top-apps", type=int, default=0, help="인기 상위 K 게임만 (state/app_rank.csv)")
+    ap.add_argument("--since-days", type=int, default=0, help="최근 N 일 공지만")
+    ap.add_argument("--make-shards", type=int, default=0, help="N 개 조각(JSONL)만 만들고 끝. 여러 노트북 분산용")
+    ap.add_argument("--apply", nargs="+", metavar="DIR", help="워커 결과 폴더들을 반영하고 끝")
     a = ap.parse_args()
 
-    ck = read_parquet_dir(out_dir("embeddings/patch_chunk", a.dt))
-    ch = read_parquet_dir(out_dir("embeddings/patch_change", a.dt))
-    news = read_news(None, columns=["gid", "published_ts"], patch_only=False)[["gid", "published_ts"]]  # 전 dt 에서 gid→발행시각
-    if ck.empty:
-        sys.exit("patch_chunk 없음. embed_chunks.py 먼저")
-
-    done = load_done()
-    ck["key"] = ck.gid + ":" + ck.seq.astype(str)
-    todo = ck[~ck.key.isin(done) & (ck.model_version != MODEL_TAG)]
-    if not a.include_skipped:
-        todo = todo[todo.embedding_status != "skipped"]
-    todo = todo.merge(news, on="gid", how="left").sort_values("published_ts", ascending=False)  # 최근 공지 우선
+    if a.apply:
+        apply(a.dt, a.apply)
+        return
+    todo = select_todo(a.dt, a.include_skipped, a.top_apps, a.since_days)
     if a.limit:
         todo = todo.head(a.limit)
-    print(f"chunks total={len(ck)} done={ck.key.isin(done).sum()} todo={len(todo)}")
     if todo.empty:
+        print("할 것 없음"); return
+    if a.make_shards:
+        write_shards(todo, a.make_shards)
         return
-
-    parts = todo.text.map(split_text)
-    todo = todo.assign(title=[p[0] for p in parts], context=[p[1] for p in parts], body=[p[2] for p in parts])
-    todo["h"] = todo.body.str.lower().str.strip().map(lambda s: hashlib.sha1(s.encode()).hexdigest())
-    uniq = todo.drop_duplicates("h")
-    print(f"unique sentences={len(uniq)} (dup saved {len(todo) - len(uniq)})")
-
-    client = httpx.Client()
-    results, t0, calls, fails = {}, time.time(), 0, 0
-    rows_u = uniq.to_dict("records")
-    # 글자 예산으로 묶는다(9/14): 6개 고정이면 긴 불릿(p90 700자)에서 요청이 4,000자를 넘어 2.1초/청크. 짧은 문장은 더 많이, 긴 문장은 적게
-    batches, cur, cur_len = [], [], 0
-    for r in rows_u:
-        n = len(r["body"]) + len(r["context"])
-        if cur and (cur_len + n > CHAR_BUDGET or len(cur) >= MAX_ITEMS):
-            batches.append(cur); cur, cur_len = [], 0
-        cur.append(r); cur_len += n
-    if cur:
-        batches.append(cur)
-    print(f"requests={len(batches)} (avg {len(rows_u)/max(len(batches),1):.1f} items, budget {CHAR_BUDGET} chars)")
-    done_items = 0
-    for bi, batch in enumerate(batches):
-        if time.time() - t0 > a.max_seconds:
-            print("time budget reached; saving partial"); break
-        i = done_items; done_items += len(batch)
-        items = [{"id": r["h"][:12], "context": r["context"], "text": r["body"]} for r in batch]
-        try:
-            got = call_qwen(client, items); calls += 1
-        except Exception as e:  # noqa: BLE001
-            # 묶음 응답이 잘리거나(num_predict 초과) 깨지면 한 개씩 다시 보낸다. 그래도 실패하면 그 청크만 건너뜀
-            got = {}
-            for it in items:
-                try:
-                    got.update(call_qwen(client, [it])); calls += 1
-                except Exception as e1:  # noqa: BLE001
-                    fails += 1; print("qwen fail(single)", type(e1).__name__, str(e1)[:100], "|", it["text"][:60])
-        for r in batch:
-            if r["h"][:12] in got:
-                results[r["h"]] = got[r["h"][:12]]
-        if calls % 50 == 0:
-            el = time.time() - t0
-            print(f"  {i + len(batch)}/{len(rows_u)} unique, {el:.0f}s, {el / (i + len(batch)):.2f}s/unique")
-
-    # Qwen 원본 응답 보관 (DB 아님, HDFS /embeddings/qwen_raw/dt=D). 컬럼·매핑을 바꿔도 재실행 없이 여기서 다시 뽑는다.
-    processed = todo[todo.h.isin(results)]
-    if processed.empty:
-        sys.exit(f"Qwen 결과 0건 (fails={fails}). Ollama 상태 확인: {OLLAMA_URL}")
-    raw_dir = out_dir("embeddings/qwen_raw", a.dt); raw_dir.mkdir(parents=True, exist_ok=True)
-    with (raw_dir / f"facts-{now_ts()}.jsonl").open("w", encoding="utf-8") as f:
-        for r in processed.itertuples(index=False):
-            f.write(json.dumps({"gid": r.gid, "seq": int(r.seq), "model": MODEL_TAG, "context": r.context,
-                                "text": r.body, "changes": results[r.h]}, ensure_ascii=False) + "\n")
-    (raw_dir / "_SUCCESS").touch()
-    new_rows = []
-    for r in processed.itertuples(index=False):
-        new_rows += facts_to_rows(r.gid, int(r.seq), r.context, r.body, results[r.h])
-    keys = set(processed.key)
-    ch["key"] = ch.gid + ":" + ch.seq.astype(str)
-    ch = ch[~ch.key.isin(keys)].drop(columns="key")
-    ch = pd.concat([ch, pd.DataFrame(new_rows, columns=PATCH_CHANGE_SCHEMA.names)], ignore_index=True)
-    ck.loc[ck.key.isin(keys), ["model_version", "processed_at"]] = [MODEL_TAG, now_ts()]
-    ck = ck.drop(columns="key")
-    write_parquet_dir(ck, out_dir("embeddings/patch_chunk", a.dt), schema=PATCH_CHUNK_SCHEMA)
-    write_parquet_dir(ch.sort_values(["gid", "seq", "change_seq"]), out_dir("embeddings/patch_change", a.dt),
-                      schema=PATCH_CHANGE_SCHEMA)
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    with STATE.open("a", encoding="utf-8") as f:
-        for k in keys:
-            f.write(json.dumps({"key": k, "dt": a.dt, "model": MODEL_TAG, "ts": now_ts()}) + "\n")
-    el = time.time() - t0
-    print(f"qwen done: chunks={len(processed)} unique_calls={calls} fails={fails} rows={len(new_rows)} "
-          f"{el:.0f}s ({el / max(len(processed), 1):.2f}s/chunk incl. dup savings)")
-    if new_rows:
-        df = pd.DataFrame(new_rows)
-        print("  target filled", f"{df.target.notna().mean():.0%}", "| attribute filled", f"{df.attribute.notna().mean():.0%}",
-              "| needs_review", f"{(df.validation_status == 'needs_review').mean():.0%}")
+    # 한 대로: 조각 하나 → 워커 → 반영
+    write_shards(todo, 1, SHARDS / "local")
+    raw_dir = out_dir("embeddings/qwen_raw", a.dt)
+    n = qwen_worker.run(SHARDS / "local" / "shard-01.jsonl", raw_dir, max_seconds=a.max_seconds)
+    if n == 0:
+        sys.exit(f"Qwen 결과 0건. Ollama 상태 확인: {qwen_worker.DEFAULT_URL}")
+    apply(a.dt, [raw_dir])
 
 
 if __name__ == "__main__":

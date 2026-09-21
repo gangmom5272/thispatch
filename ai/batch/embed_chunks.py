@@ -55,7 +55,7 @@ def build_rows(news):
                 change_seq += 1
                 changes.append({"gid": n.gid, "seq": seq, "change_seq": change_seq, **s,
                                 "target": None, "attribute": None,   # 규칙은 이름·속성을 못 뽑는다. Qwen 백필이 채움
-                                "evidence_quote": sent, "validation_status": "valid"})
+                                "evidence_quote": sent, "validation_status": "valid", "model_version": RULE_VERSION})
             # 변경점 없는 청크(소제목·인사말·설명)는 저장만 하고 임베딩하지 않는다 → 검색 후보에서 제외 (실측 32%)
             chunks.append({"gid": n.gid, "seq": seq, "text": text, "extraction_status": "succeeded",
                            "embedding_status": "pending" if change_seq else "skipped", "embedding": None,

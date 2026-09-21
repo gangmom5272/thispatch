@@ -372,4 +372,56 @@ export const patchHandlers = [
     }
     return HttpResponse.json(okEnvelope(data))
   }),
+
+  http.get(`${baseURL}/patches/:patchId/translation`, async ({ request, params }) => {
+    await delay(200)
+    if (!userFromAuthHeader(request)) {
+      return HttpResponse.json(errorBody("401", "인증이 필요합니다."), { status: 401 })
+    }
+
+    // patchId: news.gid 문자열. 매직 값으로 404/502 목 응답을 검증한다.
+    const patchId = String(params.patchId)
+    if (!patchId || patchId === "404404") {
+      return HttpResponse.json(errorBody("404", "번역 대상을 찾을 수 없습니다."), { status: 404 })
+    }
+    if (patchId === "502502") {
+      return HttpResponse.json(errorBody("502", "번역 서비스에 일시적으로 문제가 있습니다."), {
+        status: 502,
+      })
+    }
+
+    // reactionBodies: 반응 추세 목 패치의 한국어 번역
+    const reactionTranslations: Record<string, { title: string; body: string }> = {
+      "1001": {
+        title: "v1.3.2 핫픽스",
+        body: "핫픽스\n- 맵 로드 크래시 수정\n- 인벤토리 메모리 누수",
+      },
+      "1002": {
+        title: "밸런스 패치",
+        body: "밸런스\n- 워든 체력 +35%\n- 유물 드롭률 조정\n\n경제\n- 골드 싱크 재조정\n\n버그 수정\n- 2막 소프트락",
+      },
+      "1003": {
+        title: "안정화 패치",
+        body: "안정성\n- 네트워크 재시도 백오프\n- 세이브 손상 가드",
+      },
+    }
+
+    const fromReaction = reactionTranslations[patchId]
+    if (fromReaction) {
+      return HttpResponse.json(
+        okEnvelope({
+          translatedTitle: fromReaction.title,
+          translatedBody: fromReaction.body,
+        }),
+      )
+    }
+
+    // 사례·기타 패치: 이미 한국어인 샘플 본문을 번역문으로 반환
+    return HttpResponse.json(
+      okEnvelope({
+        translatedTitle: "패치 노트 번역 제목",
+        translatedBody: samplePatchBody,
+      }),
+    )
+  }),
 ]

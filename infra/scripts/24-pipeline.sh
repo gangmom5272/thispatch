@@ -101,6 +101,7 @@ STAGES=(
   "retry|실패 조각 재투입|daily"
   "convert|리뷰 landing → delta|daily"
   "news|공지 수집|daily"
+  "news-retry|공지 실패 조각 재투입|daily"
   "news-convert|공지 landing → news_raw|daily"
   "compact|delta → base 병합|mon"
   "topics|토픽 분류|todo"
@@ -200,6 +201,9 @@ run_stage() {
     #   환경에 false 가 남아 있으면 조용히 전량이 된다. 파이프라인에서는 그럴 수 없다.
     collect)      guard_collect && ensure_workers                     && COLLECT_INCREMENTAL=true bash "$HERE/12-deploy-collector.sh" run ;;
     retry)        bash "$HERE/23-collect-retry.sh" now ;;
+    # ⚠ 공지도 같은 이유로 재투입이 필요하다. 2026-09-21 첫 자동 실행에서 무선 순단으로 공지 조각 3개가
+    #   FAILED 됐는데 재투입이 리뷰 전용이라 그날 공지 3,000개 게임분을 그대로 잃을 뻔했다.
+    news-retry)   JOB=news bash "$HERE/23-collect-retry.sh" now ;;
     convert)      spark_job com.ssafy.thispatch.spark.JsonToParquet && convert_today com.ssafy.thispatch.spark.JsonToParquet /review_landing ;;
     news)         ensure_workers && bash "$HERE/12-deploy-collector.sh" run-news ;;
     news-convert) spark_job com.ssafy.thispatch.spark.NewsToParquet && convert_today com.ssafy.thispatch.spark.NewsToParquet /news_landing ;;

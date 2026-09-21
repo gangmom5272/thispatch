@@ -26,6 +26,7 @@ import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository;
 import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.GameContext;
 import com.ssafy.thispatch.domain.patch.service.CaseSearchService;
 import com.ssafy.thispatch.domain.patch.service.PlanStructureService;
+import com.ssafy.thispatch.domain.patch.service.PlanStructureStorageService;
 import com.ssafy.thispatch.global.config.JwtConfig;
 import com.ssafy.thispatch.global.config.SecurityConfig;
 import com.ssafy.thispatch.global.exception.*;
@@ -47,11 +48,13 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 	@Autowired private JwtTokenProvider tokens;
 	@MockitoBean private PatchSearchRepository repository;
 	@MockitoBean private AiPatchClient ai;
+	@MockitoBean private PlanStructureStorageService storage;
 
 	@BeforeEach
 	void gameAndAi() {
 		when(repository.findGame(1)).thenReturn(Optional.of(new GameContext(1, "Game", List.of())));
 		when(ai.structure(any())).thenReturn(new PlanResponse(List.of(), "qwen", "v1", 1));
+		when(storage.save(eq(1L), eq(1L), anyString(), anyList(), anyList(), any())).thenReturn(101L);
 		when(ai.embed(any())).thenReturn(new EmbeddingResponse(List.of(List.of(1.0)), 512, "model"));
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of());
 	}
@@ -60,9 +63,11 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 	void structureUsesDataOnlyEnvelopeAndIgnoresClientGenreIds() throws Exception {
 		var result = request("plan-structures", "{\"text\":\"적 체력을 상향합니다\",\"genreIds\":[999]}")
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.gameId").value(1))
+			.andExpect(jsonPath("$.data.planId").value(101))
 			.andExpect(jsonPath("$.data.genreIds").isEmpty()).andReturn();
 		var body = mapper.readTree(result.getResponse().getContentAsByteArray());
 		assertThat(body.size()).isEqualTo(1);
+		verify(storage).save(eq(1L), eq(1L), eq("적 체력을 상향합니다"), anyList(), anyList(), any());
 	}
 
 	@Test
@@ -86,6 +91,14 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 	void tooLongPlanDoesNotCallAi() throws Exception {
 		assertError(request("plan-structures", mapper.writeValueAsString(java.util.Map.of("text", "a".repeat(6001)))), 400, "VALIDATION_FAILED");
 		verifyNoInteractions(ai);
+	}
+
+	@Test
+	void storageFailureReturnsSafeServerErrorInsteadOfSuccess() throws Exception {
+		when(storage.save(anyLong(), anyLong(), anyString(), anyList(), anyList(), any()))
+			.thenThrow(new org.springframework.dao.DataIntegrityViolationException("secret-database-detail"));
+		assertError(request("plan-structures", "{\"text\":\"기획안을 입력합니다\"}"), 500, "INTERNAL_SERVER_ERROR")
+			.andExpect(jsonPath("$.errors").doesNotExist()).andExpect(jsonPath("$.responsedAt").isString());
 	}
 
 	@ParameterizedTest

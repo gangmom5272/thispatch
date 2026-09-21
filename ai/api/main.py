@@ -528,11 +528,12 @@ def trends_summarize(q: TrendIn):
     if q.use_llm:
         try:
             # 검사(인과·조언·추측·지어낸 숫자·반말체)를 통과한 문장만 쓴다. 못 지키면 s 가 비어 문장 틀이 남는다.
-            t, s, attempts, clean = summarize_trend(q.game or str(q.appid), facts, effects)
+            # 로컬 Qwen 이 죽었거나 45초 안에 못 답하면 trends 가 GMS(gpt-4.1) 로 넘어간다. model 에 실제 답한 쪽이 온다.
+            t, s, attempts, clean, used_model = summarize_trend(q.game or str(q.appid), facts, effects)
             if s:
-                title, summary, used_llm, model = (t or title), s, True, MODEL
+                title, summary, used_llm, model = (t or title), s, True, used_model
         except Exception:  # noqa: BLE001
-            used_llm, clean = False, False      # Qwen 미가동. 문장 틀로 응답하고 clean=false 로 알린다
+            used_llm, clean = False, False      # 로컬·GMS 둘 다 실패(또는 GMS 키 없음). 문장 틀로 응답하고 clean=false 로 알린다
     has_channel = any(f["key"] == "channel" for f in facts)
     return TrendOut(appid=q.appid, title=title, summary=summary, facts=facts, patch_effects=effects,
                     caveats=caveats(effects, has_channel), day_count=len(daily), used_llm=used_llm,

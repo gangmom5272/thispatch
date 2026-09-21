@@ -6,6 +6,14 @@ param([int]$Port = 8100, [string]$Py = "$env:USERPROFILE\miniforge3\envs\py313\p
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $env:OLLAMA_URL) { $env:OLLAMA_URL = "http://127.0.0.1:11434" }
+# GMS 키: 저장소 밖 api.txt(GMS_API='...') 에서 읽어 환경 변수로만 넘긴다. 없으면 폴백 없이 돈다.
+if (-not $env:GMS_API_KEY) {
+  $keyFile = Join-Path $here "..\..\..\api.txt"
+  if (Test-Path $keyFile) {
+    $m = [regex]::Match((Get-Content $keyFile -Raw), "GMS_API='([^']+)'")
+    if ($m.Success) { $env:GMS_API_KEY = $m.Groups[1].Value; Write-Host "[ok] GMS 폴백 키 로드" } else { Write-Host "[..] api.txt 에 GMS_API 없음 — 폴백 없음" }
+  } else { Write-Host "[..] GMS 키 없음 — /trends/summarize 는 Qwen 실패 시 문장 틀로만" }
+}
 
 try { Invoke-RestMethod "$env:OLLAMA_URL/api/version" -TimeoutSec 3 | Out-Null; Write-Host "[ok] Ollama 응답" }
 catch {

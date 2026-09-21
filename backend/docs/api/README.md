@@ -14,6 +14,7 @@
 | member | [member.md](member.md) | `POST /auth/steam/token` | Steam 로그인 토큰 교환 |
 | member | [member.md](member.md) | `POST /auth/steam/signup` | Steam 최초 닉네임 설정 (인증 필수) |
 | member | [member.md](member.md) | `PATCH /members/me/nickname` | 마이페이지 닉네임 변경 (인증 필수) |
+| member | [member.md](member.md) | `PATCH /members/me/password` | 마이페이지 비밀번호 변경 (LOCAL 회원, 인증 필수) |
 | member | [member.md](member.md) | `POST /auth/refresh` | 토큰 갱신 |
 | member | [member.md](member.md) | `POST /auth/logout` | 로그아웃 |
 | member | [member.md](member.md) | `DELETE /members/me` | 회원탈퇴 |

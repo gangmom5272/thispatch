@@ -507,6 +507,109 @@ Request Body는 필수 `string`인 `nickname`만 사용한다. 대상 회원은 
 - 원본 Notion 본문에는 `/api/v1/members/me/nickname`으로 표기되어 있으나, URL 속성과 S15P21A202-264 이슈의 대상 경로는 `/members/me/nickname`이다. 이 문서는 해당 대상 경로와 기존 API 문서의 경로 표기를 따른다.
 - 이번 S15P21A202-264의 범위는 API 계약 문서화다. 실제 구현은 S15P21A202-266에서 진행하며, 기존 `member.nickname` 컬럼을 사용하므로 새로운 schema/migration은 필요하지 않다.
 
+## 비밀번호 변경
+
+### `PATCH /members/me/password`
+
+[비밀번호 변경 원본 명세](https://app.notion.com/p/3e2776ebfd6881298664f9784551e10c)
+
+현재 로그인한 일반(`LOCAL`) 회원의 비밀번호를 변경한다. Steam 로그인 회원은 사용할 수 없다.
+
+**Auth**
+
+- Required
+- `Authorization: Bearer {ACCESS_TOKEN}`
+
+**Path Variables**: 없음
+
+**Query Parameters**: 없음
+
+**Request Body**
+
+- `Content-Type: application/json`
+
+```json
+{
+  "currentPassword": "currentPassword",
+  "newPassword": "newPassword"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `currentPassword` | string | Y | 현재 비밀번호. 저장된 BCrypt 해시와 검증한다. |
+| `newPassword` | string | Y | 변경할 새 비밀번호. 기존 회원가입 비밀번호 정책을 적용한다. |
+
+- 대상 회원은 검증된 Access Token의 회원 ID로 확인하며, 클라이언트는 회원 ID나 Steam ID를 지정하지 않는다.
+- `새 비밀번호 확인` 값은 프론트에서 `newPassword`와 일치 여부를 검증하며 API 요청에는 포함하지 않는다. Refresh Token도 요청에 포함하지 않는다.
+- 두 필드 모두 누락·null·빈 문자열·공백만인 값을 허용하지 않으며, 기존 로그인·회원가입과 동일하게 UTF-8 기준 72바이트 이하여야 한다. 별도 최소 길이·복잡도 제한을 추가하지 않는다.
+- 앞뒤 공백 제거·대소문자 변환 없이 원문 그대로 검증하고, 새 비밀번호는 BCrypt로 암호화하여 저장한다.
+- 현재 비밀번호 검증에 성공했더라도 `newPassword`가 `currentPassword`와 같으면 `400 VALIDATION_FAILED`로 거부한다. `errors[].field`는 `newPassword`, 메시지는 `새 비밀번호는 현재 비밀번호와 달라야 합니다.`를 사용한다.
+- 필드 검증 실패는 `400 VALIDATION_FAILED`, 잘못된 JSON·요청 본문 누락·문자열이 아닌 JSON 값은 `400 INVALID_REQUEST`로 처리한다.
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "비밀번호가 변경되었습니다.",
+  "responsedAt": "2026-09-21 10:00:00",
+  "success": true
+}
+```
+
+`code`, `message`, `responsedAt`은 `string`, `success`는 `boolean`이다. 성공 응답에 `data` 필드를 추가하지 않으며 비밀번호·해시·새 Access/Refresh Token을 반환하지 않는다.
+
+**Error Responses**
+
+- `400`: 비밀번호 필드 누락·null·빈 값·공백만인 값·UTF-8 기준 72바이트 초과 등 검증 실패 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`)
+- `400`: 잘못된 JSON·요청 본문 누락·문자열이 아닌 필드 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
+- `400`: 현재 비밀번호 불일치 (`CURRENT_PASSWORD_MISMATCH`, `현재 비밀번호가 올바르지 않습니다.`)
+- `400`: 현재 비밀번호와 새 비밀번호가 같음 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`). `errors`에 `newPassword` 필드 오류를 포함한다.
+- `401`: Access Token 인증 필요·무효·만료 또는 회원 부재·`status != ACTIVE` (`UNAUTHORIZED`, `인증이 필요합니다.`). `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다.
+- `409`: 비밀번호를 사용하지 않는 Steam 로그인 회원 (`PASSWORD_CHANGE_NOT_SUPPORTED`, `비밀번호를 사용하는 계정이 아닙니다.`)
+- `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "입력값을 확인해주세요.",
+  "responsedAt": "2026-09-21 10:00:00",
+  "errors": [
+    {
+      "field": "newPassword",
+      "message": "새 비밀번호를 확인해주세요."
+    }
+  ]
+}
+```
+
+```json
+{
+  "code": "CURRENT_PASSWORD_MISMATCH",
+  "message": "현재 비밀번호가 올바르지 않습니다.",
+  "responsedAt": "2026-09-21 10:00:00"
+}
+```
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`과 필드 오류가 있을 때만 `errors`를 사용한다. 원본 명세의 `success: false`는 포함하지 않으며, `401`·`500`의 코드와 메시지는 위 공통 계약을 따른다. 비밀번호 입력값·저장 해시·토큰·내부 예외 정보는 오류 응답에 포함하지 않는다.
+
+**Processing Rules / Notes**
+
+1. Authorization Bearer Access Token으로 현재 회원을 식별한다. 회원이 존재하고 `status = ACTIVE`여야 한다.
+2. 비밀번호를 사용하지 않는 Steam 로그인 회원의 직접 호출은 `409 PASSWORD_CHANGE_NOT_SUPPORTED`로 처리한다.
+3. `currentPassword`를 저장된 BCrypt 해시와 검증한다. 일치하지 않으면 `400 CURRENT_PASSWORD_MISMATCH`를 반환한다.
+4. `newPassword`가 기존 회원가입 비밀번호 정책을 만족하고 현재 비밀번호와 다른지 확인한다. 같은 경우 `400 VALIDATION_FAILED`로 거부하며, 검증을 통과한 경우에만 BCrypt로 암호화하여 저장한다.
+5. 비밀번호 변경과 해당 회원의 기존 Refresh Token 무효화를 하나의 DB 트랜잭션으로 처리한다. 커밋까지 성공한 경우에만 `200`을 반환하며, 실패 시 비밀번호와 토큰 변경을 모두 롤백한다.
+6. 기존 Access Token은 blacklist 처리하지 않고 만료 시점까지 유지한다. 이 API에서 새 Access Token이나 Refresh Token을 발급하지 않는다.
+
+- Refresh Token은 기기별로 저장하지 않고 회원당 현재 유효한 토큰 하나만 저장한다. 무효화는 현재 회원의 `refresh_token_hash`, `refresh_token_expires_at`을 모두 `NULL`로 만드는 것을 의미하며, 요청한 기기에 한정하지 않는다. 이전 로그인에서 교체된 토큰은 이미 무효하므로 비밀번호 변경 완료 후에는 기존 어느 기기의 Refresh Token으로도 재발급할 수 없다.
+- 로그아웃과 달리 클라이언트가 Refresh Token을 제출하거나 저장 해시와 일치시키는 절차 없이, 인증된 회원의 저장 토큰을 무효화한다. 저장된 Refresh Token이 없어도 비밀번호를 변경할 수 있다.
+- 입력 검증 실패·현재 비밀번호 불일치·동일 비밀번호 요청·Steam 회원 요청 등 실패 시 기존 비밀번호와 Refresh Token은 변경하지 않는다.
+- 동일 비밀번호 거부 정책은 원본 명세에 없는 사항으로, S15P21A202-265 문서화 과정에서 확정했다.
+- 원본 Notion 본문에는 `/api/v1/members/me/password`로 표기되어 있으나, URL 속성과 S15P21A202-265 이슈의 대상 경로는 `/members/me/password`다. 이 문서는 해당 대상 경로와 기존 API 문서의 경로 표기를 따른다.
+- 이번 S15P21A202-265의 범위는 API 계약 문서화다. 실제 구현은 S15P21A202-267에서 진행하며, 기존 `member.password`와 V3 migration의 Refresh Token 컬럼을 사용하므로 새로운 schema/migration은 필요하지 않다.
+
 ## 토큰 재발급
 
 ### Refresh Token 공통 저장 정책
@@ -516,7 +619,7 @@ Request Body는 필수 `string`인 `nickname`만 사용한다. 대상 회원은 
 - 동시 로그인 제한은 Refresh Token 기준이다. ACTIVE 회원의 기존 Access Token은 만료까지 유효하다. 탈퇴 완료 후에는 보호 API의 회원 상태 검사로 즉시 인증을 거부한다.
 - Rotation은 사용하지 않는다. `POST /auth/refresh`는 현재 Refresh Token을 유지하고 기존 계약대로 새 Access Token만 반환한다.
 - 재발급 검증은 기존 JWT 검증(서명·용도·필수 claim·만료) 후 JWT 회원 ID로 조회한 회원의 저장 해시와 만료 시각을 대조한다. 미저장·교체·폐기된 토큰은 사용할 수 없다.
-- 폐기는 해당 회원의 현재 저장 해시가 전달된 토큰과 일치할 때 두 컬럼을 `NULL`로 바꾼다. 폐기 이력·기기 정보·token family는 보관하지 않으며 재사용 탐지에 따른 연관 토큰 폐기도 하지 않는다.
+- 로그아웃에 의한 폐기는 해당 회원의 현재 저장 해시가 전달된 토큰과 일치할 때 두 컬럼을 `NULL`로 바꾼다. 비밀번호 변경·회원탈퇴는 각 API 정책에 따라 해당 회원의 저장 토큰을 무효화한다. 폐기 이력·기기 정보·token family는 보관하지 않으며 재사용 탐지에 따른 연관 토큰 폐기도 하지 않는다.
 - Refresh Token 저장은 `status = ACTIVE`인 회원만 허용하는 조건부 UPDATE를 사용한다. 탈퇴와 경합해도 탈퇴 완료 후 토큰이 다시 저장되지 않는다. 로그인·Steam 토큰 교환 중 탈퇴로 저장이 거부되면 각각 기존 `401 LOGIN_FAILED`, `401 STEAM_LOGIN_CODE_INVALID`를 반환한다.
 
 ### `POST /auth/refresh`

@@ -13,6 +13,7 @@
 | member | [member.md](member.md) | `GET /auth/steam/callback` | Steam 인증·신규 회원 생성·로그인 코드 발급 |
 | member | [member.md](member.md) | `POST /auth/steam/token` | Steam 로그인 토큰 교환 |
 | member | [member.md](member.md) | `POST /auth/steam/signup` | Steam 최초 닉네임 설정 (인증 필수) |
+| member | [member.md](member.md) | `PATCH /members/me/nickname` | 마이페이지 닉네임 변경 (인증 필수) |
 | member | [member.md](member.md) | `POST /auth/refresh` | 토큰 갱신 |
 | member | [member.md](member.md) | `POST /auth/logout` | 로그아웃 |
 | member | [member.md](member.md) | `DELETE /members/me` | 회원탈퇴 |

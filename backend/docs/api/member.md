@@ -423,6 +423,90 @@ Request Body는 필수 `string`인 `nickname`만 사용한다.
 - 이 API는 최초 닉네임 설정용이다. 회원 생성, Steam 인증, Access/Refresh Token 발급·저장은 수행하지 않는다.
 - 성공 후 프론트는 메인 화면으로 이동한다. 이후 `/session`은 저장된 닉네임을 반환한다.
 
+## 닉네임 변경
+
+### `PATCH /members/me/nickname`
+
+[닉네임 변경 원본 명세](https://app.notion.com/p/3e2776ebfd68816d97d4dcb5e5363e43)
+
+현재 로그인 회원의 닉네임을 변경한다. 일반 회원과 Steam 회원 모두 사용할 수 있다.
+
+**Auth**
+
+- Required
+- `Authorization: Bearer {ACCESS_TOKEN}`
+
+**Path Variables**: 없음
+
+**Query Parameters**: 없음
+
+**Request Body**
+
+- `Content-Type: application/json`
+
+```json
+{
+  "nickname": "macchiato3671"
+}
+```
+
+Request Body는 필수 `string`인 `nickname`만 사용한다. 대상 회원은 검증된 Access Token의 회원 ID로 확인하며, 클라이언트는 회원 ID나 Steam ID를 지정하지 않는다.
+
+- 회원가입·Steam 최초 닉네임 설정과 동일하게 1~50자(Unicode 코드 포인트 기준)이며, 빈 문자열·공백으로만 이루어진 값·NUL(U+0000)은 허용하지 않는다.
+- 기존 닉네임 정책에 따라 문자 종류·다른 회원과의 중복은 제한하지 않는다. 앞뒤 공백 제거나 대소문자 변환 없이 입력값 그대로 저장한다.
+- 누락·null·빈 문자열·공백만 있는 값·길이 초과·NUL은 `400 VALIDATION_FAILED`, 문자열이 아닌 JSON 값은 `400 INVALID_REQUEST`로 처리한다.
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "닉네임이 변경되었습니다.",
+  "responsedAt": "2026-09-21 10:00:00",
+  "data": {
+    "nickname": "macchiato3671"
+  },
+  "success": true
+}
+```
+
+`data.nickname`은 변경된 닉네임을 반환하는 필수 `string`이다.
+
+**Error Responses**
+
+- `400`: 닉네임 필드 누락·null·빈 값·길이 초과·NUL 등 검증 실패 (`VALIDATION_FAILED`, `입력값을 확인해주세요.`)
+- `400`: 잘못된 JSON·요청 본문 누락·문자열이 아닌 필드 (`INVALID_REQUEST`, `올바르지 않은 요청입니다.`)
+- `401`: Access Token 인증 필요·무효·만료 또는 회원 부재·`status != ACTIVE` (`UNAUTHORIZED`, `인증이 필요합니다.`). `WWW-Authenticate: Bearer` 헤더와 공통 오류 응답을 사용한다.
+- `500`: 서버 내부 오류 (`INTERNAL_SERVER_ERROR`, `서버 내부 오류가 발생했습니다.`)
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "입력값을 확인해주세요.",
+  "responsedAt": "2026-09-21 10:00:00",
+  "errors": [
+    {
+      "field": "nickname",
+      "message": "닉네임을 입력해주세요."
+    }
+  ]
+}
+```
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)에 따라 `code`, `message`, `responsedAt`과 필드 오류가 있을 때만 `errors`를 사용한다. 원본 명세의 `success: false`는 포함하지 않으며, `401`·`500`의 코드와 메시지는 위 공통 계약을 따른다. 필드 검증 메시지는 기존 회원가입·Steam 최초 닉네임 설정 정책에 맞춘다.
+
+**Processing Rules / Notes**
+
+1. Authorization Bearer Access Token으로 현재 회원을 식별한다. 회원이 존재하고 `status = ACTIVE`여야 하며, 로그인 유형(`LOCAL`/`STEAM`)은 제한하지 않는다.
+2. 요청의 `nickname`을 기존 닉네임 정책에 따라 검증한다.
+3. 검증을 통과하면 현재 회원의 닉네임을 변경하고 저장된 값을 `data.nickname`으로 반환한다. 이미 닉네임이 설정된 회원도 사용할 수 있다.
+4. Access Token 또는 Refresh Token을 새로 발급하지 않는다.
+
+- `POST /auth/steam/signup`은 닉네임이 `null`인 회원의 최초 설정용이며, 이미 설정된 경우 `409 NICKNAME_ALREADY_SET`을 반환한다. 이 API는 마이페이지의 프로필 변경용이므로 기존 닉네임이 있다는 이유로 `409`를 반환하지 않는다.
+- 닉네임 검증 실패 시 기존 회원 정보는 변경하지 않는다. 변경 성공 후 `GET /session`은 변경된 닉네임을 반환한다.
+- 원본 Notion 본문에는 `/api/v1/members/me/nickname`으로 표기되어 있으나, URL 속성과 S15P21A202-264 이슈의 대상 경로는 `/members/me/nickname`이다. 이 문서는 해당 대상 경로와 기존 API 문서의 경로 표기를 따른다.
+- 이번 S15P21A202-264의 범위는 API 계약 문서화다. 실제 구현은 S15P21A202-266에서 진행하며, 기존 `member.nickname` 컬럼을 사용하므로 새로운 schema/migration은 필요하지 않다.
+
 ## 토큰 재발급
 
 ### Refresh Token 공통 저장 정책

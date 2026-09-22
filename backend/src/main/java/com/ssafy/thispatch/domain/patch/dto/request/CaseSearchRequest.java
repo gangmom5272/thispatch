@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import com.ssafy.thispatch.domain.patch.dto.PatchChangeCodes.*;
 
 public record CaseSearchRequest(
+	@NotNull @Positive Long planId,
 	@NotEmpty @Size(max = 20) List<@NotNull @Valid ConfirmedSlot> confirmedSlots,
 	@NotNull List<@NotNull @Positive Integer> genreIds,
 	Sort sort) {

@@ -31,6 +31,7 @@ import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.Candida
 import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.PatchData;
 import com.ssafy.thispatch.domain.patch.service.CaseSearchService;
 import com.ssafy.thispatch.domain.patch.service.CaseSearchExecutor;
+import com.ssafy.thispatch.domain.patch.service.CaseSearchStorageService;
 import com.ssafy.thispatch.domain.patch.service.PlanStructureService;
 import com.ssafy.thispatch.domain.patch.service.PlanStructureStorageService;
 import com.ssafy.thispatch.global.config.JwtConfig;
@@ -46,7 +47,7 @@ import com.ssafy.thispatch.support.ActiveMemberWebMvcTest;
 @ActiveProfiles("test")
 class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 	private static final String SEARCH = """
-		{"confirmedSlots":[{"target":{"name":"Axebot","role":"ENEMY"},"attribute":"HP",
+		{"planId":101,"confirmedSlots":[{"target":{"name":"Axebot","role":"ENEMY"},"attribute":"HP",
 		"changeType":"MODIFY","direction":"INCREASE","magnitude":"+20%","scope":null}],"genreIds":[]}
 		""";
 	@Autowired private MockMvc mvc;
@@ -55,6 +56,7 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 	@MockitoBean private PatchSearchRepository repository;
 	@MockitoBean private AiPatchClient ai;
 	@MockitoBean private PlanStructureStorageService storage;
+	@MockitoBean private CaseSearchStorageService searchStorage;
 
 	@BeforeEach
 	void gameAndAi() {
@@ -98,6 +100,24 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 			.andExpect(jsonPath("$.data.totalCount").value(0)).andExpect(jsonPath("$.data.groups.length()").value(3))
 			.andExpect(jsonPath("$.data.confirmedSlots[0].changeType").value("MODIFY"))
 			.andExpect(jsonPath("$.data.confirmedSlots[0].magnitude").value("+20%"));
+		verify(searchStorage).validate(1, 1, 101);
+		verify(searchStorage).save(eq(1L), eq(1L), eq(101L), eq(List.of()), anyList());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"null", "0", "-1"})
+	void invalidPlanIdDoesNotReachSearch(String value) throws Exception {
+		assertError(request("case-searches", SEARCH.replace("\"planId\":101", "\"planId\":" + value)), 400, "VALIDATION_FAILED")
+			.andExpect(jsonPath("$.errors[0].field").value("planId"));
+		verifyNoInteractions(ai, searchStorage);
+	}
+
+	@Test
+	void missingOrNonNumericPlanIdIsRejected() throws Exception {
+		assertError(request("case-searches", SEARCH.replace("\"planId\":101,", "")), 400, "VALIDATION_FAILED")
+			.andExpect(jsonPath("$.errors[0].field").value("planId"));
+		assertError(request("case-searches", SEARCH.replace("\"planId\":101", "\"planId\":\"secret-invalid\"")), 400, "INVALID_REQUEST");
+		verifyNoInteractions(ai, searchStorage);
 	}
 
 	@ParameterizedTest

@@ -28,7 +28,8 @@ class CaseSearchServiceTest {
 	private final PatchSearchRepository repository = mock(PatchSearchRepository.class);
 	private final AiPatchClient ai = mock(AiPatchClient.class);
 	private final CaseSearchExecutor tasks = new CaseSearchExecutor();
-	private final CaseSearchService service = new CaseSearchService(repository, ai, tasks);
+	private final CaseSearchStorageService storage = mock(CaseSearchStorageService.class);
+	private final CaseSearchService service = new CaseSearchService(repository, ai, tasks, storage);
 	private final ConfirmedSlot slot = new ConfirmedSlot(new Target("Axebot", TargetRole.ENEMY), "HP",
 		ChangeType.MODIFY, Direction.INCREASE, "+20%", "hard mode");
 
@@ -58,7 +59,7 @@ class CaseSearchServiceTest {
 	void fillsAllGroupsAtThreePointBoundariesAndKeepsNullableCycles() {
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(
 			candidate("negative", "-3", .8, 10), candidate("neutral", "2.99", .7, 11), candidate("positive", "3", .9, 12)));
-		var data = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7, 7), null)).data();
+		var data = service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7, 7), null)).data();
 		assertThat(data.genreIds()).containsExactly(7);
 		assertThat(data.sort()).isEqualTo(Sort.SIMILARITY_DESC);
 		assertThat(data.totalCount()).isEqualTo(3);
@@ -73,6 +74,12 @@ class CaseSearchServiceTest {
 		assertThat(item.comparison().commonalities().get(0).description()).isEqualTo("공통 설명");
 		assertThat(data.groups()).allSatisfy(group -> assertThat(group.observedPatterns()).isEmpty());
 		verify(repository).search(anyList(), eq("test-model"), eq(List.of(slot)), eq(List.of(7)));
+		var order = inOrder(storage, ai);
+		order.verify(storage).validate(9, 1, 101);
+		order.verify(ai).embed(any());
+		order.verify(ai, times(3)).cards(any());
+		order.verify(ai, times(3)).compare(any());
+		order.verify(storage).save(9, 1, 101, List.of(7), List.of(slot));
 	}
 
 	@ParameterizedTest
@@ -81,7 +88,7 @@ class CaseSearchServiceTest {
 		var first = candidate("a", "4", .9, 10);
 		var second = candidate("b", "6", .8, 30);
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(second, first));
-		var cases = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), sort)).data().groups().get(2).cases();
+		var cases = service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), sort)).data().groups().get(2).cases();
 		String expectedFirst = sort == Sort.REVIEW_COUNT_DESC || sort == Sort.ABS_DELTA_PP_DESC ? "b" : "a";
 		assertThat(cases.get(0).patchId()).isEqualTo(expectedFirst);
 	}
@@ -89,11 +96,29 @@ class CaseSearchServiceTest {
 	@Test
 	void emptyResultsDoNotCallCardsOrComparison() {
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of());
-		var data = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data();
+		var data = service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null)).data();
 		assertThat(data.totalCount()).isZero();
 		assertThat(data.groups()).hasSize(3).allSatisfy(group -> assertThat(group.cases()).isEmpty());
 		verify(ai, never()).cards(any());
 		verify(ai, never()).compare(any());
+		verify(storage).save(9, 1, 101, List.of(7), List.of(slot));
+	}
+
+	@ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = {"embedding", "search", "cards", "compare"})
+	void failedSearchDoesNotStoreConfirmedInput(String phase) {
+		when(repository.search(anyList(), anyString(), anyList(), anyList()))
+			.thenReturn(List.of(candidate("p", "-5", .8, 10)));
+		var failure = new IllegalStateException("upstream-failure");
+		switch (phase) {
+			case "embedding" -> when(ai.embed(any())).thenThrow(failure);
+			case "search" -> when(repository.search(anyList(), anyString(), anyList(), anyList())).thenThrow(failure);
+			case "cards" -> doThrow(failure).when(ai).cards(any());
+			case "compare" -> doThrow(failure).when(ai).compare(any());
+		}
+		assertThatThrownBy(() -> service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null)))
+			.isSameAs(failure);
+		verify(storage, never()).save(anyLong(), anyLong(), anyLong(), anyList(), anyList());
 	}
 
 	@Test
@@ -101,7 +126,7 @@ class CaseSearchServiceTest {
 		List<Candidate> candidates = new ArrayList<>();
 		for (int index = 0; index < 61; index++) candidates.add(candidate("p" + index, "-5", .8, index + 1));
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(candidates);
-		var group = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data().groups().get(0);
+		var group = service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null)).data().groups().get(0);
 		assertThat(group.caseCount()).isEqualTo(61);
 		assertThat(group.observedPatterns()).contains("적 대상 변경이 가장 많음 (61건)");
 		verify(ai, times(2)).cards(any());
@@ -119,7 +144,7 @@ class CaseSearchServiceTest {
 			assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 			return new CardsResponse(request.cases().stream().map(item -> new Card(item.gid(), "공통", "차이")).toList(), List.of(), null);
 		}).when(ai).cards(any());
-		assertThat(service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data().totalCount()).isEqualTo(3);
+		assertThat(service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null)).data().totalCount()).isEqualTo(3);
 	}
 
 	@Test
@@ -134,7 +159,7 @@ class CaseSearchServiceTest {
 			else secondFinished.countDown();
 			return new CompareResponse(gid, List.of(new Point("대상", gid, "template")), List.of(), false, 0);
 		}).when(ai).compare(any());
-		var cases = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data().groups().get(2).cases();
+		var cases = service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null)).data().groups().get(2).cases();
 		assertThat(cases).extracting(item -> item.patchId()).containsExactly("a", "b");
 		assertThat(cases).extracting(item -> item.comparison().commonalities().get(0).description()).containsExactly("a", "b");
 	}
@@ -144,7 +169,7 @@ class CaseSearchServiceTest {
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(candidate("a", "4", .9, 10)));
 		var failure = new BusinessException(AiErrorCode.AI_UNAVAILABLE);
 		doThrow(failure).when(ai).cards(any());
-		assertThatThrownBy(() -> service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null))).isSameAs(failure);
+		assertThatThrownBy(() -> service.search(9, 1, new CaseSearchRequest(101L, List.of(slot), List.of(7), null))).isSameAs(failure);
 		verify(ai, never()).compare(any());
 	}
 

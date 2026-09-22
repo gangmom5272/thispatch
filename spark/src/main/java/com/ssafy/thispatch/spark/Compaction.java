@@ -4,9 +4,20 @@ import com.ssafy.thispatch.common.HdfsPaths;
 import com.ssafy.thispatch.common.ReviewLake;
 import com.ssafy.thispatch.common.ReviewSchema;
 import com.ssafy.thispatch.common.SparkSessions;
+import static org.apache.spark.sql.functions.col;
+import static org.apache.spark.sql.functions.hash;
+import static org.apache.spark.sql.functions.lit;
+import static org.apache.spark.sql.functions.pmod;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -35,7 +46,24 @@ import org.apache.spark.sql.SparkSession;
  * <pre>
  *   spark-submit --class com.ssafy.thispatch.spark.Compaction thispatch-spark.jar
  *   ... thispatch-spark.jar --dry-run     무엇을 할지만 보고 아무것도 바꾸지 않는다
+ *   ... thispatch-spark.jar --buckets 4   조각 수 (기본 4)
+ *   ... thispatch-spark.jar --fresh       지난 실행이 남긴 조각을 버리고 처음부터
  * </pre>
+ *
+ * <p><b>조각으로 나눠 하고, 끊기면 이어한다 (2026-09-22).</b> 전에는 중복 제거 결과를
+ * 메모리·셔플에만 들고 있다가 한 잡으로 base 를 썼다. 무선 클러스터에서 그 잡이 죽으면
+ * Spark 가 임시 폴더를 통째로 비워 몇 시간 쓴 것이 0 이 됐다 — 09-21 밤 두 번 시도에
+ * 14시간 반을 쓰고 아무것도 남지 않았다. 지금은
+ * <ol>
+ *   <li>{@code recommendationid} 의 해시로 리뷰를 조각 N개로 나눠, 조각마다 <b>따로</b>
+ *       중복 제거해 {@code /review_raw/.compaction/bucket-i} 에 확정한다. 같은 리뷰는
+ *       늘 같은 조각에 떨어지므로 조각별 중복 제거 = 전체 중복 제거다. 조각 하나는
+ *       독립된 잡이라 하나가 죽어도 끝난 조각은 남는다.</li>
+ *   <li>다시 실행하면 입력(delta 날짜 · base 파일)이 같은지 {@code _manifest} 로 확인하고,
+ *       {@code _SUCCESS} 가 있는 조각은 건너뛴다.</li>
+ *   <li>조각이 다 되면 파일을 staging 으로 <b>이름만 바꿔</b> 모은다(메타데이터 연산,
+ *       즉시). 세어서 맞으면 base 와 바꿔치기하고 delta 를 비운다.</li>
+ * </ol>
  *
  * <p>⚠ 집계 잡과 <b>같이 돌리면 안 된다.</b> 바꿔치기하는 찰나에 집계가 읽으면
  * {@code spark.sql.files.ignoreMissingFiles} 때문에 <b>적게 읽고도 오류가 안 난다.</b>
@@ -56,6 +84,14 @@ public final class Compaction {
 
     private static final int MAX_FILES = 200;
 
+    /** 조각 수 기본값. 조각마다 입력을 한 번씩 다시 읽으므로 너무 많으면 읽기가 늘어난다. */
+    static final int DEFAULT_BUCKETS = 4;
+
+    /** 조각을 두는 작업 폴더. 점으로 시작해 {@code /review_raw/*} 를 읽는 어떤 잡에도 안 잡힌다. */
+    static final String WORK_DIR = HdfsPaths.HDFS + "/review_raw/.compaction";
+
+    static final String MANIFEST = "_manifest";
+
     /**
      * 스냅샷을 몇 개까지 남길 것인가.
      *
@@ -67,14 +103,22 @@ public final class Compaction {
     public static void main(String[] args) throws IOException {
         boolean dryRun = false;
         boolean snapshot = true;
-        for (String arg : args) {
-            switch (arg == null ? "" : arg.trim()) {
+        boolean fresh = false;
+        int buckets = DEFAULT_BUCKETS;
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i] == null ? "" : args[i].trim();
+            switch (arg) {
                 case "--dry-run" -> dryRun = true;
                 // ⚠ 스냅샷 없이 돌리는 것은 되돌릴 수단을 버리는 것이다.
                 //   복구는 landing 에서 전부 다시 만드는 길밖에 안 남는다.
                 case "--no-snapshot" -> snapshot = false;
+                case "--fresh" -> fresh = true;
+                case "--buckets" -> buckets = Integer.parseInt(args[++i].trim());
                 default -> { }
             }
+        }
+        if (buckets < 1) {
+            throw new IllegalArgumentException("--buckets 는 1 이상이어야 한다: " + buckets);
         }
 
         SparkSession spark = SparkSessions.build("compaction");
@@ -83,6 +127,7 @@ public final class Compaction {
 
             Path base = new Path(HdfsPaths.REVIEW_BASE);
             Path delta = new Path(HdfsPaths.REVIEW_DELTA);
+            Path work = new Path(WORK_DIR);
 
             int deltaPartitions = countPartitions(fs, delta);
             if (deltaPartitions == 0) {
@@ -92,19 +137,56 @@ public final class Compaction {
             System.out.println("delta 날짜 " + deltaPartitions + "개 · base 파일 "
                     + countFiles(fs, base) + "개");
 
-            // ⚠ 읽기를 먼저 확정한다. Spark 는 게을러서, 쓰기 시점에 base 를 읽으려 든다.
-            //   그런데 아래에서 base 를 바꿔치기하므로 그 전에 값을 붙들어야 한다.
-            Dataset<Row> merged = ReviewLake.all(ReviewLake.read(spark)).cache();
-            long rows = merged.count();
-            System.out.println("합치면 " + rows + "건");
+            // 원본 행 수는 parquet 메타데이터로 세서 빠르다. 파일 수는 여기서 정한다
+            // (중복이 빠지면 조금 작아질 뿐이다).
+            Dataset<Row> lake = ReviewLake.read(spark);
+            long rawRows = lake.count();
+            int files = plannedFiles(rawRows);
+            int perBucket = perBucket(files, buckets);
+            System.out.println("원본 " + rawRows + "건(중복 포함) · 조각 " + buckets + "개 × 파일 "
+                    + perBucket + "개 = " + (perBucket * buckets) + "개로 쓴다");
 
-            int files = (int) Math.max(1, Math.min(MAX_FILES, (rows + ROWS_PER_FILE - 1) / ROWS_PER_FILE));
-            System.out.println("파일 " + files + "개로 쓴다");
+            // 이어하기 — 입력이 그대로일 때만. delta 에 날짜가 하나라도 늘었으면 처음부터.
+            String manifest = manifestOf(fs, base, delta);
+            if (fs.exists(work)) {
+                String before = readText(fs, new Path(work, MANIFEST));
+                if (!fresh && manifest.equals(before)) {
+                    System.out.println("이어함  " + work + " — 지난 실행이 확정한 조각은 다시 만들지 않는다");
+                } else {
+                    System.out.println((fresh ? "--fresh" : "입력이 달라졌다") + " → 지난 작업 폴더를 지우고 처음부터: " + work);
+                    if (!dryRun) {
+                        fs.delete(work, true);
+                    }
+                }
+            }
 
             if (dryRun) {
                 System.out.println("--dry-run 이라 여기서 멈춘다.");
                 return;
             }
+            fs.mkdirs(work);
+            writeText(fs, new Path(work, MANIFEST), manifest);
+
+            // ⚠ 조각마다 독립된 잡이다. 하나가 죽어도 _SUCCESS 가 있는 조각은 남는다.
+            //   같은 recommendationid 는 늘 같은 조각에 떨어지므로 조각별 중복 제거는 전체와 같다.
+            for (int b = 0; b < buckets; b++) {
+                Path out = bucketPath(work, b);
+                if (bucketDone(fs, out)) {
+                    System.out.println("조각 " + b + "/" + buckets + " 이미 있다 — 건너뜀");
+                    continue;
+                }
+                fs.delete(out, true);
+                long t0 = System.currentTimeMillis();
+                ReviewLake.all(bucketOf(lake, buckets, b))
+                        .coalesce(perBucket)
+                        .write().mode(SaveMode.Overwrite).parquet(out.toString());
+                System.out.println("조각 " + b + "/" + buckets + " 끝  "
+                        + ((System.currentTimeMillis() - t0) / 60_000) + "분  " + out);
+            }
+
+            long rows = spark.read().schema(ReviewSchema.REVIEW_RAW)
+                    .parquet(bucketPaths(work, buckets)).count();
+            System.out.println("합치면 " + rows + "건");
 
             // ⚠ 건드리기 전에 스냅샷부터 찍는다.
             //
@@ -121,20 +203,14 @@ public final class Compaction {
                 System.out.println("⚠ 스냅샷 없이 돌린다 (--no-snapshot). 되돌릴 수단이 없다.");
             }
 
-            // ⚠ base 를 바로 덮어쓰면 안 된다.
-            //
-            //   SaveMode.Overwrite 는 쓰기 전에 그 경로를 지운다. 그런데 지금 읽는
-            //   것이 base + delta 다. 자기가 읽고 있는 것을 지우는 셈이라, 운이
-            //   나쁘면 base 를 통째로 잃는다.
-            //
-            //   그래서 옆에 새로 쓰고 이름만 바꾼다. HDFS 의 rename 은 메타데이터만
-            //   건드려서 즉시 끝난다.
+            // ⚠ base 를 바로 덮어쓰면 안 된다. 읽고 있는 것을 지우는 셈이라 운이 나쁘면
+            //   base 를 통째로 잃는다. 옆에 모아 두고 이름만 바꾼다 — HDFS 의 rename 은
+            //   메타데이터만 건드려서 즉시 끝난다. 조각 파일을 staging 으로 옮기는 것도 rename 이다.
             String stamp = String.valueOf(System.currentTimeMillis());
             Path staging = new Path(HdfsPaths.REVIEW_BASE + ".staging-" + stamp);
             Path retired = new Path(HdfsPaths.REVIEW_BASE + ".old-" + stamp);
-
-            System.out.println("쓴다    " + staging);
-            merged.coalesce(files).write().mode(SaveMode.Overwrite).parquet(staging.toString());
+            int moved = moveParquetFiles(fs, work, buckets, staging);
+            System.out.println("쓴다    " + staging + "  (조각 파일 " + moved + "개를 옮겼다)");
 
             // ⚠ 바꿔치기 전에 센다. 쓰다 만 것을 base 로 올리면 조용히 데이터를 잃는다.
             long written = spark.read().schema(ReviewSchema.REVIEW_RAW)
@@ -163,6 +239,9 @@ public final class Compaction {
             deleteChildren(fs, delta);
             System.out.println("비웠다  " + delta);
 
+            fs.delete(work, true);
+            System.out.println("치웠다  " + work);
+
             // ⚠ 방금 밀어낸 base 는 지우지 않는다. 다음 compaction 때까지 남긴다.
             //
             //   행 수는 맞는데 내용이 잘못된 경우(스키마 버그 같은 것)에는 세는
@@ -177,6 +256,114 @@ public final class Compaction {
             System.out.println("끝. base 파일 " + countFiles(fs, base) + "개");
         } finally {
             spark.stop();
+        }
+    }
+
+    // ── 조각 나누기 (테스트가 여기를 본다) ──────────────────────
+
+    /** 행 수로 정하는 파일 수. {@link #ROWS_PER_FILE} 마다 하나, 최소 1, 최대 {@link #MAX_FILES}. */
+    static int plannedFiles(long rows) {
+        return (int) Math.max(1, Math.min(MAX_FILES, (rows + ROWS_PER_FILE - 1) / ROWS_PER_FILE));
+    }
+
+    /** 조각 하나가 쓸 파일 수. 올림이라 전체는 {@code files} 보다 조금 많을 수 있다. */
+    static int perBucket(int files, int buckets) {
+        return Math.max(1, (files + buckets - 1) / buckets);
+    }
+
+    /**
+     * {@code recommendationid} 의 해시로 고른 조각. 같은 리뷰(같은 id)는 늘 같은 조각에 떨어져서
+     * 조각별 {@link ReviewLake#all} 은 전체를 한 번에 한 것과 같다.
+     */
+    static Dataset<Row> bucketOf(Dataset<Row> lake, int buckets, int bucket) {
+        return lake.filter(pmod(hash(col("recommendationid")), lit(buckets)).equalTo(lit(bucket)));
+    }
+
+    static Path bucketPath(Path work, int bucket) {
+        return new Path(work, "bucket-" + bucket);
+    }
+
+    static String[] bucketPaths(Path work, int buckets) {
+        String[] out = new String[buckets];
+        for (int b = 0; b < buckets; b++) {
+            out[b] = bucketPath(work, b).toString();
+        }
+        return out;
+    }
+
+    /** Spark 가 잡을 끝내며 남기는 {@code _SUCCESS} 가 있으면 그 조각은 확정된 것이다. */
+    static boolean bucketDone(FileSystem fs, Path bucket) {
+        try {
+            return fs.exists(new Path(bucket, "_SUCCESS"));
+        } catch (IOException failure) {
+            throw new UncheckedIOException("조각을 확인하지 못했다: " + bucket, failure);
+        }
+    }
+
+    /**
+     * 입력이 무엇이었는지 적어 두는 글. delta 날짜와 base 파일 이름이 하나라도 다르면 다른 입력이다.
+     * 지난 실행이 남긴 조각을 이어 쓸 수 있는지는 이것이 같은지로 판단한다.
+     */
+    static String manifestOf(FileSystem fs, Path base, Path delta) throws IOException {
+        List<String> lines = new ArrayList<>();
+        if (fs.exists(delta)) {
+            for (FileStatus s : fs.listStatus(delta)) {
+                if (s.isDirectory() && s.getPath().getName().startsWith("dt=")) {
+                    lines.add("delta/" + s.getPath().getName());
+                }
+            }
+        }
+        if (fs.exists(base)) {
+            var it = fs.listFiles(base, true);
+            while (it.hasNext()) {
+                Path p = it.next().getPath();
+                if (p.getName().endsWith(".parquet")) {
+                    lines.add("base/" + p.getName());
+                }
+            }
+        }
+        Collections.sort(lines);
+        return String.join("\n", lines);
+    }
+
+    /**
+     * 조각 폴더의 parquet 파일을 {@code staging} 으로 옮긴다. 복사가 아니라 rename 이라 즉시 끝난다.
+     * 조각마다 {@code part-00000-…} 이 겹칠 수 있어 조각 번호를 앞에 붙인다. {@code _SUCCESS} 는 두고 온다.
+     *
+     * @return 옮긴 파일 수
+     */
+    static int moveParquetFiles(FileSystem fs, Path work, int buckets, Path staging) throws IOException {
+        fs.mkdirs(staging);
+        int moved = 0;
+        for (int b = 0; b < buckets; b++) {
+            Path bucket = bucketPath(work, b);
+            for (FileStatus s : fs.listStatus(bucket)) {
+                String name = s.getPath().getName();
+                if (!s.isFile() || !name.endsWith(".parquet")) {
+                    continue;
+                }
+                Path to = new Path(staging, "b" + b + "-" + name);
+                if (!fs.rename(s.getPath(), to)) {
+                    throw new IOException("조각 파일을 옮기지 못했다: " + s.getPath() + " -> " + to);
+                }
+                moved++;
+            }
+        }
+        return moved;
+    }
+
+    static String readText(FileSystem fs, Path file) throws IOException {
+        if (!fs.exists(file)) {
+            return "";
+        }
+        try (FSDataInputStream in = fs.open(file)) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    static void writeText(FileSystem fs, Path file, String text) throws IOException {
+        try (FSDataOutputStream out = fs.create(file, true)) {
+            out.write(text.getBytes(StandardCharsets.UTF_8));
         }
     }
 

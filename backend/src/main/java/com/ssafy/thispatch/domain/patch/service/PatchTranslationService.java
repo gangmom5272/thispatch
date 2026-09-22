@@ -7,6 +7,7 @@ import com.ssafy.thispatch.domain.patch.dto.response.PatchTranslation;
 import com.ssafy.thispatch.domain.patch.exception.PatchErrorCode;
 import com.ssafy.thispatch.domain.patch.repository.PatchReadRepository;
 import com.ssafy.thispatch.global.exception.BusinessException;
+import com.ssafy.thispatch.global.text.SteamBodyPlainText;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,7 +22,7 @@ public class PatchTranslationService {
 	public PatchTranslation translate(String patchId) {
 		var source = repository.findTranslationSource(patchId)
 			.orElseThrow(() -> new BusinessException(PatchErrorCode.PATCH_NOT_FOUND));
-		String body = PatchPlainText.render(source.contents());
+		String body = SteamBodyPlainText.render(source.contents());
 		return new PatchTranslation(patchId, translateNonBlank(source.title()), translateNonBlank(body));
 	}
 

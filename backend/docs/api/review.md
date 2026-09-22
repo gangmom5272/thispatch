@@ -13,6 +13,8 @@
 - 목록의 `meta`는 `period`, `timezone`, `aggregationBasis`, `lastCollectedAt`이다.
 - 대표 리뷰의 `data`는 `meta`와 `items`이고, `meta`에는 위 필드에 `dataStatus: "AVAILABLE"`이 추가된다.
 - `koreana`는 응답에서 `korean`으로 변환한다. `reviewDate`는 수정 시각의 KST 날짜다.
+- `items[].body`는 저장된 `review_text`에 [Steam 본문 일반 텍스트 변환](conventions.md#steam-본문-일반-텍스트-변환)을 적용한다.
+  DB 원문은 수정하지 않으며, 본문이 빈 문자열로 변환되어도 리뷰 행·건수·정렬은 유지한다.
 - 커서는 게임·선택 토픽·조회 종료일과 도움됨 수·리뷰 ID를 포함한다. 다른 조건의 커서는 `400 INVALID_REQUEST`다.
 - 목록의 `totalCount`는 커서 뒤 건수가 아니라, 같은 기간·토픽 조건을 만족하는 전체 리뷰 수다.
 - 없는 게임은 `404 GAME_NOT_FOUND`, 잘못된 토픽·커서·limit는 `400 INVALID_REQUEST`다.
@@ -132,11 +134,13 @@
 - `recent_review.review_id` 기본키에 해당하는 행의 `review_text`를 사용한다. 다른 수정 버전으로 대체하거나 목록의 최근 14일 필터를 적용하지 않는다.
 - 번역 대상 언어는 한국어로 고정하며, 외부 번역 API는 DeepL을 사용한다.
 - 클라이언트에서 번역할 원문을 직접 전달하지 않는다. 서버에 존재하는 리뷰만 번역한다.
-- DB의 `language_code`가 `korean` 또는 `koreana`이거나 원문이 빈 문자열·공백뿐이면 DeepL을 호출하지 않고 원문 그대로 `200`을 반환한다.
-- 그 외 원문은 DeepL의 언어 자동 감지를 사용하여 한국어(`KO`)로 번역한다.
+- 원문 자체가 빈 문자열·공백뿐이면 DeepL을 호출하지 않고 원문 그대로 `200`을 반환한다.
+- 그 외 본문은 [Steam 본문 일반 텍스트 변환](conventions.md#steam-본문-일반-텍스트-변환)을 적용한다.
+  DB의 `language_code`가 `korean` 또는 `koreana`이거나 변환 후 본문이 비어 있으면 DeepL 호출 없이 변환 결과를 반환한다.
+- 나머지는 변환된 본문을 DeepL의 언어 자동 감지로 한국어(`KO`) 번역한다.
 - DeepL 키 미설정·인증 오류, 미지원 언어, 입력 한도 초과, 할당량 초과, 연결 실패·시간 초과 및 잘못된 응답은 `502 TRANSLATION_UNAVAILABLE`로 처리한다.
 - DeepL JSON 요청 본문의 UTF-8 크기가 128 KiB를 초과하면 외부 호출 없이 같은 `502`로 처리한다. 원문을 자르거나 분할하지 않고 자동 재시도하지 않는다.
-- 번역 결과를 캐시하거나 DB에 저장하지 않는다. 각 요청에서 조회한 원문을 사용한다.
+- 번역 결과를 캐시하거나 DB에 저장하지 않는다. 각 요청에서 조회한 원문에 위 변환을 적용한다.
 
 **Error Responses**
 

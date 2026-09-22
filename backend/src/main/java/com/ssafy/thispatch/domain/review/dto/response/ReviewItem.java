@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.ssafy.thispatch.common.TimeRule;
 import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository.ReviewRow;
+import com.ssafy.thispatch.global.text.SteamBodyPlainText;
 
 public record ReviewItem(long id, String sentiment, boolean isUpdated, Integer playtimeMinutes,
 	String languageCode, int helpfulCount, List<Tag> tags, String body, LocalDate reviewDate) {
@@ -13,7 +14,7 @@ public record ReviewItem(long id, String sentiment, boolean isUpdated, Integer p
 		return new ReviewItem(row.id(), row.positive() ? "POSITIVE" : "NEGATIVE",
 			row.updatedAt().isAfter(row.createdAt()), row.playtimeMinutes(),
 			"koreana".equals(row.languageCode()) ? "korean" : row.languageCode(), row.helpfulCount(),
-			tags, row.body(), row.updatedAt().atZone(TimeRule.ZONE).toLocalDate());
+			tags, SteamBodyPlainText.render(row.body()), row.updatedAt().atZone(TimeRule.ZONE).toLocalDate());
 	}
 
 	public record Tag(int id, String name) {

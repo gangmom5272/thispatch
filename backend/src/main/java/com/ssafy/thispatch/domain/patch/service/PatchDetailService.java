@@ -11,6 +11,7 @@ import com.ssafy.thispatch.domain.patch.dto.response.PatchDetailResponse;
 import com.ssafy.thispatch.domain.patch.dto.response.PatchDetailResponse.PatchDetailData;
 import com.ssafy.thispatch.domain.patch.repository.PatchReadRepository;
 import com.ssafy.thispatch.global.exception.BusinessException;
+import com.ssafy.thispatch.global.text.SteamBodyPlainText;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +30,6 @@ public class PatchDetailService {
 			.orElseThrow(() -> new BusinessException(PATCH_NOT_FOUND));
 		var publishedOn = patch.publishedAt().atZone(TimeRule.ZONE).toLocalDate();
 		return PatchDetailResponse.success(new PatchDetailData(patch.patchId(), patch.gameId(), patch.title(),
-			publishedOn, patch.publishedAt(), PatchPlainText.render(patch.contents()), "PLAIN_TEXT", patch.url()));
+			publishedOn, patch.publishedAt(), SteamBodyPlainText.render(patch.contents()), "PLAIN_TEXT", patch.url()));
 	}
 }

@@ -77,8 +77,21 @@ class PatchTranslationControllerTest extends ActiveMemberWebMvcTest {
 		verify(client).translateToKorean("한국어 본문");
 	}
 
+	@Test
+	void translatesCaptionAndTableWithoutSteamMediaOrHtmlMarkup() throws Exception {
+		source("", "[img src='{STEAM_CLAN_IMAGE}/map.jpg']"
+			+ "[previewimg=123;sizeFull;map.jpg]New map[/previewimg]"
+			+ "<table><tr><td>Damage</td><td>20 &amp; 30</td></tr></table>");
+		String rendered = "New map\nDamage\t20 & 30";
+		when(client.translateToKorean(rendered)).thenReturn("신규 지도\n피해량\t20 & 30");
+		mvc.perform(get(PATH).header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.translatedBody").value("신규 지도\n피해량\t20 & 30"));
+		verify(client).translateToKorean(rendered);
+		verifyNoMoreInteractions(client);
+	}
+
 	@ParameterizedTest
-	@ValueSource(strings = {"", " \t\n", "[b][/b]"})
+	@ValueSource(strings = {"", " \t\n", "[b][/b]", "[img]map.jpg[/img]", "<p>&nbsp;</p>"})
 	void blankTitleAndRenderedBodyNeedNoTranslation(String contents) throws Exception {
 		source(" \t", contents);
 		mvc.perform(get(PATH).header("Authorization", auth())).andExpect(status().isOk())

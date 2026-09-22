@@ -58,6 +58,35 @@ class ReviewReadControllerTest extends ActiveMemberWebMvcTest {
 		when(repository.topicsExist(anySet())).thenReturn(true);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"/games/7/reviews", "/games/7/reviews/representative"})
+	void rendersStoredReviewForBothReadEndpointsWithoutChangingTheSource(String path) throws Exception {
+		String source = "[h4]{TL;DR}[/h4]<p>[b]좋아요[/b] &amp; [Warden]</p>"
+			+ "[img src='map.jpg']";
+		var row = new ReviewRow(91L, source, true, 50, 120, "koreana",
+			Instant.parse("2026-09-14T10:00:00Z"), Instant.parse("2026-09-15T15:30:00Z"));
+		when(repository.findHelpfulReviews(7, PERIOD, Set.of(), null, 11)).thenReturn(List.of(row));
+		when(repository.findRepresentatives(7, PERIOD)).thenReturn(List.of(row));
+		when(repository.countWithinPeriod(7, PERIOD, Set.of())).thenReturn(1L);
+		mvc.perform(get(path).header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].id").value(91L))
+			.andExpect(jsonPath("$.data.items[0].body").value("{TL;DR}\n좋아요 & [Warden]"))
+			.andExpect(jsonPath("$.data.items[0].helpfulCount").value(50));
+		org.assertj.core.api.Assertions.assertThat(row.body()).isEqualTo(source);
+	}
+
+	@Test
+	void mediaOnlyReviewIsKeptInPageAndCount() throws Exception {
+		var row = new ReviewRow(91L, "[img]map.jpg[/img]", true, 50, 120, "english",
+			Instant.parse("2026-09-14T10:00:00Z"), Instant.parse("2026-09-15T15:30:00Z"));
+		when(repository.findHelpfulReviews(7, PERIOD, Set.of(), null, 11)).thenReturn(List.of(row));
+		when(repository.countWithinPeriod(7, PERIOD, Set.of())).thenReturn(1L);
+		mvc.perform(get("/games/7/reviews").header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items.length()").value(1))
+			.andExpect(jsonPath("$.data.items[0].body").value(""))
+			.andExpect(jsonPath("$.data.page.totalCount").value(1));
+	}
+
 	@Test
 	void pageKeepsHelpfulCursorTagsLongIdKoreanLanguageAndKstDate() throws Exception {
 		var first = review(4_000_000_001L, 50);

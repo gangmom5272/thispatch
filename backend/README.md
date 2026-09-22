@@ -41,7 +41,7 @@ DB 전체 기본값과 `hnsw.iterative_scan = strict_order`는 변경하지 않�
 
 - [DeepL 공식 인증 규칙](https://developers.deepl.com/docs/getting-started/auth)에 따라 `:fx`로 끝나는 키는 `https://api-free.deepl.com`, 나머지는 `https://api.deepl.com`을 자동 선택합니다.
 - 운영에서는 백엔드 컨테이너 환경에 `DEEPL_API_KEY`를 주입하고 재시작합니다. 기존 서버 Compose의 `env_file`을 사용할 수 있습니다.
-- 키가 없어도 서버는 기동합니다. 번역이 필요한 요청은 `502 TRANSLATION_UNAVAILABLE`을 반환합니다. 리뷰의 한국어·빈 원문은 키 없이도 원문을 반환합니다. 패치노트는 원문 언어 정보가 없어 한국어도 키가 필요하며, 빈 제목·본문만 외부 호출을 생략합니다.
+- 키가 없어도 서버는 기동합니다. 번역이 필요한 요청은 `502 TRANSLATION_UNAVAILABLE`을 반환합니다. 리뷰는 한국어이거나 서식 변환 후 빈 본문이면 키 없이 변환 결과를 반환하고, 원문 자체가 공백뿐이면 그 공백을 유지합니다. 패치노트는 원문 언어 정보가 없어 한국어도 키가 필요하며, 빈 제목·변환된 본문만 외부 호출을 생략합니다.
 - 오류·입력 제한·캐시 정책은 [리뷰 번역 계약](docs/api/review.md#리뷰-번역)과 [패치노트 번역 계약](docs/api/patch.md#패치노트-번역)을 따릅니다. 번역을 기다리는 동안 DB 트랜잭션을 유지하지 않습니다.
 - 자동화 테스트는 DeepL HTTP 호출을 대체하므로 실제 키와 외부 번역 서비스를 사용하지 않습니다.
 

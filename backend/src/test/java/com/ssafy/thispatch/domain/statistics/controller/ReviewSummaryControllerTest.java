@@ -123,6 +123,23 @@ class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
 		verifyNoInteractions(ai);
 	}
 
+	@Test
+	void languageRepresentativeRendersMarkupWithoutChangingAiInput() throws Exception {
+		String raw = "[b]좋아요[/b]<br>재미있어요[img src='map.jpg']";
+		var existing = input(80, 20);
+		var rows = new java.util.ArrayList<>(existing.reviews());
+		var first = rows.get(0);
+		rows.set(0, new ReviewRow(first.id(), raw, first.positive(), first.helpfulCount(), first.playtimeMinutes(),
+			first.languageCode(), first.createdAt(), first.updatedAt()));
+		when(reader.read(7, PERIOD, null, "korean", 20))
+			.thenReturn(new Input(existing.gameName(), existing.targetCount(), rows, existing.tags()));
+		mvc.perform(get("/games/7/language-analysis/korean").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.representativeReviews[0].body").value("좋아요\n재미있어요"))
+			.andExpect(jsonPath("$.data.representativeReviews[0].tags[0].id").value(1));
+		verify(ai).summarize(argThat(request -> request.reviews().get(0).reviewText().equals(raw)));
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = {"summaries/playtime-topics?bandNo=5", "summaries/playtime-topics?bandNo=oops", "language-analysis/koreana"})
 	void invalidParameters(String path) throws Exception {

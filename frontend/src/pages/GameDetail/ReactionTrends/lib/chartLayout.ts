@@ -80,8 +80,8 @@ export function snapScrollLeft(
 
 export const CHART_COLORS = {
   rate: "#4ade80",
-  firstWritten: "#3ecf8e",
-  updated: "#ff6b5e",
+  firstWritten: "#24b580",
+  updated: "#a46cd9",
   patchSelected: "rgba(255, 201, 60, 0.95)",
   patchOther: "rgba(90, 107, 124, 0.7)",
   grid: "#223447",

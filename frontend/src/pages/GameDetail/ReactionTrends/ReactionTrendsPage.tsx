@@ -19,12 +19,7 @@ import {
   VISIBLE_DAYS,
   visibleSlice,
 } from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
-import {
-  addDaysIso,
-  formatCollectedLabel,
-  initialReactionTrendsStartDate,
-  todaySeoul,
-} from "@/lib/seoulDate"
+import { addDaysIso, formatCollectedLabel, initialReactionTrendsStartDate } from "@/lib/seoulDate"
 import type { ReactionTrendPatchMarker } from "@/types/statistics"
 
 const AI_DEBOUNCE_MS = 450
@@ -384,10 +379,6 @@ export default function ReactionTrendsPage() {
             </div>
           ) : null}
         </div>
-        <p className="mt-sb-2 text-sb-caption text-sb-ink-mute">
-          한 화면에 약 {VISIBLE_DAYS}일이 보입니다. 좌우 스크롤로 이전·이후 날짜를 보고, 왼쪽 끝에서
-          이전 일자가 더 로드됩니다. (기준일 {todaySeoul()})
-        </p>
       </section>
 
       <div className="grid gap-sb-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">

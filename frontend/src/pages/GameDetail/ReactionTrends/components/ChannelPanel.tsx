@@ -4,8 +4,8 @@ import { formatCount, formatRate } from "@/pages/GameDetail/ReactionTrends/lib/a
 
 const COLORS = {
   firstPos: "#3ecf8e",
-  firstNeg: "#1f5540",
-  updatedPos: "#ff6b5e",
+  firstNeg: "#ff6b5e",
+  updatedPos: "#1f5540",
   updatedNeg: "#8a3a34",
 }
 
@@ -44,8 +44,8 @@ export function ChannelPanel({ summary, dayCount }: ChannelPanelProps) {
   return (
     <section className="flex flex-col gap-sb-4 rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
       <header className="flex flex-wrap items-baseline justify-between gap-sb-2">
-        <h2 className="text-sb-title font-medium text-sb-ink">최초 작성 / 수정 리뷰 분포</h2>
-        <p className="text-sb-caption text-sb-ink-mute">선택 구간 {dayCount}일</p>
+        <h2 className="text-sb-title font-medium text-sb-ink">리뷰 분포</h2>
+        <p className="text-sb-caption text-sb-ink-mute">최근 {dayCount}일</p>
       </header>
       <p className="rounded-sb-tag border border-sb-line-amber bg-sb-tint-amber px-sb-3 py-sb-2 text-sb-caption text-sb-amber-text">
         최초/수정 리뷰의 긍정/부정 반응 분포를 표현합니다. 첫 작성을 신규 유저로 해석하지 않습니다.

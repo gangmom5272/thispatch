@@ -30,9 +30,11 @@ public class CaseSearchService {
 	private static final int CARD_BATCH_SIZE = 60;
 	private final PatchSearchRepository repository;
 	private final AiPatchClient ai;
+	private final CaseSearchStorageService storage;
 
-	public CaseSearchResponse search(long gameId, CaseSearchRequest request) {
+	public CaseSearchResponse search(long memberId, long gameId, CaseSearchRequest request) {
 		repository.findGame(gameId).orElseThrow(() -> new BusinessException(GAME_NOT_FOUND));
+		storage.validate(memberId, gameId, request.planId());
 		var genreIds = request.genreIds().stream().distinct().toList();
 		var genres = repository.findGenres(genreIds);
 		if (genres.size() != genreIds.size()) throw new BusinessException(CommonErrorCode.INVALID_REQUEST);
@@ -69,8 +71,10 @@ public class CaseSearchService {
 		if (candidates.stream().anyMatch(Candidate::changesTruncated)) {
 			notices.add("변경점이 200개를 넘는 패치의 비교는 검색에 매칭된 청크를 우선한 최대 200개를 사용합니다.");
 		}
-		return CaseSearchResponse.success(new SearchData("COMPLETED", gameId, request.confirmedSlots(), genreIds,
+		var response = CaseSearchResponse.success(new SearchData("COMPLETED", gameId, request.confirmedSlots(), genreIds,
 			request.sort(), candidates.size(), groups, notices));
+		storage.save(memberId, gameId, request.planId(), genreIds, request.confirmedSlots());
+		return response;
 	}
 
 	private Map<String, Card> fetchCards(PlanSlots plan, List<CaseInput> cases) {

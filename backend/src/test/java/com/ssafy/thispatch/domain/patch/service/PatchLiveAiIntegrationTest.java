@@ -87,7 +87,7 @@ class PatchLiveAiIntegrationTest {
         insertPatch(gameId, middleId, "2026-01-11T00:00:00Z", 71, confirmed, vector, embedding.model());
         insertPatch(gameId, lastId, "2026-01-25T00:00:00Z", 73, confirmed, vector, embedding.model());
 
-        var request = new CaseSearchRequest(List.of(confirmed), List.of(genreId), null);
+        var request = new CaseSearchRequest(structure.data().planId(), List.of(confirmed), List.of(genreId), null);
         var searchResult = mvc.perform(post("/games/{gameId}/case-searches", gameId)
                 .header(HttpHeaders.AUTHORIZATION, authorization).contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(request)))

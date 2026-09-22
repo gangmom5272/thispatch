@@ -29,12 +29,12 @@ class PatchAiUnavailableControllerTest {
 		var searches = mock(CaseSearchService.class);
 		var unavailable = new BusinessException(AiErrorCode.AI_UNAVAILABLE);
 		when(plans.structure(eq(7L), eq(1L), any())).thenThrow(unavailable);
-		when(searches.search(eq(1L), any())).thenThrow(unavailable);
+		when(searches.search(eq(7L), eq(1L), any())).thenThrow(unavailable);
 		var mvc = MockMvcBuilders.standaloneSetup(new PatchPlanningController(plans, searches))
 			.setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
 			.setControllerAdvice(new GlobalExceptionHandler()).build();
 		String body = endpoint.equals("plan-structures") ? "{\"text\":\"적의 체력을 올립니다\"}" : """
-			{"confirmedSlots":[{"target":{"name":"Enemy","role":"ENEMY"},"attribute":"HP",
+			{"planId":101,"confirmedSlots":[{"target":{"name":"Enemy","role":"ENEMY"},"attribute":"HP",
 			"changeType":"MODIFY","direction":"INCREASE"}],"genreIds":[]}
 			""";
 

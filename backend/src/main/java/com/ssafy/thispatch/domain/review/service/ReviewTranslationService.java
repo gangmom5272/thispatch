@@ -7,6 +7,7 @@ import com.ssafy.thispatch.domain.review.dto.response.ReviewTranslation;
 import com.ssafy.thispatch.domain.review.exception.ReviewErrorCode;
 import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository;
 import com.ssafy.thispatch.global.exception.BusinessException;
+import com.ssafy.thispatch.global.text.SteamBodyPlainText;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,9 +22,11 @@ public class ReviewTranslationService {
 	public ReviewTranslation translate(long reviewId) {
 		var source = repository.findTranslationSource(reviewId)
 			.orElseThrow(() -> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND));
-		boolean useOriginal = source.text().isBlank() || "korean".equals(source.languageCode())
+		// 원문 자체가 공백뿐인 경우의 기존 응답은 유지한다.
+		String body = source.text().isBlank() ? source.text() : SteamBodyPlainText.render(source.text());
+		boolean useOriginal = body.isBlank() || "korean".equals(source.languageCode())
 			|| "koreana".equals(source.languageCode());
-		String translated = useOriginal ? source.text() : client.translateToKorean(source.text());
+		String translated = useOriginal ? body : client.translateToKorean(body);
 		return new ReviewTranslation(reviewId, translated);
 	}
 }

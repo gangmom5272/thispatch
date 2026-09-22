@@ -22,6 +22,7 @@ import com.ssafy.thispatch.domain.statistics.repository.PlaytimeAnalysisReposito
 import com.ssafy.thispatch.domain.statistics.repository.PlaytimeAnalysisRepository.TopicCount;
 import com.ssafy.thispatch.global.exception.BusinessException;
 import com.ssafy.thispatch.global.exception.CommonErrorCode;
+import com.ssafy.thispatch.global.text.SteamBodyPlainText;
 
 import lombok.RequiredArgsConstructor;
 
@@ -89,7 +90,8 @@ public class PlaytimeAnalysisService {
 				var review = item.review();
 				return new FallbackReview(review.id(), review.positive() ? "POSITIVE" : "NEGATIVE",
 					review.updatedAt().atZone(TimeRule.ZONE).toLocalDate(), review.playtimeMinutes(),
-					"koreana".equals(review.languageCode()) ? "korean" : review.languageCode(), review.body());
+					"koreana".equals(review.languageCode()) ? "korean" : review.languageCode(),
+					SteamBodyPlainText.render(review.body()));
 			}).toList();
 			items.add(new BandItems("B" + bandNo, reviews));
 		}

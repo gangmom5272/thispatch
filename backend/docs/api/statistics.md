@@ -4,6 +4,9 @@
 
 ## 조회 API 공통
 
+- 플레이타임 표본 부족 응답의 `fallback.itemsByBand[].items[].body`와 언어별 상세의
+  `representativeReviews[].body`에도 [Steam 본문 일반 텍스트 변환](conventions.md#steam-본문-일반-텍스트-변환)을 적용한다.
+  저장 원문·AI 요약 입력·표본 건수·대표 리뷰 선정 기준은 유지한다.
 - AI 호출 설정과 검증 범위는 [AI 연결](../ai-connection.md)을 따른다.
 - 반응 추세·플레이타임·언어별 AI 요약의 검증된 생성 결과는 Redis에 기본 30분 저장한다.
   조회 기간과 실제 AI 입력이 같을 때만 재사용하며, 입력이 변경되면 새로 생성한다.

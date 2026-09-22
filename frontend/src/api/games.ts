@@ -82,12 +82,16 @@ export function getGames(
   )
 }
 
-export function getMyGames(filters: GameFilters, signal?: AbortSignal): Promise<MyGameList> {
+export function getMyGames(
+  filters: GameFilters,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<MyGameList> {
   return getListOrEmpty(
     () =>
       api.get<MyGameList | null | undefined>({
         path: "/members/me/games",
-        config: { params: listParams(filters), signal },
+        config: { params: listParams(filters, cursor), signal },
       }),
     filters.limit ?? 0,
   )

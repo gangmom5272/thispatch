@@ -15,6 +15,7 @@ import {
 } from "../../constants/games"
 import { useGameList } from "../../hooks/queries/gameQueries"
 import { useGenreList } from "../../hooks/queries/genreQueries"
+import { useBufferedPages } from "../../hooks/useBufferedPages"
 import type { Game, GameFilterConditions } from "../../types"
 import GameCard from "./components/GameCard"
 import GameFilterDialog from "./components/GameFilterDialog"
@@ -94,6 +95,7 @@ export default function GameListPage() {
     genreIds: applied.genreIds.length > 0 ? applied.genreIds : undefined,
   }
   const query = useGameList(filters)
+  const pages = useBufferedPages(query.data?.pages.length ?? 0, query, searchParams.toString())
 
   /** URL에 검색·필터 조건을 반영한다. 조건이 바뀌면 쿼리 키가 바뀌어 첫 페이지부터 다시 조회한다. */
   const apply = (next: AppliedConditions) => {
@@ -151,13 +153,16 @@ export default function GameListPage() {
           )}
           {query.isSuccess && (
             <AllGames
-              items={query.data.pages.flatMap((page) => page.items)}
+              items={query.data.pages
+                .slice(0, pages.visiblePageCount)
+                .flatMap((page) => page.items)}
               search={applied.search}
               hasFilters={hasAppliedConditions}
-              hasNextPage={query.hasNextPage}
-              isFetchingNextPage={query.isFetchingNextPage}
+              hasMore={pages.hasMore}
+              isWaitingNextPage={pages.isWaitingNextPage}
               isFetchNextPageError={query.isFetchNextPageError}
-              onLoadMore={() => query.fetchNextPage()}
+              onShowMore={pages.showNextPage}
+              onRetryNextPage={() => query.fetchNextPage()}
               onResetConditions={() => {
                 apply({ ...DEFAULT_GAME_FILTER, search: "" })
               }}
@@ -360,10 +365,12 @@ interface AllGamesProps {
   /** 현재 적용된 검색어 — 빈 상태 안내에 표시 */
   search: string
   hasFilters: boolean
-  hasNextPage: boolean
-  isFetchingNextPage: boolean
+  /** 캐시에 남은 페이지 또는 아직 받지 않은 페이지가 있는지 */
+  hasMore: boolean
+  isWaitingNextPage: boolean
   isFetchNextPageError: boolean
-  onLoadMore: () => void
+  onShowMore: () => void
+  onRetryNextPage: () => void
   onResetConditions: () => void
 }
 
@@ -371,10 +378,11 @@ function AllGames({
   items,
   search,
   hasFilters,
-  hasNextPage,
-  isFetchingNextPage,
+  hasMore,
+  isWaitingNextPage,
   isFetchNextPageError,
-  onLoadMore,
+  onShowMore,
+  onRetryNextPage,
   onResetConditions,
 }: AllGamesProps) {
   if (items.length === 0) {
@@ -416,19 +424,13 @@ function AllGames({
           <p role="alert" className="text-sb-neg-text">
             다음 게임을 불러오지 못했습니다. 다시 시도해 주세요.
           </p>
-          <button type="button" onClick={onLoadMore} className={secondaryButtonClass}>
+          <button type="button" onClick={onRetryNextPage} className={secondaryButtonClass}>
             다시 시도
           </button>
         </div>
       )}
-      {hasNextPage && !isFetchNextPageError && (
-        <LoadMoreSentinel
-          key={items.length}
-          isLoading={isFetchingNextPage}
-          onReach={() => {
-            if (!isFetchingNextPage) onLoadMore()
-          }}
-        />
+      {hasMore && !isFetchNextPageError && (
+        <LoadMoreSentinel key={items.length} isLoading={isWaitingNextPage} onReach={onShowMore} />
       )}
     </>
   )

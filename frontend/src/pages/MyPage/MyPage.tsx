@@ -5,7 +5,7 @@ import { useUpdateNickname, useUpdatePassword } from "@/hooks/queries/memberQuer
 import { useSession } from "@/hooks/queries/sessionQueries"
 import WithdrawDialog from "./components/WithdrawDialog"
 
-const NICKNAME_MAX_LENGTH = 50
+const NICKNAME_MAX_LENGTH = 20
 
 type FormResult = { status: "idle" } | { status: "success" | "error"; message: string }
 

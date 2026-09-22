@@ -5,5 +5,48 @@
 @layer base {
   html {
     background-color: var(--color-sb-canvas-base);
+    color-scheme: dark;
   }
+}
+
+/*
+ * 문서·오버플로 스크롤바. @layer 밖에 두어 UA 기본 밝은 막대보다 우선한다.
+ * 트랙은 캔버스, 썸은 hairline이라 랜딩 네이비 배경과 붙는다.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sb-hairline) var(--color-sb-canvas-base);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-sb-canvas-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-sb-hairline);
+  border-radius: 999px;
+  border: 2px solid var(--color-sb-canvas-base);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-sb-hairline-strong);
+}
+
+/* 랜딩 문서 스크롤. Windows 기본 막대는 네이비와 대비가 커서 숨긴다. */
+html.hide-viewport-scrollbar,
+html.hide-viewport-scrollbar body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.hide-viewport-scrollbar::-webkit-scrollbar,
+html.hide-viewport-scrollbar body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }

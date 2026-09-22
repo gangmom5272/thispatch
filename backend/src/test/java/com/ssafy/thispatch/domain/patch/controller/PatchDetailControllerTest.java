@@ -73,6 +73,22 @@ class PatchDetailControllerTest extends ActiveMemberWebMvcTest {
 	}
 
 	@Test
+	void pubgImageIsRemovedWhileCaptionAndPatchMetadataStayAvailable() throws Exception {
+		String source = "[img src=\"{STEAM_CLAN_IMAGE}/27971017/"
+			+ "2ee855dbefc298e4233fc117bce06a8e1e531cb4.jpg\"] Read the full announcement here!";
+		when(repository.gameExists(GAME_ID)).thenReturn(true);
+		var row = new PatchRow(PATCH_ID, GAME_ID, "[Update] PUBG", Instant.parse("2026-09-15T15:30:00Z"),
+			source, "https://example.com/announcement");
+		when(repository.find(GAME_ID, PATCH_ID)).thenReturn(Optional.of(row));
+		request(Long.toString(GAME_ID), PATCH_ID).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.body").value("Read the full announcement here!"))
+			.andExpect(jsonPath("$.data.bodyFormat").value("PLAIN_TEXT"))
+			.andExpect(jsonPath("$.data.title").value("[Update] PUBG"))
+			.andExpect(jsonPath("$.data.url").value("https://example.com/announcement"));
+		assertThat(row.contents()).isEqualTo(source);
+	}
+
+	@Test
 	void missingPatchOrPatchFromAnotherGameReturns404() throws Exception {
 		when(repository.gameExists(GAME_ID)).thenReturn(true);
 		assertError(request(Long.toString(GAME_ID), "another-game-patch"), 404, "PATCH_NOT_FOUND");

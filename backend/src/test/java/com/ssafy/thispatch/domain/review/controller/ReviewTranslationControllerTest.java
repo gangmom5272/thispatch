@@ -93,6 +93,34 @@ class ReviewTranslationControllerTest extends ActiveMemberWebMvcTest {
 		verify(repository, times(2)).findTranslationSource(ID);
 	}
 
+	@Test
+	void translatesRenderedBodyInsteadOfMarkupAndMediaPaths() throws Exception {
+		source("[h4]Balance[/h4]<p>[b]Damage[/b] &amp; health</p>[img]map.jpg[/img]", "english");
+		when(client.translateToKorean("Balance\nDamage & health")).thenReturn("밸런스\n피해량과 체력");
+		mvc.perform(get(PATH).header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.translatedText").value("밸런스\n피해량과 체력"));
+		verify(client).translateToKorean("Balance\nDamage & health");
+		verifyNoMoreInteractions(client);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"korean", "koreana"})
+	void koreanMarkupIsRenderedWithoutCallingDeepL(String language) throws Exception {
+		source("[b]좋아요[/b]<br>재미있어요[img src='map.jpg']", language);
+		mvc.perform(get(PATH).header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.translatedText").value("좋아요\n재미있어요"));
+		verifyNoInteractions(client);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"[b][/b]", "[img]{STEAM_CLAN_IMAGE}/map.jpg[/img]", "<p>&nbsp;</p>"})
+	void bodyThatBecomesEmptyNeedsNoExternalTranslation(String text) throws Exception {
+		source(text, "english");
+		mvc.perform(get(PATH).header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.translatedText").value(""));
+		verifyNoInteractions(client);
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = {"", "Bearer invalid-token"})
 	void authenticationIsRequiredBeforeReadingOrTranslating(String authorization) throws Exception {

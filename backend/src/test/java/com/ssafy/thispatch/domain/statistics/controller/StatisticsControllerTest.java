@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ssafy.thispatch.domain.game.exception.GameDetailErrorCode;
+import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository.ReviewRow;
+import com.ssafy.thispatch.domain.statistics.repository.PlaytimeAnalysisRepository.BandReview;
 import com.ssafy.thispatch.domain.statistics.repository.*;
 import com.ssafy.thispatch.domain.statistics.repository.DailyStatisticsRepository.DailyCounts;
 import com.ssafy.thispatch.domain.statistics.repository.LanguageStatisticsRepository.LanguageCount;
@@ -129,6 +132,17 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 		mvc.perform(get("/games/7/playtime-topics").param("bandNo", "5").header("Authorization", auth()))
 			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.data").doesNotExist());
 		verifyNoInteractions(daily, playtime);
+	}
+
+	@Test
+	void fallbackReviewBodyUsesTheSamePlainTextRules() throws Exception {
+		var row = new ReviewRow(91L, "[b]좋아요[/b]<br>재미있어요[img src='map.jpg']", true, 50, 120, "koreana",
+			Instant.parse("2026-09-14T10:00:00Z"), Instant.parse("2026-09-15T15:30:00Z"));
+		when(playtime.findFallbackReviews(7, PERIOD, null)).thenReturn(List.of(new BandReview(1, row)));
+		mvc.perform(get("/games/7/playtime-topics").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.fallback.itemsByBand[0].items[0].id").value(91L))
+			.andExpect(jsonPath("$.data.fallback.itemsByBand[0].items[0].body").value("좋아요\n재미있어요"));
 	}
 
 	@Test

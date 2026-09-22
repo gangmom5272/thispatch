@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router"
+import { Link, Navigate } from "react-router"
 import { cn } from "@/lib/cn"
 import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
 import { HeroMarquee } from "@/pages/Landing/components/HeroMarquee"
@@ -307,8 +307,13 @@ function CtaSection() {
  * 랜딩 페이지. 구성과 문구는 thispatch.pen `SB / 00 랜딩 페이지`,
  * 연출은 docs/landing-animation-plan.md를 따른다.
  * 랜딩에서는 분석 API를 호출하지 않고 준비된 표시 데이터를 쓴다.
+ * 로그인 상태에서는 랜딩 대신 게임 탐색으로 보낸다.
  */
 export default function LandingPage() {
+  const session = useSession()
+
+  if (session.data?.authenticated) return <Navigate to={paths.games} replace />
+
   return (
     <>
       {/* 한국어 본문이 단어 중간에서 끊기지 않게 한다. */}

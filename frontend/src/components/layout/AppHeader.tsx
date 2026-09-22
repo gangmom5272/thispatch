@@ -13,21 +13,18 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   )
 }
 
-/** 주요 메뉴. 내 게임·기획안 내역은 로그인한 사용자에게만 보인다. */
+/** 주요 메뉴. 비로그인은 서비스 소개만, 로그인 사용자는 서비스 소개를 제외한 메뉴를 본다. */
 function MainNav({ authenticated }: { authenticated: boolean }) {
   return (
     <nav
       aria-label="주요 메뉴"
       className="order-last flex h-sb-control w-full items-stretch overflow-x-auto md:order-none md:ml-sb-3 md:h-full md:w-auto"
     >
-      <NavLink to={paths.home} end className={navLinkClass}>
-        서비스 소개
-      </NavLink>
-      <NavLink to={paths.games} className={navLinkClass}>
-        게임 탐색
-      </NavLink>
-      {authenticated && (
+      {authenticated ? (
         <>
+          <NavLink to={paths.games} className={navLinkClass}>
+            게임 탐색
+          </NavLink>
           <NavLink to={paths.myGames} className={navLinkClass}>
             내 게임
           </NavLink>
@@ -35,6 +32,10 @@ function MainNav({ authenticated }: { authenticated: boolean }) {
             기획안 내역
           </NavLink>
         </>
+      ) : (
+        <NavLink to={paths.home} end className={navLinkClass}>
+          서비스 소개
+        </NavLink>
       )}
     </nav>
   )

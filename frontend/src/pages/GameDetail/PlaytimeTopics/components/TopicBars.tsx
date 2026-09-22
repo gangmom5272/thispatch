@@ -114,7 +114,6 @@ function TopicBarRow({ topic, reviewCount, chartMax, isOverall, dense }: TopicBa
         <p className="text-sb-ink">{topic.mentionRate.toFixed(1)}%</p>
         {isOverall ? (
           <p className="text-sb-ink-mute">
-            최고 {topic.highestBand?.band ?? "—"}
             {topic.highestBand ? ` ${topic.highestBand.mentionRate.toFixed(1)}%` : ""}
           </p>
         ) : (

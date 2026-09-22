@@ -1,5 +1,30 @@
 # 로컬 PostgreSQL · Redis 개발 환경
 
+## 유사 사례 검색 설정
+
+| 환경변수 | 애플리케이션 설정 | 기본값 | 허용값 |
+| --- | --- | --- | --- |
+| `PATCH_SEARCH_EF_SEARCH` | `app.patch-search.ef-search` | `100` | 정수 `1~1000` |
+
+HNSW 탐색 중 유지하는 후보 목록 크기입니다. 반환 후보 상한 30개와는 별개이며,
+값을 낮추면 탐색 비용이 줄 수 있지만 검색 결과 품질도 달라질 수 있습니다.
+기본값은 기존 동작을 유지하며, 잘못된 값은 애플리케이션 기동 시 거부합니다.
+범위는 [pgvector 0.8.6 설정 정의](https://github.com/pgvector/pgvector/blob/v0.8.6/src/hnsw.c)를 따릅니다.
+
+- 로컬: `backend/.env`에 값을 지정하고 `dev` 프로필 백엔드를 다시 실행합니다.
+- 운영: 이 기능이 포함된 이미지를 최초 배포한 뒤, 서버의 `infra/.env`에 값을 지정합니다.
+  기존 서버 Compose의 `env_file`을 통해 컨테이너에 전달되므로 Compose 파일 수정은 필요 없습니다.
+  저장소 루트에서 다음 명령으로 기존 이미지를 사용해 백엔드 컨테이너를 재생성합니다.
+
+```sh
+docker compose -f infra/compose.server.yaml up -d --no-deps --no-build --force-recreate backend
+```
+
+단순 `docker compose restart`는 변경된 환경변수를 반영하지 않습니다.
+설정은 애플리케이션 시작 시 읽으며, 각 검색 트랜잭션에 `SET LOCAL`로 적용합니다.
+DB 전체 기본값과 `hnsw.iterative_scan = strict_order`는 변경하지 않습니다.
+기존 값으로 되돌리려면 환경변수를 제거하거나 `100`으로 바꾸고 같은 절차로 적용합니다.
+
 ## DeepL 리뷰·패치노트 번역 설정
 
 기존 백엔드 실행 환경에서 `backend/.env`에 `DEEPL_API_KEY=발급받은_API_키`를 추가하고

@@ -205,3 +205,47 @@ test("집계 이력이 없어도 반응 추세 화면과 AI 이용 불가 안내
   await expect(page.getByText(unavailable.message, { exact: true })).toBeVisible()
   await expect(page.getByText("Unexpected Application Error!")).toHaveCount(0)
 })
+
+test("집계 마지막 날 이후 일자는 반응 추세 차트에서 제외한다", async ({ page }) => {
+  const day = (date: string, reviewCount: number) => ({
+    date,
+    dataAvailable: true,
+    reviewCount,
+    positiveCount: reviewCount,
+    negativeCount: 0,
+    positiveRate: 100,
+    firstWrittenCount: reviewCount,
+    updatedCount: 0,
+    firstWrittenPositiveCount: reviewCount,
+    firstWrittenNegativeCount: 0,
+    updatedPositiveCount: 0,
+    updatedNegativeCount: 0,
+    patches: [],
+  })
+  await mockApi(page, {
+    "/games/7/reaction-trends": {
+      meta,
+      availablePeriod: null,
+      summary: {
+        reviewCount: 530,
+        positiveCount: 530,
+        negativeCount: 0,
+        positiveRate: 100,
+        firstWrittenCount: 530,
+        firstWrittenPositiveCount: 530,
+        firstWrittenNegativeCount: 0,
+        firstWrittenPositiveRate: 100,
+        updatedCount: 0,
+        updatedPositiveCount: 0,
+        updatedNegativeCount: 0,
+        updatedPositiveRate: null,
+      },
+      daily: [day("2026-09-22", 10), day("2026-09-23", 20), day("2026-09-24", 500)],
+    },
+    "/games/7/summaries/reaction-trends": { meta, summary: unavailable },
+  })
+  await page.goto("/games/7/reaction-trends")
+  await expect(page.getByText("09-23")).toBeVisible()
+  await expect(page.getByText("09-24")).toHaveCount(0)
+  await expect(page.getByRole("paragraph").filter({ hasText: /^30건$/ })).toBeVisible()
+})

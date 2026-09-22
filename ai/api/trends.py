@@ -295,16 +295,17 @@ def template_summary(facts, effects):
     return title, " ".join(parts)
 
 
-def caveats(effects, has_channel):
-    out = []
-    if effects:
-        out.append("패치 전후 수치는 같은 시기에 함께 관측된 값이며, 패치가 변화를 일으켰다는 뜻이 아닙니다.")
-    if has_channel:
-        out.append("첫 작성·수정은 리뷰가 올라온 경로이며 신규 유저·기존 유저 구분이 아닙니다.")
-        out.append("이전 리뷰 상태를 저장하지 않아 수정이 긍정에서 부정으로 바뀐 것인지는 알 수 없습니다.")
-    out.append(f"리뷰 {MIN_DAY_REVIEWS}건 미만인 날은 긍정률 비교에서 제외했습니다.")
-    out.append("일별 집계는 리뷰 수정일 기준이라 과거 날짜의 값이 나중에 바뀔 수 있습니다.")
-    return out
+def caveats(effects, has_channel):  # noqa: ARG001
+    """화면에 함께 붙던 한계 문구. 9/21 사용자 결정으로 전부 뺐다 — 빈 배열만 돌려준다.
+
+    왜 있었나: 기획안 4.2·10장의 금지 규칙(패치를 원인으로 단정하지 않기, 첫 작성·수정을
+    신규·기존 유저로 읽지 않기)을 화면에 남겨 두려는 것이었다.
+    왜 뺐나: 백엔드가 요약과 이 문구를 한 문자열로 합쳐 내려보내(statistics.md) 프론트에서 접을 수 없고,
+    다섯 줄이 요약 세 문장보다 길어 읽어야 할 해석을 밀어냈다. 인과를 쓰지 않는 규칙 자체는
+    SYSTEM 프롬프트와 검사(CAUSAL·CAUSAL_BY)로 계속 강제하므로 문구가 없어도 요약이 인과를 주장하지 않는다.
+    응답 필드는 유지한다(계약 변경 없음). 다시 넣을 일이 생기면 여기서 목록만 돌려주면 된다.
+    """
+    return []
 
 
 def _ask_local(msgs, timeout):

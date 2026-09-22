@@ -40,6 +40,26 @@ cd api && $PY -m uvicorn main:app --port 8100     # 또는 .\start.ps1 (Ollama �
 
 AI 서버는 **사용자가 직접 켠다**(자동 기동 없음). `api/start.ps1`(Windows) 또는 `bash api/start.sh`(WSL) 를 실행하면 Ollama 를 확인하고 서버를 띄운 뒤 `/health` 가 `ready:true` 가 될 때까지 진행을 보여 준다. 임베딩 모델(약 35초)·Qwen(약 10초)은 기동 시 백그라운드로 미리 올린다. 백엔드는 `GET /health` 의 `ready` 가 true 일 때부터 호출한다.
 
+### 기획안 추출 검증
+
+`api/plan.py`는 기획안 전용 프롬프트 `plan-grounded-1`을 사용한다. 전체 기획안을 한 번에 읽고
+대상·속성·수치·조건을 원문 인용과 대조한다. 수치는 해당 속성의 근거 구절에 있어야 하며,
+잘못된 대상 치환이나 근거 불일치는 한 번 재시도한다. 두 번째도 실패하면 502로 응답한다.
+재시도는 기존 180초 요청 예산의 남은 시간 안에서 시작한다. 모델의 문맥·출력 토큰 설정도 유지한다.
+문장별 규칙 추출로 대체하지 않는다.
+배치 `qwen_prompt.py`, HDFS 스키마와 임베딩 모델·입력 형식은 변경하지 않는다.
+
+```powershell
+python -m unittest discover -s ai/tests -p 'test_plan*.py' -v
+# Ollama에 qwen3.5:9b가 준비된 개발기에서 실제 오해석 재현 입력도 검증
+$env:RUN_PLAN_LIVE_TEST = '1'
+python -m unittest discover -s ai/tests -p 'test_plan*.py' -v
+```
+
+명령은 저장소 루트 기준이다. 기본 테스트는 모델 응답을 대체해 검증·재시도·API 계약을 확인한다.
+실제 대상·수치·조건 추출 정확도는 `RUN_PLAN_LIVE_TEST=1` 검증으로 별도 확인해야 한다.
+원문 인용 검증만으로 속성과 수치의 의미적 연결까지 보장하지는 않는다.
+
 ### 백엔드가 호출하는 경로 — SSH 역터널
 
 EC2 에서 교육장 노트북 대역으로 나가는 라우팅이 없어 포트를 열어도 닿지 않는다(9/10 인프라 실측).

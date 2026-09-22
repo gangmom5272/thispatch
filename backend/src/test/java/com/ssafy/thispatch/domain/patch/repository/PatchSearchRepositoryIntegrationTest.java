@@ -160,14 +160,44 @@ class PatchSearchRepositoryIntegrationTest {
 		assertThat(patch.nextDays()).isNull();
 	}
 
-	@Test
-	void appliesChangeFilterAfterSelectingThirtyEligibleChunks() {
-		// 일치하는 변경점이 31번째라면 앞선 후보를 건너뛰고 보충하면 안 된다.
+	@ParameterizedTest
+	@CsvSource({"modify, decrease, valid", "add, increase, valid", "modify, increase, rejected"})
+	void changeMismatchesDoNotConsumeThirtyCandidateLimit(String type, String direction, String status) {
+		// 가까운 30개가 부적합해도 31번째의 적합한 변경점을 찾아야 한다.
 		makeLessSimilar(chunkId);
 		for (int sequence = 2; sequence <= 31; sequence++) {
-			change(chunk(gid, sequence), "modify", "decrease", "valid");
+			change(chunk(gid, sequence), type, direction, status);
 		}
-		assertThat(search()).isEmpty();
+		assertThat(search()).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
+	}
+
+	@Test
+	void keepsThirtyChunkLimitEvenWhenAllMatchesBelongToOnePatch() {
+		String laterPatch = gid + "b";
+		jdbc.update("""
+			insert into patch_stat (gid, appid, patched_at, before_review_count, before_positive_pct,
+			  after_review_count, after_positive_pct)
+			values (?, ?, '2026-01-11T00:00:00Z', 10, 70, 20, 73)
+			""", laterPatch, gameId);
+		long laterChunk = chunk(laterPatch, 1);
+		change(laterChunk, "modify", "increase", "valid");
+		makeLessSimilar(laterChunk);
+		for (int sequence = 2; sequence <= 30; sequence++) {
+			change(chunk(gid, sequence), "modify", "increase", "valid");
+		}
+		// 결과 개수를 늘리려고 31번째 패치를 추가하지 않는다.
+		assertThat(search()).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
+	}
+
+	@ParameterizedTest
+	@CsvSource({"ADD, add", "REMOVE, remove", "FIX, fix", "DEPRECATE, deprecate"})
+	void nonModifyChangesIgnoreDirection(ChangeType changeType, String code) {
+		jdbc.update("delete from patch_change where chunk_id = ?", chunkId);
+		change(chunkId, code, "none", "valid");
+		var nonModifySlot = new ConfirmedSlot(slot.target(), slot.attribute(), changeType,
+			Direction.NOT_APPLICABLE, null, null);
+		assertThat(repository.search(List.of(vector), model, List.of(nonModifySlot), List.of()))
+			.extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
 	}
 
 	@Test
@@ -180,19 +210,25 @@ class PatchSearchRepositoryIntegrationTest {
 		assertThat(search()).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
 	}
 
-	@Test
+	@ParameterizedTest
+	@CsvSource({"false", "true"})
 	@SuppressWarnings("unchecked")
-	void usesHnswAndContinuesScanningPastFilteredOutNeighbors() {
+	void usesHnswAndContinuesScanningPastFilteredOutNeighbors(boolean wrongDirection) {
 		// 벡터 UPDATE 전에 생성해야 같은 테스트 트랜잭션에서도 인덱스를 사용할 수 있다.
 		// UPDATE 후 생성하면 HOT 체인 검사(indcheckxmin)로 현재 스냅샷의 인덱스 사용이 제한된다.
 		jdbc.execute("CREATE INDEX test_patch_search_hnsw ON patch_chunk USING hnsw (embedding vector_cosine_ops)");
 		makeLessSimilar(chunkId);
-		// 초기 ef_search(100)보다 가까운 이웃이 많아도 다른 모델의 청크로 결과가 고갈되면 안 된다.
+		// 초기 ef_search(100)보다 가까운 이웃이 많아도 모델·방향 불일치를 넘어 탐색한다.
 		jdbc.update("""
 			insert into patch_chunk (gid, seq, text, extraction_status, embedding_status, embedding, embedding_model)
-			select ?, sequence, 'Other model', 'succeeded', 'succeeded', cast(? as vector), 'other-model'
+			select ?, sequence, 'Filtered neighbor', 'succeeded', 'succeeded', cast(? as vector), ?
 			from generate_series(2, 161) sequence
-			""", gid, "[1," + "0,".repeat(510) + "0]");
+			""", gid, "[1," + "0,".repeat(510) + "0]", wrongDirection ? model : "other-model");
+		if (wrongDirection) {
+			for (Long id : jdbc.queryForList("select chunk_id from patch_chunk where gid = ? and seq >= 2", Long.class, gid)) {
+				change(id, "modify", "decrease", "valid");
+			}
+		}
 		// 작은 fixture에서도 운영과 같은 인덱스 경로를 실행한다. DDL/설정은 테스트 종료 시 롤백된다.
 		jdbc.execute("SET LOCAL enable_seqscan = off");
 		jdbc.execute("SET LOCAL enable_sort = off");

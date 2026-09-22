@@ -19,9 +19,11 @@ import com.ssafy.thispatch.client.ai.AiPatchContracts.CaseChange;
 import com.ssafy.thispatch.domain.patch.config.PatchSearchProperties;
 import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.ConfirmedSlot;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Repository
 @RequiredArgsConstructor
+@Slf4j
 public class PatchSearchRepository {
 	private static final int CANDIDATES_PER_SLOT = 30;
 	private final NamedParameterJdbcTemplate jdbc;
@@ -58,12 +60,17 @@ public class PatchSearchRepository {
 		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.iterative_scan = 'strict_order'");
 		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.ef_search = " + properties.efSearch());
 		Map<String, Match> bestByPatch = new LinkedHashMap<>();
+		List<Integer> slotMatchCounts = new ArrayList<>();
 		for (int index = 0; index < slots.size(); index++) {
-			for (Match match : nearest(vectors.get(index), model, slots.get(index), genreIds)) {
+			var matches = nearest(vectors.get(index), model, slots.get(index), genreIds);
+			slotMatchCounts.add(matches.size());
+			for (Match match : matches) {
 				bestByPatch.merge(match.gid(), match, (previous, current) ->
 					current.cosine() > previous.cosine() ? current : previous);
 			}
 		}
+		log.info("Case search candidates: slotMatchCounts={}, distinctPatchCount={}",
+			slotMatchCounts, bestByPatch.size());
 		if (bestByPatch.isEmpty()) return List.of();
 		var patchIds = List.copyOf(bestByPatch.keySet());
 		var patches = details(patchIds);
@@ -95,13 +102,23 @@ public class PatchSearchRepository {
 			parameters.addValue("genres", genreIds);
 		}
 		// OFFSET 0은 자격 확인을 대량 조인으로 풀지 않게 한다. 벡터 인덱스에서 가까운 순서로
-		// 읽으면서 자격을 확인하고, 통과한 30개에만 변경 종류·방향 필터를 적용한다.
+		// 읽으면서 변경 종류·방향까지 확인한다. 불일치 청크가 30개 한도를 소모하면
+		// 그 뒤의 적합한 사례를 놓치므로 모든 조건을 LIMIT 안에서 검사한다.
 		return jdbc.query("""
 			with nearest as materialized (
 				select c.chunk_id, c.gid, c.embedding <=> cast(:vector as vector) as distance
 				from patch_chunk c
 				where c.embedding_status = 'succeeded'
 				  and c.embedding is not null and c.embedding_model = :model
+				  and exists (
+					select 1 from patch_change pc
+					join patch_change_type ct on ct.change_type_id = pc.change_type_id
+					join patch_change_direction d on d.direction_id = pc.direction_id
+					where pc.chunk_id = c.chunk_id and ct.code = :changeType
+					  and (not :checkDirection or d.code = :direction)
+					  and pc.validation_status in ('valid', 'needs_review')
+					offset 0
+				  )
 				  and exists (
 					select 1 from news n join patch_stat s on s.gid = n.gid and s.appid = n.appid
 					where n.gid = c.gid and n.is_patch = true
@@ -113,14 +130,6 @@ public class PatchSearchRepository {
 				order by c.embedding <=> cast(:vector as vector) limit :limit
 			)
 			select t.gid, t.chunk_id, 1 - t.distance as cosine from nearest t
-			where exists (
-				select 1 from patch_change pc
-				join patch_change_type ct on ct.change_type_id = pc.change_type_id
-				join patch_change_direction d on d.direction_id = pc.direction_id
-				where pc.chunk_id = t.chunk_id and ct.code = :changeType
-				  and (not :checkDirection or d.code = :direction)
-				  and pc.validation_status in ('valid', 'needs_review')
-			)
 			order by cosine desc, t.chunk_id
 			""".formatted(genreFilter), parameters,
 			(row, index) -> new Match(row.getString("gid"), row.getLong("chunk_id"), row.getDouble("cosine")))

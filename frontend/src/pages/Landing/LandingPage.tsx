@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, Navigate } from "react-router"
 import { cn } from "@/lib/cn"
 import { EvidenceSteps } from "@/pages/Landing/components/EvidenceSteps"
@@ -311,6 +311,14 @@ function CtaSection() {
  */
 export default function LandingPage() {
   const session = useSession()
+  // guestLanding: 비로그인 랜딩이 보일 때만 문서 스크롤바를 숨긴다
+  const guestLanding = !session.data?.authenticated
+
+  useEffect(() => {
+    if (!guestLanding) return
+    document.documentElement.classList.add("hide-viewport-scrollbar")
+    return () => document.documentElement.classList.remove("hide-viewport-scrollbar")
+  }, [guestLanding])
 
   if (session.data?.authenticated) return <Navigate to={paths.games} replace />
 

@@ -21,8 +21,9 @@ import lombok.RequiredArgsConstructor;
 public class PlanStructureService {
 	private final PatchSearchRepository repository;
 	private final AiPatchClient ai;
+	private final PlanStructureStorageService storage;
 
-	public PlanStructureResponse structure(long gameId, PlanStructureRequest request) {
+	public PlanStructureResponse structure(long memberId, long gameId, PlanStructureRequest request) {
 		var game = repository.findGame(gameId).orElseThrow(() -> new BusinessException(GAME_NOT_FOUND));
 		// 모델 호출 동안 DB 트랜잭션과 커넥션을 점유하지 않는다.
 		var response = ai.structure(new PlanRequest("", request.text()));
@@ -53,9 +54,11 @@ public class PlanStructureService {
 		var highlights = new Highlights(singleOrMixed(slots.stream().map(slot -> slot.targetRole().name()).toList()),
 			attributes, singleOrMixed(slots.stream().map(slot -> slot.direction().name()).toList()),
 			scopes.isEmpty() ? null : String.join(", ", scopes));
-		return new PlanStructureResponse(new PlanData(gameId, request.text(),
+		var restatement = new Restatement(String.join("\n", restatements), highlights, warnings);
+		long planId = storage.save(memberId, gameId, request.text(), entities, slots, restatement);
+		return new PlanStructureResponse(new PlanData(planId, gameId, request.text(),
 			game.genres().stream().map(PatchSearchRepository.Genre::id).toList(), entities, slots,
-			new Restatement(String.join("\n", restatements), highlights, warnings)));
+			restatement));
 	}
 
 	private static String singleOrMixed(List<String> values) {

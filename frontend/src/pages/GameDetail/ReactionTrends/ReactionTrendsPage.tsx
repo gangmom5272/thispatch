@@ -19,7 +19,12 @@ import {
   VISIBLE_DAYS,
   visibleSlice,
 } from "@/pages/GameDetail/ReactionTrends/lib/chartLayout"
-import { addDaysIso, formatCollectedLabel, initialReactionTrendsStartDate } from "@/lib/seoulDate"
+import {
+  addDaysIso,
+  formatCollectedLabel,
+  initialReactionTrendsStartDate,
+  LATEST_DATA_DATE,
+} from "@/lib/seoulDate"
 import type { ReactionTrendPatchMarker } from "@/types/statistics"
 
 const AI_DEBOUNCE_MS = 450
@@ -52,7 +57,11 @@ export default function ReactionTrendsPage() {
   const dayWidth = useChartDayWidth(scrollEl)
 
   const query = useReactionTrends(gameId, startDate)
-  const daily = useMemo(() => query.data?.daily ?? [], [query.data?.daily])
+  // 집계 마지막 날 이후는 빈 데이터라 차트에서 제외한다.
+  const daily = useMemo(
+    () => (query.data?.daily ?? []).filter((day) => day.date <= LATEST_DATA_DATE),
+    [query.data?.daily],
+  )
   const rows = useMemo(() => toChartRows(daily), [daily])
 
   // Prefer scroll-idle range; before first idle, use the latest VISIBLE_DAYS window.

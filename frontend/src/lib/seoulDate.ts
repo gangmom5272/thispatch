@@ -29,7 +29,16 @@ export function addDaysIso(isoDate: string, deltaDays: number): string {
   return `${yy}-${mm}-${dd}`
 }
 
-export function initialReactionTrendsStartDate(endDate = todaySeoul()): string {
+/** 집계가 존재하는 마지막 날. 2026-09-24부터는 추석 연휴로 신규 집계가 없다. */
+export const LATEST_DATA_DATE = "2026-09-23"
+
+/** 오늘(서울)과 집계 마지막 날 중 이른 쪽. */
+export function latestDataDate(): string {
+  const today = todaySeoul()
+  return today > LATEST_DATA_DATE ? LATEST_DATA_DATE : today
+}
+
+export function initialReactionTrendsStartDate(endDate = latestDataDate()): string {
   return addDaysIso(endDate, -41)
 }
 

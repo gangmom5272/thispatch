@@ -102,7 +102,7 @@ class SteamNicknameControllerTest extends com.ssafy.thispatch.support.ActiveMemb
 
 	@ParameterizedTest
 	@MethodSource("validNicknames")
-	void acceptsOneToFiftyUnicodeCodePoints(String nickname) throws Exception {
+	void acceptsOneToTwentyUnicodeCodePoints(String nickname) throws Exception {
 		when(repository.findById(MEMBER_ID)).thenReturn(Optional.of(member(LoginType.STEAM, "ACTIVE", null)));
 		when(repository.setNicknameIfUnset(eq(MEMBER_ID), eq(nickname), any())).thenReturn(1);
 		request(mapper.writeValueAsString(Map.of("nickname", nickname)))
@@ -110,7 +110,7 @@ class SteamNicknameControllerTest extends com.ssafy.thispatch.support.ActiveMemb
 	}
 
 	static Stream<String> validNicknames() {
-		return Stream.of("a", "가".repeat(50), "🎮".repeat(50));
+		return Stream.of("a", "a".repeat(20), "가".repeat(20), "🎮".repeat(20));
 	}
 
 	@ParameterizedTest
@@ -122,7 +122,7 @@ class SteamNicknameControllerTest extends com.ssafy.thispatch.support.ActiveMemb
 	}
 
 	static Stream<String> invalidNicknames() {
-		return Stream.of("", " \t\r\n", "\u2003", "\u00a0", "\u3000", "a".repeat(51), "🎮".repeat(51), "a\u0000b");
+		return Stream.of("", " \t\r\n", "\u2003", "\u00a0", "\u3000", "a".repeat(21), "가".repeat(21), "🎮".repeat(21), "a\u0000b");
 	}
 
 	@ParameterizedTest

@@ -28,8 +28,9 @@ public class PatchPlanningController {
 
 	@PostMapping("/games/{gameId}/case-searches")
 	@ResponseStatus(HttpStatus.CREATED)
-	public CaseSearchResponse search(@PathVariable("gameId") long gameId,
+	public CaseSearchResponse search(@AuthenticationPrincipal MemberPrincipal principal,
+		@PathVariable("gameId") long gameId,
 		@Valid @RequestBody CaseSearchRequest request) {
-		return caseSearchService.search(gameId, request);
+		return caseSearchService.search(principal.memberId(), gameId, request);
 	}
 }

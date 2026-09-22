@@ -40,10 +40,12 @@ SYSTEM = """당신은 게임 기획자를 돕는 반응 추세 해설자입니�
 쓰는 법: 첫 문장에서 이 기간이 어떤 사례인지 규정합니다. 패치가 있으면 무엇을 바꾼 패치인지 제목에서 짧게 집고, 전후 차이와 되돌아왔는지·며칠 걸렸는지·반응이 얼마나 몰렸는지를 씁니다.
 기간 리뷰 총계와 기간 긍정률은 화면에 표로 이미 나와 있으므로 문장에서 되풀이하지 않습니다.
 권장 표현: '되돌아왔습니다', '이어졌습니다', '몰렸습니다', '함께 나타났습니다'. 관측된 움직임은 이렇게 적습니다.
-금지: 인과 단정('때문에', '탓에', '영향으로', '원인'). 패치와 지표 변화는 '같은 시기에 함께 나타났다'로만 잇습니다. 예측('~할 것이다')과 조언('~해야 한다', '~하는 것이 좋다'). 주어진 수치 밖의 숫자와 계산. 출시 시점·게임 배경·개발사 의도·유저 심리 추측. 첫 작성·수정을 신규 유저·기존 팬으로 바꿔 부르는 것.
+금지: 인과 단정('때문에', '탓에', '영향으로', '원인'). 패치와 지표 변화는 '같은 시기에 함께 나타났다'로만 잇습니다. '함께 나타났다'는 패치와 수치를 잇는 자리에만 씁니다. '긍정률이 3.4%p 상승하고 리뷰가 함께 나타났습니다' 처럼 수치끼리 잇거나 말이 안 되는 자리에 붙이지 않습니다. 각 문장은 주어와 서술어가 맞아야 합니다. 예측('~할 것이다')과 조언('~해야 한다', '~하는 것이 좋다'). 주어진 수치 밖의 숫자와 계산. 출시 시점·게임 배경·개발사 의도·유저 심리 추측. 첫 작성·수정을 신규 유저·기존 팬으로 바꿔 부르는 것.
 문체: 반드시 한국어, 중국어·일본어 문자 금지, 모든 문장을 '습니다' 또는 '입니다' 로 끝냅니다.
 좋은 예: '마법 하향 패치 직후 강한 반발이 엿새 이어졌다가 핫픽스와 함께 대부분 돌아온 사례입니다. 패치 전후 7일 긍정률은 75.5%와 44.1%가 함께 관측됐고, 하루 리뷰는 평소의 4.6배까지 몰렸습니다. 핫픽스 6일 뒤 긍정률은 패치 전의 84% 수준으로 돌아왔습니다.'
+좋은 예(오른 패치): '무기 밸런스를 손본 업데이트 1.4.2.0 직후 긍정률이 오르고 그 수준이 열흘 넘게 이어진 사례입니다. 패치 전후 7일 긍정률은 71.2%와 74.6%가 함께 관측됐습니다. 하루 리뷰 수는 평소와 비슷해 반응이 몰리지는 않았습니다.'
 나쁜 예(총계 되풀이·해석 없음): '전체 기간 16,453건의 리뷰가 작성되었으며 긍정률은 62.4%를 기록했습니다.'
+나쁜 예(비문): '긍정률이 3.4%p 상승하고 리뷰가 함께 나타났습니다.'
 JSON 으로만 답합니다: title(이 사례의 성격을 한 줄, 25자 내. 기간이나 게임 이름을 나열하지 않습니다), summary(이어지는 한국어 문장 2~3개, 번호·목록 없음)."""
 FORMAT = {
     "type": "object", "additionalProperties": False, "required": ["title", "summary"],
@@ -108,6 +110,7 @@ def _span(days, start, end):
 
 RECOVERY_RATIO = 0.9   # 패치 전 긍정률의 90% 이상으로 돌아오면 '되돌아왔다'로 본다
 SURGE_RATIO = 1.5      # 평소 일평균의 1.5배 이상이면 반응이 몰린 날
+SURGE_RATIO_MIN = 1.2  # 구간 평균이 이 미만이면 "몰렸다"고 쓰지 않는다
 
 
 def _ma(days, i, w=7):
@@ -146,6 +149,34 @@ def _recovery(days, patch_date, before_p, later_patches):
             "level_pct": None, "via": []}
 
 
+def _hold(days, patch_date, before_p, later_patches):
+    """긍정률이 오른 패치에서, 오른 상태가 며칠 이어졌는지.
+
+    왜 필요한가(9/22): 되돌림(recovery)은 떨어진 패치에만 계산한다. 올라간 패치에서는 지표가 전부 비어
+    "긍정률이 3.4%p 상승했습니다" 한 줄로 끝났다. 기획자가 묻는 것은 '올랐나'가 아니라 '유지됐나'다.
+    7일 이동 구간이 패치 전 수준을 웃도는 동안을 센다. 중간에 다른 패치가 있었으면 via 로 함께 준다.
+    """
+    if not before_p:
+        return None
+    idx = [i for i, d in enumerate(days) if d["date"] >= patch_date]
+    if not idx:
+        return None
+    last, peak = None, None
+    for i in idx:
+        n, p = _ma(days, i)
+        if p is None or n < MIN_DAY_REVIEWS:
+            continue
+        if p <= before_p:
+            break
+        last = days[i]["date"]
+        peak = p if peak is None else max(peak, p)
+    if last is None:
+        return {"held": False, "days": 0, "peak_pct": None, "via": [], "to_period_end": False}
+    via = [d for d in later_patches if patch_date < d <= last]
+    return {"held": True, "days": _diff_days(patch_date, last), "peak_pct": peak, "via": via,
+            "to_period_end": last >= days[-1]["date"]}
+
+
 def _surge(days, patch_date, before_n, window_days, until_date):
     """패치 뒤 리뷰가 평소의 몇 배로 늘었고 그 상태가 며칠 이어졌는지."""
     base = before_n / window_days if before_n else 0
@@ -160,8 +191,10 @@ def _surge(days, patch_date, before_n, window_days, until_date):
         else:
             break
     ratio = round(after_avg / base, 1)
-    # 줄어든 경우까지 '몰렸다'로 말하지 않도록 20% 이상 는 경우만 내보낸다
-    return {"ratio": ratio, "days": run, "base_per_day": round(base, 1)} if ratio >= 1.2 else None
+    # 늘지 않은 경우도 값은 준다. '몰렸다'로 쓰지 않도록 surged 로 구분하고 문장은 build_lines 가 고른다(9/22)
+    # 구간 평균이 1.2배여도 1.5배를 넘은 날이 하루도 없으면 '몰렸다'고 하지 않는다(9/22)
+    return {"ratio": ratio, "days": run, "base_per_day": round(base, 1),
+            "surged": ratio >= SURGE_RATIO_MIN and run >= 1}
 
 
 def _diff_days(a, b):
@@ -232,6 +265,9 @@ def compute_facts(daily, patches, window_days):
                         # 긍정률이 떨어진 패치에서만 '되돌아왔는지'를 묻는다
                         "recovery": _recovery(days, p["date"], before_p, [d for d in dates if d > p["date"]])
                         if (delta is not None and delta < 0) else None,
+                        # 오른 패치는 '유지됐는지'를 묻는다
+                        "hold": _hold(days, p["date"], before_p, [d for d in dates if d > p["date"]])
+                        if (delta is not None and delta > 0) else None,
                         "surge": _surge(days, p["date"], before_n, window_days, nxt),
                         "next_patch_date": None if nxt == "9999-12-31" else nxt,
                         "note": None if before_n and after_n else "비교 구간에 리뷰가 없어 값을 내지 않았습니다."})
@@ -255,8 +291,18 @@ def build_lines(game, facts, effects):
                      f"긍정률 {e['before']['positive_pct']}% → {e['after']['positive_pct']}% "
                      f"({e['delta_pct']:+}%p), 리뷰 {e['before']['reviews']:,}건 → {e['after']['reviews']:,}건")
         sg = e.get("surge")
-        if sg and sg["ratio"]:
+        if sg and sg.get("surged"):
             lines.append(f"  · 반응 규모: 패치 뒤 하루 리뷰가 평소의 {sg['ratio']}배, 몰린 상태가 {sg['days']}일 이어짐")
+        elif sg:
+            lines.append(f"  · 반응 규모: 패치 뒤 하루 리뷰가 평소의 {sg['ratio']}배 — 평소와 비슷한 수준(몰리지 않음)")
+        hd = e.get("hold")
+        if hd and hd["held"]:
+            via = f", 그 사이 패치 {', '.join(hd['via'])} 있었음" if hd.get("via") else ""
+            peak = f", 최고 {hd['peak_pct']}%" if hd.get("peak_pct") is not None else ""
+            tail = " (선택 기간이 여기서 끝나 이후는 알 수 없음)" if hd.get("to_period_end") else ""
+            lines.append(f"  · 유지: 오른 긍정률이 {hd['days']}일 동안 패치 전 수준을 웃돎{peak}{via}{tail}")
+        elif hd:
+            lines.append("  · 유지: 오른 긍정률이 이어지지 않고 곧 패치 전 수준으로 돌아옴")
         rc = e.get("recovery")
         if rc and rc["recovered"]:
             via = f", 그 사이 패치 {', '.join(rc['via'])} 있었음" if rc.get("via") else ""
@@ -283,9 +329,14 @@ def template_summary(facts, effects):
         e = max(done, key=lambda x: abs(x["delta_pct"]))
         parts.append(f"패치 {e['title']}({e['date']}) 전후 {e['window_days']}일에는 긍정률 "
                      f"{e['before']['positive_pct']}%와 {e['after']['positive_pct']}%가 함께 관측됐습니다.")
-        rc, sg = e.get("recovery"), e.get("surge")
-        if sg and sg["ratio"]:
+        rc, sg, hd = e.get("recovery"), e.get("surge"), e.get("hold")
+        if sg and sg.get("surged"):
             parts.append(f"이 시기 하루 리뷰는 평소의 {sg['ratio']}배였고 {sg['days']}일 동안 이어졌습니다.")
+        if hd and hd["held"]:
+            tail = "선택 기간이 끝날 때까지" if hd.get("to_period_end") else f"{hd['days']}일 동안"
+            parts.append(f"오른 긍정률은 {tail} 패치 전 수준을 웃돌았습니다.")
+        elif hd:
+            parts.append("오른 긍정률은 곧 패치 전 수준으로 돌아왔습니다.")
         if rc and rc["recovered"]:
             via = f" 그 사이 패치 {', '.join(rc['via'])}가 있었습니다." if rc.get("via") else ""
             parts.append(f"{rc['days']}일 뒤 긍정률은 패치 전의 {rc['pct_of_before']}% 수준으로 돌아왔습니다.{via}")

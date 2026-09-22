@@ -70,7 +70,7 @@ Ollama 는 Windows 에 그대로 두고 `OLLAMA_URL` 로 붙는다(미러링 네
 | 사례 비교 API (`/cases/compare`) | `use_llm=false` 3ms · 로컬 Qwen 13~21초 · GMS gpt-4.1 4.5~5.0초 (9/21 실측) | 변경점 8·40·120개 입력 모두 13~21초(입력 크기보다 생성 길이가 지배). 폴백 미적용 — 화면에서 기다리기 어려우면 trends 처럼 GMS 폴백을 붙일 수 있음 |
 | 카드·재진술 API | 밀리초 | LLM 없음 |
 | 리뷰 요약 API (`/reviews/summarize`) | 6건 4.6~5.9초 (9/21, 도움됨 상위 12건·400자) | **요약 방식 변경(9/21)**: 불만 나열 대신 가장 많이 걸린 지점 1~2개 + 긍정 1개로 초점. 중국어·일본어 용어가 새면 사전 교정 후 GMS gpt-4.1 1회 폴백. 응답 `model` 에 실제 답한 쪽 |
-| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) · Qwen 5.7~13.3초 · GMS 약 5초 | 수치 계산은 전부 서버에서. **9/21: 되돌림·반응 규모 지표 추가**(`patch_effects[].recovery`·`surge`) 및 요약 역할 변경 — 카드에 있는 총계를 되풀이하면 재시도시킨다. Qwen 이 죽었거나 45초(`TREND_LOCAL_TIMEOUT`) 안에 못 답하면 GMS gpt-4.1 로 폴백(`GMS_API_KEY`, `start.ps1` 이 저장소 밖 `api.txt` 에서 읽음). 백필 배치는 GMS 를 쓰지 않는다 |
+| 반응 추세 요약 (`/trends/summarize`) | 문장 틀 4ms(300일) · Qwen 5.7~13.3초 · GMS 약 5초 | 수치 계산은 전부 서버에서. **되돌림·반응 규모·유지 지표**(`patch_effects[].recovery`(떨어진 패치)·`hold`(오른 패치)·`surge`) 및 요약 역할 변경 — 카드에 있는 총계를 되풀이하면 재시도시킨다. Qwen 이 죽었거나 45초(`TREND_LOCAL_TIMEOUT`) 안에 못 답하면 GMS gpt-4.1 로 폴백(`GMS_API_KEY`, `start.ps1` 이 저장소 밖 `api.txt` 에서 읽음). 백필 배치는 GMS 를 쓰지 않는다 |
 | 질의 임베딩 API | 밀리초 | |
 
 ## 아직 안 정해진 것

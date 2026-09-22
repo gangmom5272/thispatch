@@ -499,7 +499,8 @@ class PatchEffect(BaseModel):
     window_days: int
     # 9/21 추가. 기획자가 보는 것은 '떨어졌나'가 아니라 '되돌아왔나·얼마나 몰렸나'다
     recovery: dict | None = Field(None, description="recovered(bool) · days(되돌아오기까지 일수) · pct_of_before(패치 전 대비 %)")
-    surge: dict | None = Field(None, description="ratio(평소 일평균 대비 배수) · days(몰린 상태가 이어진 일수) · base_per_day")
+    surge: dict | None = Field(None, description="ratio(평소 일평균 대비 배수) · days(몰린 상태가 이어진 일수) · base_per_day · surged(1.2배 이상인지)")
+    hold: dict | None = Field(None, description="긍정률이 오른 패치만. held(유지됐는지) · days(웃돈 일수) · peak_pct · via")
     next_patch_date: str | None = Field(None, description="회복·급증을 여기까지만 셌다는 표시")
     note: str | None = None
 

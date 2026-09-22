@@ -41,26 +41,38 @@ public class GameListRepository {
 					+ " or (sort_value = :lastValue and appid > :lastId) or sort_value is null)";
 			}
 		}
-		// 태그·플레이 모드로 행이 늘어나지 않도록 게임 단위 페이지를 먼저 확정한다.
-		String sql = """
-			with latest_patches as (
+		// 내 게임은 전체 뉴스의 최신 패치를 계산하지 않고 게임별 기존 인덱스로 조회한다.
+		String latestPatches = scope == GameListScope.MY ? "" : """
+			latest_patches as (
 				select distinct on (n.appid) n.appid, n.gid, n.title
 				from news n where n.is_patch = true
 				order by n.appid, n.published_ts desc, n.gid desc
-			), candidates as (
+			),
+			""";
+		String latestPatchJoin = scope == GameListScope.MY ? """
+			left join lateral (
+				select n.gid, n.title from news n
+				where n.appid = g.appid and n.is_patch = true
+				order by n.published_ts desc, n.gid desc limit 1
+			) latest on true
+			""" : "left join latest_patches latest on latest.appid = g.appid";
+		// 태그·플레이 모드로 행이 늘어나지 않도록 게임 단위 페이지를 먼저 확정한다.
+		String sql = """
+			with %s candidates as (
 				select g.appid, g.name, g.capsule_path, g.developer, g.short_description,
 				       (g.release_ts at time zone 'Asia/Seoul')::date as released_on,
 				       g.store_review_count, g.store_positive_pct,
 				       exists(select 1 from my_game m where m.member_id = :memberId and m.appid = g.appid) as is_mine,
 				       latest.title as latest_patch, %s as sort_value
 				from game g
-				left join latest_patches latest on latest.appid = g.appid
+				%s
 				left join patch_stat ps on ps.gid = latest.gid and ps.appid = g.appid
 				where %s
 			)
 			select * from candidates %s
 			order by sort_value %s nulls last, appid asc limit :fetchLimit
-			""".formatted(query.sort().expression(), filter(query, scope), after, query.sort().direction());
+			""".formatted(latestPatches, query.sort().expression(), latestPatchJoin,
+				filter(query, scope), after, query.sort().direction());
 		return jdbc.query(sql, parameters, (rows, rowNum) -> new GameRow(
 			rows.getLong("appid"), rows.getString("name"), rows.getString("capsule_path"),
 			rows.getString("developer"), rows.getString("short_description"),

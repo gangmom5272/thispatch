@@ -141,7 +141,11 @@ export default function GameCard({ game, isMine }: { game: Game | MyGame; isMine
       <article
         className={`relative flex h-full flex-col overflow-hidden rounded-sb-card border bg-sb-canvas-surface ${anchor ? "border-sb-hairline-strong" : "border-sb-hairline-cool"}`}
       >
-        <GameImage src={game.capsuleImageUrl} loading="lazy" className="h-auto w-full shrink-0" />
+        <GameImage
+          src={game.capsuleImageUrl}
+          loading="lazy"
+          className="aspect-[616/353] w-full shrink-0"
+        />
         <div className="flex flex-1 flex-col gap-sb-3 p-sb-4">
           <div className="flex items-start justify-between gap-sb-2">
             {/* leading 여유로 truncate overflow가 g/y descender를 자르지 않게 함 */}

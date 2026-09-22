@@ -105,7 +105,12 @@ class GameListIntegrationTest {
 				var data = request(memberId, sort, limit, cursor, prefix, null);
 				assertThat(data.at("/page/limit").intValue()).isEqualTo(limit);
 				assertThat(data.at("/page/totalCount").longValue()).isEqualTo(6);
-				data.get("items").forEach(item -> actual.add(item.get("id").longValue()));
+				data.get("items").forEach(item -> {
+					long id = item.get("id").longValue();
+					actual.add(id);
+					assertThat(item.at("/gameSummary/latestPatch").asText()).isEqualTo("최신 패치-" + (id - firstId));
+					assertThat(item.get("isMine").asBoolean()).isEqualTo(id == firstId);
+				});
 				if (!data.at("/page/hasNext").asBoolean()) {
 					assertThat(data.at("/page/nextCursor").isNull()).isTrue();
 					break;
@@ -153,6 +158,61 @@ class GameListIntegrationTest {
 			assertThat(game.get("isMine").asBoolean()).isEqualTo(game.get("id").longValue() == firstId + 1);
 		}
 		assertThat(jdbc.queryForMap("select * from game where appid = ?", firstId)).isEqualTo(before);
+	}
+
+	@ParameterizedTest
+	@EnumSource(GameListSort.class)
+	void omittedAndBlankSearchKeepFilteredCountsAndCursorPagesIncludingGamesWithoutPatches(GameListSort sort)
+		throws Exception {
+		register(memberId, 2);
+		preparePatches();
+		jdbc.update("update game set name = '' where appid = ?", firstId + 1);
+		jdbc.update("delete from patch_stat where appid = ?", firstId + 2);
+		jdbc.update("delete from news where appid = ?", firstId + 2);
+		var allOffsets = switch (sort) {
+			case POSITIVE_RATE_ASC, REACTION_CHANGE_DESC -> List.of(1, 0, 2);
+			case REVIEW_COUNT_DESC -> List.of(0, 2, 1);
+			case RELEASE_DATE_DESC -> List.of(2, 0, 1);
+		};
+		for (String path : List.of("/games", "/members/me/games")) {
+			var expected = allOffsets.stream().filter(i -> path.equals("/games") || i != 1)
+				.map(i -> firstId + i).toList();
+			for (String search : new String[] {null, "", "   "}) {
+				String cursor = null;
+				List<Long> actual = new ArrayList<>();
+				for (int page = 0; page < expected.size(); page++) {
+					var request = get(path).param("sort", sort.name()).param("limit", "1")
+						.param("genreIds", firstTag + "," + (firstTag + 1))
+						.header(HttpHeaders.AUTHORIZATION, auth(memberId));
+					if (search != null) {
+						request.param("search", search);
+					}
+					if (cursor != null) {
+						request.param("cursor", cursor);
+					}
+					var data = filterData(request);
+					assertThat(data.at("/page/totalCount").longValue()).isEqualTo(expected.size());
+					assertThat(data.get("items").size()).isEqualTo(1);
+					var item = data.get("items").get(0);
+					long id = item.get("id").longValue();
+					actual.add(id);
+					if (id == firstId + 2) {
+						assertThat(item.at("/gameSummary/latestPatch").isNull()).isTrue();
+					} else {
+						assertThat(item.at("/gameSummary/latestPatch").asText()).isEqualTo("최신 패치-" + (id - firstId));
+					}
+					boolean hasNext = page + 1 < expected.size();
+					assertThat(data.at("/page/hasNext").asBoolean()).isEqualTo(hasNext);
+					if (hasNext) {
+						cursor = data.at("/page/nextCursor").asText();
+						assertThat(cursor).isNotBlank();
+					} else {
+						assertThat(data.at("/page/nextCursor").isNull()).isTrue();
+					}
+				}
+				assertThat(actual).containsExactlyElementsOf(expected);
+			}
+		}
 	}
 
 	@Test

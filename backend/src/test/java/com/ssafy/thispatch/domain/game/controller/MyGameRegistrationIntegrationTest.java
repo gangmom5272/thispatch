@@ -77,10 +77,10 @@ class MyGameRegistrationIntegrationTest {
 	void registersForLocalAndSteamMembersAndPreservesOriginalTimestampOnDuplicate(LoginType type) throws Exception {
 		long memberId = newMember(type);
 		long gameId = newGame();
-		Instant before = Instant.now();
+		Instant before = databaseNow();
 		assertThat(register(memberId, gameId).getStatus()).isEqualTo(200);
 		Instant createdAt = createdAt(memberId, gameId);
-		assertThat(createdAt).isBetween(before, Instant.now());
+		assertThat(createdAt).isBetween(before, databaseNow());
 
 		assertError(register(memberId, gameId), 409, "MY_GAME_ALREADY_REGISTERED");
 		assertThat(count(memberId, gameId)).isEqualTo(1);
@@ -201,6 +201,11 @@ class MyGameRegistrationIntegrationTest {
 	private int count(long memberId, long gameId) {
 		return jdbc.queryForObject("select count(*) from my_game where member_id = ? and appid = ?",
 			Integer.class, memberId, gameId);
+	}
+
+	private Instant databaseNow() {
+		// created_at은 DB에서 생성하므로 테스트 JVM과 DB 호스트의 시계 차이를 배제한다.
+		return jdbc.queryForObject("select clock_timestamp()", (rs, rowNum) -> rs.getTimestamp(1).toInstant());
 	}
 
 	private Instant createdAt(long memberId, long gameId) {

@@ -142,7 +142,7 @@ class SignupControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMv
 	}
 
 	static Stream<String> validNicknames() {
-		return Stream.of("x", "한".repeat(50), "😀".repeat(50), " 이름 ! \n");
+		return Stream.of("x", "a".repeat(20), "한".repeat(20), "😀".repeat(20), " 이름 ! \n");
 	}
 
 	@ParameterizedTest
@@ -152,7 +152,7 @@ class SignupControllerTest extends com.ssafy.thispatch.support.ActiveMemberWebMv
 	}
 
 	static Stream<String> invalidNicknames() {
-		return Stream.of("", " \t\n", "\u00a0\u3000", "a".repeat(51), "😀".repeat(51), "name\u0000");
+		return Stream.of("", " \t\n", "\u00a0\u3000", "a".repeat(21), "한".repeat(21), "😀".repeat(21), "name\u0000");
 	}
 
 	@ParameterizedTest

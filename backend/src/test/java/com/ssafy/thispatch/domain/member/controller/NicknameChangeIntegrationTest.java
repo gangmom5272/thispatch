@@ -115,8 +115,8 @@ class NicknameChangeIntegrationTest {
 	}
 
 	@Test
-	void allowsDuplicateFiftyCodePointNicknamesAndFurtherChanges() throws Exception {
-		String nickname = "🎮".repeat(50);
+	void allowsDuplicateTwentyCodePointNicknamesAndFurtherChanges() throws Exception {
+		String nickname = "🎮".repeat(20);
 		long first = newMember(LoginType.LOCAL, "ACTIVE", "first");
 		long second = newMember(LoginType.STEAM, "ACTIVE", "second");
 		change(first, nickname).andExpect(status().isOk());
@@ -141,11 +141,34 @@ class NicknameChangeIntegrationTest {
 	void invalidRequestsLeaveExistingMemberUnchanged() throws Exception {
 		long memberId = newMember(LoginType.LOCAL, "ACTIVE", "original");
 		Member before = repository.findById(memberId).orElseThrow();
-		for (String nickname : List.of("", " \t\u3000", "🎮".repeat(51), "a\u0000b")) {
+		for (String nickname : List.of("", " \t\u3000", "🎮".repeat(21), "a\u0000b")) {
 			change(memberId, nickname).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
 			assertThat(repository.findById(memberId).orElseThrow()).usingRecursiveComparison().isEqualTo(before);
 		}
+	}
+
+	@ParameterizedTest
+	@EnumSource(LoginType.class)
+	void preservesLegacyLongNicknameUntilChangedToAtMostTwentyCodePoints(LoginType type) throws Exception {
+		String legacyNickname = "🎮".repeat(50);
+		long memberId = newMember(type, "ACTIVE", legacyNickname);
+		Member before = repository.findById(memberId).orElseThrow();
+		String accessToken = tokens.issueAccessToken(memberId);
+		mvc.perform(get("/session").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.authenticated").value(true))
+			.andExpect(jsonPath("$.data.user.nickname").value(legacyNickname));
+
+		change(memberId, legacyNickname).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+			.andExpect(jsonPath("$.errors[0].field").value("nickname"))
+			.andExpect(jsonPath("$.errors[0].message").value("닉네임은 20자 이하로 입력해주세요."))
+			.andExpect(jsonPath("$.data").doesNotExist()).andExpect(jsonPath("$.success").doesNotExist());
+		assertThat(repository.findById(memberId).orElseThrow()).usingRecursiveComparison().isEqualTo(before);
+
+		String newNickname = "🎮".repeat(20);
+		change(memberId, newNickname).andExpect(status().isOk()).andExpect(jsonPath("$.data.nickname").value(newNickname));
+		assertThat(repository.findById(memberId).orElseThrow().getNickname()).isEqualTo(newNickname);
 	}
 
 	@ParameterizedTest

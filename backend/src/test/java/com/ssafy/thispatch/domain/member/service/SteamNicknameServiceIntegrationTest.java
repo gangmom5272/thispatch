@@ -91,8 +91,8 @@ class SteamNicknameServiceIntegrationTest {
 	}
 
 	@Test
-	void differentMembersCanUseTheSameFiftyCodePointNickname() {
-		String nickname = "🎮".repeat(50);
+	void differentMembersCanUseTheSameTwentyCodePointNickname() {
+		String nickname = "🎮".repeat(20);
 		long first = newMember(LoginType.STEAM, "ACTIVE", null);
 		long second = newMember(LoginType.STEAM, "ACTIVE", null);
 		service.setNickname(new MemberPrincipal(first), nickname);

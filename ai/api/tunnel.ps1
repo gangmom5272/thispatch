@@ -21,7 +21,9 @@ param(
     [string]$Key = "$env:USERPROFILE\.ssh\thispatch-ai-tunnel",
     [int]$Port = 8100,
     [string]$Bind = "172.17.0.1",
-    [int]$RetrySeconds = 10
+    [int]$RetrySeconds = 10,
+    [int]$PortBusyRetrySeconds = 30,
+    [int]$PortBusyMaxMinutes = 10
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,30 +48,69 @@ try {
 
 Write-Host "역터널 연결: $User@$ServerHost 안쪽 ${Bind}:$Port -> 이 노트북 127.0.0.1:$Port"
 Write-Host "끊기면 $RetrySeconds 초 뒤 다시 붙습니다. 중지하려면 Ctrl+C."
-Write-Host ""
+
+# 로그를 파일에도 남긴다. 터널은 조용히 끊기고 백엔드 쪽에서만 실패로 보이므로,
+# 나중에 "언제 왜 끊겼나"를 확인할 수 있어야 한다(9/21 원인 미상으로 끊긴 사례).
+$logDir = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\logs"
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$log = Join-Path $logDir ("tunnel-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
+function Say($msg, $color = "Gray") {
+    $line = "{0} {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
+    Write-Host $line -ForegroundColor $color
+    Add-Content -Path $log -Value $line -Encoding UTF8
+}
+Say "로그: $log"
+Say "역터널 시작 ${Bind}:$Port -> 127.0.0.1:$Port ($User@$ServerHost)"
 
 # 노트북은 절전·무선 전환으로 연결이 자주 끊긴다. 죽으면 다시 붙는다.
+#
+# 곧바로 끊기는 경우를 둘로 나눈다(9/21).
+#   포트 점유  서버1 에 이전 접속이 아직 8100 을 잡고 있는 것. 우리가 고칠 수 없고 몇 분이면 저절로 풀린다.
+#             여기서 종료해 버리면 네트워크가 돌아와도 사람이 손대기 전까지 터널이 죽은 채로 남는다.
+#   그 외      키·권한·GatewayPorts 같은 설정 문제. 기다려도 낫지 않으므로 바로 멈추고 알린다.
+$busySince = $null
 while ($true) {
     $started = Get-Date
-    & ssh -N `
-        -o ExitOnForwardFailure=yes `
-        -o ServerAliveInterval=30 `
-        -o ServerAliveCountMax=3 `
-        -o StrictHostKeyChecking=accept-new `
-        -i $Key `
-        -R "${Bind}:${Port}:127.0.0.1:${Port}" `
-        "$User@$ServerHost"
+    $err = Join-Path $env:TEMP ("thispatch-tunnel-{0}.err" -f $PID)
+    $p = Start-Process -FilePath "ssh" -NoNewWindow -Wait -PassThru -RedirectStandardError $err -ArgumentList @(
+        "-N",
+        "-o", "ExitOnForwardFailure=yes",
+        "-o", "ServerAliveInterval=30",
+        "-o", "ServerAliveCountMax=3",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-i", $Key,
+        "-R", "${Bind}:${Port}:127.0.0.1:${Port}",
+        "$User@$ServerHost")
+    $stderr = if (Test-Path $err) { (Get-Content $err -Raw) } else { "" }
+    Remove-Item $err -ErrorAction SilentlyContinue
+    if ($stderr) { Add-Content -Path $log -Value $stderr.TrimEnd() -Encoding UTF8 }
 
     $lasted = [int]((Get-Date) - $started).TotalSeconds
+    $portBusy = $stderr -match "remote port forwarding failed"
+
+    if ($lasted -lt 5 -and $portBusy) {
+        if (-not $busySince) { $busySince = Get-Date }
+        $waited = [int]((Get-Date) - $busySince).TotalMinutes
+        if ($waited -ge $PortBusyMaxMinutes) {
+            Say "서버1 의 $Port 가 $PortBusyMaxMinutes 분째 풀리지 않습니다. 인프라 담당에게 확인을 요청하세요." "Red"
+            Say "  서버1 에서: sudo ss -tlnp | grep $Port  (남아 있는 sshd: ubuntu 세션 종료)" "Red"
+            exit 1
+        }
+        Say "서버1 의 $Port 가 아직 이전 접속에 잡혀 있습니다. $PortBusyRetrySeconds 초 뒤 다시 시도합니다(${waited}분째)." "Yellow"
+        Start-Sleep -Seconds $PortBusyRetrySeconds
+        continue
+    }
+
     if ($lasted -lt 5) {
-        # 곧바로 죽으면 설정 문제다. 무한 재시도로 감추지 않는다.
-        Write-Host ""
-        Write-Host "${lasted}초 만에 끊겼습니다. 설정을 확인하세요." -ForegroundColor Red
-        Write-Host "  - 서버1 sshd_config 에 GatewayPorts clientspecified 가 있는지 (없으면 $Bind 바인딩이 거부됩니다)"
-        Write-Host "  - 서버에서 이미 $Port 를 쓰고 있지 않은지 (ss -lntp | grep $Port)"
-        Write-Host "  - 키 권한과 사용자 이름"
+        # 설정 문제다. 무한 재시도로 감추지 않는다.
+        Say "${lasted}초 만에 끊겼습니다. 설정을 확인하세요." "Red"
+        Say "  - 서버1 sshd_config 에 GatewayPorts clientspecified 가 있는지 (없으면 $Bind 바인딩이 거부됩니다)" "Red"
+        Say "  - 키 권한과 사용자 이름" "Red"
+        if ($stderr) { Say ("  ssh: " + ($stderr.Trim() -replace "\s+", " ")) "Red" }
         exit 1
     }
-    Write-Host "연결이 끊겼습니다(${lasted}초 유지). $RetrySeconds 초 뒤 재연결합니다." -ForegroundColor Yellow
+
+    $busySince = $null
+    Say "연결이 끊겼습니다(${lasted}초 유지). $RetrySeconds 초 뒤 재연결합니다." "Yellow"
     Start-Sleep -Seconds $RetrySeconds
 }

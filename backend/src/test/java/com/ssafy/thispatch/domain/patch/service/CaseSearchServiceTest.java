@@ -7,11 +7,16 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import com.ssafy.thispatch.client.ai.AiPatchClient;
+import com.ssafy.thispatch.client.ai.AiErrorCode;
+import com.ssafy.thispatch.global.exception.BusinessException;
 import com.ssafy.thispatch.client.ai.AiPatchContracts.*;
 import com.ssafy.thispatch.domain.patch.dto.PatchChangeCodes.*;
 import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest;
@@ -22,9 +27,15 @@ import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.*;
 class CaseSearchServiceTest {
 	private final PatchSearchRepository repository = mock(PatchSearchRepository.class);
 	private final AiPatchClient ai = mock(AiPatchClient.class);
-	private final CaseSearchService service = new CaseSearchService(repository, ai);
+	private final CaseSearchExecutor tasks = new CaseSearchExecutor();
+	private final CaseSearchService service = new CaseSearchService(repository, ai, tasks);
 	private final ConfirmedSlot slot = new ConfirmedSlot(new Target("Axebot", TargetRole.ENEMY), "HP",
 		ChangeType.MODIFY, Direction.INCREASE, "+20%", "hard mode");
+
+	@AfterEach
+	void closeExecutor() {
+		tasks.close();
+	}
 
 	@BeforeEach
 	void setup() {
@@ -95,6 +106,46 @@ class CaseSearchServiceTest {
 		assertThat(group.observedPatterns()).contains("적 대상 변경이 가장 많음 (61건)");
 		verify(ai, times(2)).cards(any());
 		verify(ai, times(61)).compare(any());
+	}
+
+	@Test
+	void independentGroupsFetchCardsConcurrently() {
+		var started = new CountDownLatch(3);
+		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(
+			candidate("negative", "-3", .8, 10), candidate("neutral", "0", .7, 11), candidate("positive", "3", .9, 12)));
+		doAnswer(invocation -> {
+			CardsRequest request = invocation.getArgument(0);
+			started.countDown();
+			assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+			return new CardsResponse(request.cases().stream().map(item -> new Card(item.gid(), "공통", "차이")).toList(), List.of(), null);
+		}).when(ai).cards(any());
+		assertThat(service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data().totalCount()).isEqualTo(3);
+	}
+
+	@Test
+	void outOfOrderComparisonsRemainAttachedToTheirCandidates() {
+		var secondFinished = new CountDownLatch(1);
+		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(
+			candidate("a", "4", .9, 10), candidate("b", "4", .8, 10)));
+		doAnswer(invocation -> {
+			CompareRequest request = invocation.getArgument(0);
+			String gid = request.caseInput().gid();
+			if (gid.equals("a")) assertThat(secondFinished.await(5, TimeUnit.SECONDS)).isTrue();
+			else secondFinished.countDown();
+			return new CompareResponse(gid, List.of(new Point("대상", gid, "template")), List.of(), false, 0);
+		}).when(ai).compare(any());
+		var cases = service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null)).data().groups().get(2).cases();
+		assertThat(cases).extracting(item -> item.patchId()).containsExactly("a", "b");
+		assertThat(cases).extracting(item -> item.comparison().commonalities().get(0).description()).containsExactly("a", "b");
+	}
+
+	@Test
+	void failedCardsDoNotStartComparisonsOrReturnPartialResults() {
+		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of(candidate("a", "4", .9, 10)));
+		var failure = new BusinessException(AiErrorCode.AI_UNAVAILABLE);
+		doThrow(failure).when(ai).cards(any());
+		assertThatThrownBy(() -> service.search(1, new CaseSearchRequest(List.of(slot), List.of(7), null))).isSameAs(failure);
+		verify(ai, never()).compare(any());
 	}
 
 	@Test

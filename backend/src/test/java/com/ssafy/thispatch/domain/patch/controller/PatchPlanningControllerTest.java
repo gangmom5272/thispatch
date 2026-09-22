@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -21,10 +23,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.thispatch.client.ai.AiPatchClient;
+import com.ssafy.thispatch.client.ai.AiErrorCode;
 import com.ssafy.thispatch.client.ai.AiPatchContracts.*;
 import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository;
 import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.GameContext;
+import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.Candidate;
+import com.ssafy.thispatch.domain.patch.repository.PatchSearchRepository.PatchData;
 import com.ssafy.thispatch.domain.patch.service.CaseSearchService;
+import com.ssafy.thispatch.domain.patch.service.CaseSearchExecutor;
 import com.ssafy.thispatch.domain.patch.service.PlanStructureService;
 import com.ssafy.thispatch.domain.patch.service.PlanStructureStorageService;
 import com.ssafy.thispatch.global.config.JwtConfig;
@@ -35,7 +41,7 @@ import com.ssafy.thispatch.global.security.jwt.JwtTokenProvider;
 import com.ssafy.thispatch.support.ActiveMemberWebMvcTest;
 
 @WebMvcTest(PatchPlanningController.class)
-@Import({PlanStructureService.class, CaseSearchService.class, SecurityConfig.class, JwtConfig.class,
+@Import({PlanStructureService.class, CaseSearchService.class, CaseSearchExecutor.class, SecurityConfig.class, JwtConfig.class,
 	SecurityErrorHandler.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
 class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
@@ -57,6 +63,20 @@ class PatchPlanningControllerTest extends ActiveMemberWebMvcTest {
 		when(storage.save(eq(1L), eq(1L), anyString(), anyList(), anyList(), any())).thenReturn(101L);
 		when(ai.embed(any())).thenReturn(new EmbeddingResponse(List.of(List.of(1.0)), 512, "model"));
 		when(repository.search(anyList(), anyString(), anyList(), anyList())).thenReturn(List.of());
+	}
+
+	@Test
+	void parallelComparisonFailureKeepsSafeAiUnavailableResponse() throws Exception {
+		var patch = new PatchData("10", 1, "Game", null, "Patch", Instant.parse("2026-09-21T00:00:00Z"),
+			10, new BigDecimal("70"), new BigDecimal("75"), new BigDecimal("5"), null, null);
+		var change = new CaseChange("modify", "increase", "enemy", "Health increased");
+		when(repository.search(anyList(), anyString(), anyList(), anyList()))
+			.thenReturn(List.of(new Candidate(patch, .9, List.of(), List.of(change), false)));
+		when(ai.cards(any())).thenReturn(new CardsResponse(List.of(new Card("10", "공통", "차이")), List.of(), null));
+		when(ai.compare(any())).thenThrow(new BusinessException(AiErrorCode.AI_UNAVAILABLE,
+			new IllegalStateException("private-ai-detail")));
+		assertError(request("case-searches", SEARCH), 503, "AI_UNAVAILABLE")
+			.andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-ai-detail"))));
 	}
 
 	@Test

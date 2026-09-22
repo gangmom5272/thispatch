@@ -240,6 +240,67 @@ class MyGameListIntegrationTest {
 		assertThat(ids(data(request(memberId).queryParam("sort", "REACTION_CHANGE_DESC")))).containsExactly(available, missingLatest);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"POSITIVE_RATE_ASC", "REVIEW_COUNT_DESC", "RELEASE_DATE_DESC", "REACTION_CHANGE_DESC"})
+	void latestPatchTieBreakKeepsTitleAndStatisticTogetherForEachRegisteredGame(String sort) throws Exception {
+		long tied = game("동시 패치", 10, 100);
+		long other = game("다른 등록 게임", 20, 200);
+		long noPatch = game("패치 없는 게임", null, null);
+		long unregistered = game("미등록 게임", 0, 1000);
+		for (long id : List.of(tied, other, noPatch)) register(memberId, id);
+		register(newMember("ACTIVE"), unregistered);
+		String first = patch(tied, "패치 A", "2026-09-01T00:00:00Z", true);
+		String second = patch(tied, "패치 B", "2026-09-01T00:00:00Z", true);
+		boolean firstWins = first.compareTo(second) > 0;
+		stat(first, tied, firstWins ? -90 : 1);
+		stat(second, tied, firstWins ? 1 : -90);
+		patch(tied, "더 최근 일반 공지", "2026-09-02T00:00:00Z", false);
+		patch(noPatch, "일반 공지만 있음", "2026-09-04T00:00:00Z", false);
+		stat(patch(other, "다른 게임 패치", "2026-09-03T00:00:00Z", true), other, 50);
+		stat(patch(unregistered, "미등록 패치", "2026-09-04T00:00:00Z", true), unregistered, 100);
+
+		var result = data(request(memberId).queryParam("sort", sort));
+		assertThat(ids(result)).containsExactlyInAnyOrder(tied, other, noPatch);
+		assertThat(result.path("page").path("totalCount").asLong()).isEqualTo(3);
+		for (JsonNode item : result.path("items")) {
+			if (item.path("id").asLong() == noPatch) {
+				assertThat(item.path("gameSummary").path("latestPatch").isNull()).isTrue();
+			} else {
+				String expectedTitle = item.path("id").asLong() == tied
+					? (firstWins ? "패치 A" : "패치 B") : "다른 게임 패치";
+				assertThat(item.path("gameSummary").path("latestPatch").asText()).isEqualTo(expectedTitle);
+			}
+		}
+		if (sort.equals("REACTION_CHANGE_DESC")) {
+			assertThat(ids(result)).containsExactly(tied, other, noPatch);
+		}
+	}
+
+	@Test
+	void tiedLatestPatchWithoutStatisticsDoesNotFallBackToTheOtherPatch() throws Exception {
+		long missing = game("동시 패치 중 최신 통계 없음", 10, 100);
+		long available = game("최신 통계 있음", 20, 100);
+		register(memberId, missing);
+		register(memberId, available);
+		String first = patch(missing, "패치 A", "2026-09-01T00:00:00Z", true);
+		String second = patch(missing, "패치 B", "2026-09-01T00:00:00Z", true);
+		boolean firstWins = first.compareTo(second) > 0;
+		stat(firstWins ? second : first, missing, 99);
+		stat(patch(available, "현재", "2026-09-01T00:00:00Z", true), available, 1);
+
+		var firstPage = data(request(memberId).queryParam("sort", "REACTION_CHANGE_DESC").queryParam("limit", "1"));
+		assertThat(ids(firstPage)).containsExactly(available);
+		String cursor = firstPage.path("page").path("nextCursor").asText();
+		assertThat(cursor).isNotBlank();
+		var nextPage = data(request(memberId).queryParam("sort", "REACTION_CHANGE_DESC")
+			.queryParam("limit", "1").queryParam("cursor", cursor));
+		assertThat(ids(nextPage)).containsExactly(missing);
+		assertThat(nextPage.path("items").get(0).path("gameSummary").path("latestPatch").asText())
+			.isEqualTo(firstWins ? "패치 A" : "패치 B");
+		assertThat(nextPage.path("page").path("totalCount").asLong()).isEqualTo(2);
+		assertThat(nextPage.path("page").path("hasNext").asBoolean()).isFalse();
+	}
+
 	@Test
 	void reflectsRegistrationAndUnregistrationIncludingRemovedCursorAnchor() throws Exception {
 		long first = game("첫 게임", 10, 100);

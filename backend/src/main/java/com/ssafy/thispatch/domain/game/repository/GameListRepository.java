@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import com.ssafy.thispatch.domain.game.dto.request.GameListQuery;
 import com.ssafy.thispatch.domain.game.dto.request.GameListScope;
+import com.ssafy.thispatch.domain.game.dto.request.GameListSort;
 import com.ssafy.thispatch.domain.game.dto.response.GameListResponse.TagItem;
 import com.ssafy.thispatch.domain.game.service.GameListCursorCodec.Boundary;
 
@@ -41,7 +42,44 @@ public class GameListRepository {
 					+ " or (sort_value = :lastValue and appid > :lastId) or sort_value is null)";
 			}
 		}
-		// 내 게임은 전체 뉴스의 최신 패치를 계산하지 않고 게임별 기존 인덱스로 조회한다.
+		String sql = scope == GameListScope.ALL && query.sort() != GameListSort.REACTION_CHANGE_DESC
+			? pageBeforePatchesSql(query, after) : patchesBeforePageSql(query, scope, after);
+		return jdbc.query(sql, parameters, (rows, rowNum) -> new GameRow(
+			rows.getLong("appid"), rows.getString("name"), rows.getString("capsule_path"),
+			rows.getString("developer"), rows.getString("short_description"),
+			rows.getObject("released_on", LocalDate.class), rows.getObject("store_review_count", Integer.class),
+			rows.getObject("store_positive_pct", Integer.class), rows.getBoolean("is_mine"),
+			rows.getString("latest_patch"), rows.getString("sort_value")));
+	}
+
+	private String pageBeforePatchesSql(GameListQuery query, String after) {
+		// 게임 필드 정렬은 페이지를 먼저 확정해 해당 게임의 최신 패치만 조회한다.
+		return """
+			with candidates as (
+				select g.appid, g.name, g.capsule_path, g.developer, g.short_description,
+				       (g.release_ts at time zone 'Asia/Seoul')::date as released_on,
+				       g.store_review_count, g.store_positive_pct, %s as sort_value
+				from game g where %s
+			), page_games as materialized (
+				select * from candidates %s
+				order by sort_value %s nulls last, appid asc limit :fetchLimit
+			)
+			select p.*,
+			       exists(select 1 from my_game m where m.member_id = :memberId and m.appid = p.appid) as is_mine,
+			       latest.title as latest_patch
+			from page_games p
+			left join lateral (
+				select n.title from news n
+				where n.appid = p.appid and n.is_patch = true
+				order by n.published_ts desc, n.gid desc limit 1
+			) latest on true
+			order by p.sort_value %s nulls last, p.appid asc
+			""".formatted(query.sort().expression(), filter(query, GameListScope.ALL), after,
+				query.sort().direction(), query.sort().direction());
+	}
+
+	private String patchesBeforePageSql(GameListQuery query, GameListScope scope, String after) {
+		// 반응 변화는 최신 패치 통계로 순위를 정한다. 내 게임의 게임별 조회 방식도 유지한다.
 		String latestPatches = scope == GameListScope.MY ? "" : """
 			latest_patches as (
 				select distinct on (n.appid) n.appid, n.gid, n.title
@@ -57,7 +95,7 @@ public class GameListRepository {
 			) latest on true
 			""" : "left join latest_patches latest on latest.appid = g.appid";
 		// 태그·플레이 모드로 행이 늘어나지 않도록 게임 단위 페이지를 먼저 확정한다.
-		String sql = """
+		return """
 			with %s candidates as (
 				select g.appid, g.name, g.capsule_path, g.developer, g.short_description,
 				       (g.release_ts at time zone 'Asia/Seoul')::date as released_on,
@@ -73,12 +111,6 @@ public class GameListRepository {
 			order by sort_value %s nulls last, appid asc limit :fetchLimit
 			""".formatted(latestPatches, query.sort().expression(), latestPatchJoin,
 				filter(query, scope), after, query.sort().direction());
-		return jdbc.query(sql, parameters, (rows, rowNum) -> new GameRow(
-			rows.getLong("appid"), rows.getString("name"), rows.getString("capsule_path"),
-			rows.getString("developer"), rows.getString("short_description"),
-			rows.getObject("released_on", LocalDate.class), rows.getObject("store_review_count", Integer.class),
-			rows.getObject("store_positive_pct", Integer.class), rows.getBoolean("is_mine"),
-			rows.getString("latest_patch"), rows.getString("sort_value")));
 	}
 
 	public Map<Long, List<TagItem>> findTags(List<Long> gameIds) {
@@ -109,7 +141,7 @@ public class GameListRepository {
 	}
 
 	private String filter(GameListQuery query, GameListScope scope) {
-		String filter = "lower(g.name) like :search escape '!'";
+		String filter = query.search().isEmpty() ? "true" : "lower(g.name) like :search escape '!'";
 		var filters = query.filters();
 		if (filters.releaseYearFrom() != null) {
 			filter += " and extract(year from g.release_ts at time zone 'Asia/Seoul') >= :releaseYearFrom";

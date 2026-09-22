@@ -16,6 +16,8 @@ spring:
     locations: classpath:db/migration
 
 app:
+  patch-search:
+    ef-search: ${PATCH_SEARCH_EF_SEARCH:100}
   deepl:
     api-key: ${DEEPL_API_KEY:}
     connect-timeout: ${DEEPL_CONNECT_TIMEOUT:3s}

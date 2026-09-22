@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,9 +21,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import com.ssafy.thispatch.domain.patch.dto.PatchChangeCodes.*;
+import com.ssafy.thispatch.domain.patch.config.PatchSearchProperties;
 import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.*;
 
 @SpringBootTest
@@ -30,6 +37,7 @@ import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.*;
 class PatchSearchRepositoryIntegrationTest {
 	@Autowired private JdbcTemplate jdbc;
 	@Autowired private PatchSearchRepository repository;
+	@Autowired private PatchSearchProperties properties;
 	private long gameId;
 	private String gid;
 	private long chunkId;
@@ -78,6 +86,47 @@ class PatchSearchRepositoryIntegrationTest {
 		assertThat(candidate.patch().reviewCount()).isEqualTo(20);
 		assertThat(candidate.genres()).extracting(PatchSearchRepository.Genre::id).containsExactly(genreId);
 		assertThat(candidate.cosine()).isCloseTo(1, org.assertj.core.data.Offset.offset(.0001));
+		assertThat(jdbc.queryForObject("SHOW hnsw.ef_search", Integer.class)).isEqualTo(properties.efSearch());
+	}
+
+	@Test
+	void searchesWithCustomEfSearchAndKeepsStrictOrdering() {
+		var customRepository = new PatchSearchRepository(new NamedParameterJdbcTemplate(jdbc),
+			new PatchSearchProperties(60));
+		assertThat(customRepository.search(List.of(vector), model, List.of(slot), List.of(genreId)))
+			.extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
+		assertThat(jdbc.queryForObject("SHOW hnsw.ef_search", Integer.class)).isEqualTo(60);
+		assertThat(jdbc.queryForObject("SHOW hnsw.iterative_scan", String.class)).isEqualTo("strict_order");
+	}
+
+	@ParameterizedTest
+	@CsvSource({"40, false", "60, false", "40, true", "60, true"})
+	void restoresSettingsOnSameConnectionAfterCommitOrRollback(int efSearch, boolean rollback) throws Exception {
+		// 별도 연결을 고정해 다음 트랜잭션이 같은 PostgreSQL 세션을 재사용하는 경우를 검증한다.
+		try (var connection = jdbc.getDataSource().getConnection()) {
+			var dataSource = new SingleConnectionDataSource(connection, true);
+			var isolatedJdbc = new JdbcTemplate(dataSource);
+			assertThat(isolatedJdbc.queryForObject("select current_database()", String.class)).isEqualTo("thispatch_test");
+			// pgvector를 로드한 뒤 이 연결의 원래 설정을 확인한다.
+			isolatedJdbc.queryForObject("select '[1,0]'::vector <=> '[1,0]'::vector", Double.class);
+			String originalEfSearch = isolatedJdbc.queryForObject("SHOW hnsw.ef_search", String.class);
+			String originalMode = isolatedJdbc.queryForObject("SHOW hnsw.iterative_scan", String.class);
+			var customRepository = new PatchSearchRepository(new NamedParameterJdbcTemplate(isolatedJdbc),
+				new PatchSearchProperties(efSearch));
+			var transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+			transaction.setReadOnly(true);
+			transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+			transaction.executeWithoutResult(status -> {
+				assertThat(customRepository.search(List.of(vector), model + "-absent", List.of(slot), List.of())).isEmpty();
+				assertThat(isolatedJdbc.queryForObject("SHOW hnsw.ef_search", Integer.class)).isEqualTo(efSearch);
+				assertThat(isolatedJdbc.queryForObject("SHOW hnsw.iterative_scan", String.class)).isEqualTo("strict_order");
+				if (rollback) status.setRollbackOnly();
+			});
+			transaction.executeWithoutResult(status -> {
+				assertThat(isolatedJdbc.queryForObject("SHOW hnsw.ef_search", String.class)).isEqualTo(originalEfSearch);
+				assertThat(isolatedJdbc.queryForObject("SHOW hnsw.iterative_scan", String.class)).isEqualTo(originalMode);
+			});
+		}
 	}
 
 	@Test
@@ -148,7 +197,7 @@ class PatchSearchRepositoryIntegrationTest {
 		jdbc.execute("SET LOCAL enable_seqscan = off");
 		jdbc.execute("SET LOCAL enable_sort = off");
 		var recordedJdbc = spy(new NamedParameterJdbcTemplate(jdbc));
-		var indexedRepository = new PatchSearchRepository(recordedJdbc);
+		var indexedRepository = new PatchSearchRepository(recordedJdbc, properties);
 		var result = indexedRepository.search(List.of(vector), model, List.of(slot), List.of(genreId));
 		assertThat(result).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
 

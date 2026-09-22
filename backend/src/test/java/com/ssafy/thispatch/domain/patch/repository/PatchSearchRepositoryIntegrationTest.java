@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import com.ssafy.thispatch.domain.patch.dto.PatchChangeCodes.*;
+import com.ssafy.thispatch.domain.patch.config.PatchSearchProperties;
 import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.*;
 
 @SpringBootTest
@@ -30,6 +31,7 @@ import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.*;
 class PatchSearchRepositoryIntegrationTest {
 	@Autowired private JdbcTemplate jdbc;
 	@Autowired private PatchSearchRepository repository;
+	@Autowired private PatchSearchProperties properties;
 	private long gameId;
 	private String gid;
 	private long chunkId;
@@ -148,7 +150,7 @@ class PatchSearchRepositoryIntegrationTest {
 		jdbc.execute("SET LOCAL enable_seqscan = off");
 		jdbc.execute("SET LOCAL enable_sort = off");
 		var recordedJdbc = spy(new NamedParameterJdbcTemplate(jdbc));
-		var indexedRepository = new PatchSearchRepository(recordedJdbc);
+		var indexedRepository = new PatchSearchRepository(recordedJdbc, properties);
 		var result = indexedRepository.search(List.of(vector), model, List.of(slot), List.of(genreId));
 		assertThat(result).extracting(candidate -> candidate.patch().gid()).containsExactly(gid);
 

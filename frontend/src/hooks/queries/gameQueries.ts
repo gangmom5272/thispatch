@@ -13,8 +13,8 @@ import type { GameFilters } from "../../types"
 
 const SUGGESTION_LIMIT = 5
 const SUGGESTION_STALE_MS = 5 * 60_000
-/** 내 게임은 가로 스크롤 한 줄로 보여 주므로 API 최대치를 한 번에 받는다. */
-const MY_GAME_LIMIT = 100
+/** 무한 스크롤 한 페이지 크기 */
+const GAME_PAGE_LIMIT = 12
 
 export const gameKeys = {
   all: ["games"] as const,
@@ -37,18 +37,20 @@ export const gameListOptions = (filters: GameFilters) =>
   })
 
 export function useGameList(filters: GameFilters) {
-  return useInfiniteQuery(gameListOptions(filters))
+  return useInfiniteQuery(gameListOptions({ ...filters, limit: GAME_PAGE_LIMIT }))
 }
 
 export const myGameListOptions = (filters: GameFilters) =>
-  queryOptions({
+  infiniteQueryOptions({
     queryKey: gameKeys.myList(filters),
-    queryFn: ({ signal }) => getMyGames(filters, signal),
-    select: (list) => list.items,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) => getMyGames(filters, pageParam, signal),
+    getNextPageParam: (lastPage) =>
+      lastPage?.page?.hasNext ? (lastPage.page.nextCursor ?? undefined) : undefined,
   })
 
 export function useMyGameList(filters: GameFilters) {
-  return useQuery(myGameListOptions({ ...filters, limit: MY_GAME_LIMIT }))
+  return useInfiniteQuery(myGameListOptions({ ...filters, limit: GAME_PAGE_LIMIT }))
 }
 
 export const gameDetailOptions = (gameId: number) =>

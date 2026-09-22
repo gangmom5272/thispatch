@@ -1,7 +1,9 @@
 import { Link } from "react-router"
 import { isApiError } from "@/api/error"
+import LoadMoreSentinel from "@/components/LoadMoreSentinel"
 import { useMyGameList } from "@/hooks/queries/gameQueries"
 import { useSession } from "@/hooks/queries/sessionQueries"
+import { useBufferedPages } from "@/hooks/useBufferedPages"
 import GameCard from "@/pages/GameList/components/GameCard"
 import { paths } from "@/router/paths"
 
@@ -33,6 +35,8 @@ export default function MyGamesPage() {
 
 function MyGameList() {
   const myGames = useMyGameList({})
+  const pages = useBufferedPages(myGames.data?.pages.length ?? 0, myGames, "")
+  const { isFetchNextPageError, fetchNextPage } = myGames
 
   if (myGames.isPending) return <MyGameGridSkeleton />
 
@@ -56,7 +60,10 @@ function MyGameList() {
     )
   }
 
-  if (myGames.data.length === 0) {
+  const items = myGames.data.pages.slice(0, pages.visiblePageCount).flatMap((page) => page.items)
+  const totalCount = myGames.data.pages[0]?.page.totalCount ?? items.length
+
+  if (totalCount === 0) {
     return (
       <div role="status" className={`${panelClass} items-center py-sb-12 text-center`}>
         <p className="text-sb-title font-medium">등록한 게임이 없습니다</p>
@@ -75,17 +82,34 @@ function MyGameList() {
       <h2 className="flex items-center gap-sb-3 text-sb-heading font-medium">
         등록한 게임
         <span className="rounded-sb-tag bg-sb-tint-primary px-sb-2 font-sb-mono text-sb-caption text-sb-primary-text tabular-nums">
-          {myGames.data.length.toLocaleString("en-US")}
+          {totalCount.toLocaleString("en-US")}
         </span>
         <span aria-hidden="true" className="h-px flex-1 bg-sb-hairline" />
       </h2>
       <ul aria-label="내 게임" className="grid grid-cols-1 gap-sb-5 sm:grid-cols-2 lg:grid-cols-4">
-        {myGames.data.map((game) => (
+        {items.map((game) => (
           <li key={game.id} className="h-full">
             <GameCard game={game} isMine />
           </li>
         ))}
       </ul>
+      {isFetchNextPageError && (
+        <div className="flex flex-col items-center gap-sb-2 py-sb-4">
+          <p role="alert" className="text-sb-neg-text">
+            다음 게임을 불러오지 못했습니다. 다시 시도해 주세요.
+          </p>
+          <button type="button" onClick={() => fetchNextPage()} className={secondaryButtonClass}>
+            다시 시도
+          </button>
+        </div>
+      )}
+      {pages.hasMore && !isFetchNextPageError && (
+        <LoadMoreSentinel
+          key={items.length}
+          isLoading={pages.isWaitingNextPage}
+          onReach={pages.showNextPage}
+        />
+      )}
       <p className="flex items-center gap-sb-2 text-sb-ink-mute">
         <span aria-hidden="true" className="text-sb-amber-text">
           ★

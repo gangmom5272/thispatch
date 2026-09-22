@@ -4,14 +4,22 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -22,6 +30,7 @@ class AiPatchClientTest {
 
 	private MockRestServiceServer server;
 	private AiPatchClient client;
+	private final AtomicLong clock = new AtomicLong();
 	private static final String GID = "18446744073709551615";
 
 	@BeforeEach
@@ -29,7 +38,7 @@ class AiPatchClientTest {
 		var builder = RestClient.builder().baseUrl("http://ai.test:8100");
 		server = MockRestServiceServer.bindTo(builder).build();
 		var rest = builder.build();
-		client = new AiPatchClient(rest, rest, true);
+		client = new AiPatchClient(rest, rest, true, clock::get);
 	}
 
 	@Test
@@ -121,6 +130,75 @@ class AiPatchClientTest {
 		assertThatThrownBy(() -> client.structure(new PlanRequest("", "적 체력을 올린다")))
 			.isInstanceOf(BusinessException.class).hasMessage(AiErrorCode.AI_UNAVAILABLE.getMessage());
 		server.verify();
+	}
+
+	@Test
+	void concurrentCallsShareOneSuccessfulHealthCheck() throws Exception {
+		ready();
+		server.expect(ExpectedCount.times(8), requestTo("http://ai.test:8100/plan/restate"))
+			.andRespond(withSuccess("{\"restatements\":[],\"summary\":\"요약\"}", MediaType.APPLICATION_JSON));
+		var callers = Executors.newFixedThreadPool(8);
+		var started = new CountDownLatch(8);
+		var release = new CountDownLatch(1);
+		List<Future<RestateResponse>> results = new ArrayList<>();
+		try {
+			for (int index = 0; index < 8; index++) {
+				results.add(callers.submit(() -> {
+					started.countDown();
+					assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+					return client.restate(new RestateRequest(plan().changes()));
+				}));
+			}
+			assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+			release.countDown();
+			for (var response : results) assertThat(response.get(5, TimeUnit.SECONDS).summary()).isEqualTo("요약");
+			server.verify();
+		} finally {
+			release.countDown();
+			callers.shutdownNow();
+		}
+	}
+
+	@Test
+	void successfulHealthIsReusedForFiveSeconds() {
+		ready();
+		expectRestate();
+		expectRestate();
+		ready();
+		expectRestate();
+		client.restate(new RestateRequest(plan().changes()));
+		clock.set(Duration.ofSeconds(4).toNanos());
+		client.restate(new RestateRequest(plan().changes()));
+		clock.set(Duration.ofSeconds(5).toNanos());
+		client.restate(new RestateRequest(plan().changes()));
+		server.verify();
+	}
+
+	@Test
+	void failedHealthIsNotCached() {
+		server.expect(requestTo("http://ai.test:8100/health"))
+			.andRespond(withSuccess("{\"ready\":false}", MediaType.APPLICATION_JSON));
+		ready();
+		expectRestate();
+		assertThatThrownBy(() -> client.restate(new RestateRequest(plan().changes()))).isInstanceOf(BusinessException.class);
+		assertThat(client.restate(new RestateRequest(plan().changes())).summary()).isEqualTo("요약");
+		server.verify();
+	}
+
+	@Test
+	void upstreamFailureInvalidatesRecentHealth() {
+		ready();
+		server.expect(requestTo("http://ai.test:8100/plan/restate")).andRespond(withServerError());
+		ready();
+		expectRestate();
+		assertThatThrownBy(() -> client.restate(new RestateRequest(plan().changes()))).isInstanceOf(BusinessException.class);
+		assertThat(client.restate(new RestateRequest(plan().changes())).summary()).isEqualTo("요약");
+		server.verify();
+	}
+
+	private void expectRestate() {
+		server.expect(requestTo("http://ai.test:8100/plan/restate"))
+			.andRespond(withSuccess("{\"restatements\":[],\"summary\":\"요약\"}", MediaType.APPLICATION_JSON));
 	}
 
 	@Test

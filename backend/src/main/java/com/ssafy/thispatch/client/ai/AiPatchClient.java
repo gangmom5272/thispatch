@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.LongSupplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -20,9 +21,13 @@ import com.ssafy.thispatch.global.exception.BusinessException;
 @Component
 public class AiPatchClient {
 
+	private static final long HEALTH_CACHE_NANOS = Duration.ofSeconds(5).toNanos();
 	private final RestClient client;
 	private final RestClient healthClient;
 	private final boolean configured;
+	private final LongSupplier nanoTime;
+	private final Object healthMonitor = new Object();
+	private volatile Long readyCheckedAt;
 
 	@Autowired
 	public AiPatchClient(AiProperties properties) {
@@ -31,9 +36,14 @@ public class AiPatchClient {
 	}
 
 	AiPatchClient(RestClient client, RestClient healthClient, boolean configured) {
+		this(client, healthClient, configured, System::nanoTime);
+	}
+
+	AiPatchClient(RestClient client, RestClient healthClient, boolean configured, LongSupplier nanoTime) {
 		this.client = client;
 		this.healthClient = healthClient;
 		this.configured = configured;
+		this.nanoTime = nanoTime;
 	}
 
 	public PlanResponse structure(PlanRequest request) {
@@ -107,15 +117,32 @@ public class AiPatchClient {
 	}
 
 	private <T> T post(String path, Object request, Class<T> responseType) {
-		requireValid(health().ready());
+		requireReady();
 		try {
 			T response = client.post().uri(path).contentType(MediaType.APPLICATION_JSON)
 				.body(request).retrieve().body(responseType);
 			requireValid(response != null);
 			return response;
 		} catch (RestClientException exception) {
+			readyCheckedAt = null;
 			throw failure(exception);
 		}
+	}
+
+	private void requireReady() {
+		if (recentlyReady()) return;
+		synchronized (healthMonitor) {
+			if (recentlyReady()) return;
+			// 성공한 확인만 짧게 공유한다. 실패는 저장하지 않아 복구 직후 재시도할 수 있다.
+			readyCheckedAt = null;
+			requireValid(health().ready());
+			readyCheckedAt = nanoTime.getAsLong();
+		}
+	}
+
+	private boolean recentlyReady() {
+		Long checkedAt = readyCheckedAt;
+		return checkedAt != null && nanoTime.getAsLong() - checkedAt < HEALTH_CACHE_NANOS;
 	}
 
 	private static void requireValid(boolean valid) {

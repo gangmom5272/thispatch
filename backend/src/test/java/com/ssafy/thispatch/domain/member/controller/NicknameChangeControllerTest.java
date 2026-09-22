@@ -88,14 +88,14 @@ class NicknameChangeControllerTest extends com.ssafy.thispatch.support.ActiveMem
 
 	@ParameterizedTest
 	@MethodSource("validNicknames")
-	void acceptsOneToFiftyUnicodeCodePoints(String nickname) throws Exception {
+	void acceptsOneToTwentyUnicodeCodePoints(String nickname) throws Exception {
 		when(repository.changeNicknameIfActive(eq(MEMBER_ID), eq(nickname), any())).thenReturn(1);
 		request(mapper.writeValueAsString(Map.of("nickname", nickname)))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.nickname").value(nickname));
 	}
 
 	static Stream<String> validNicknames() {
-		return Stream.of("a", "가".repeat(50), "🎮".repeat(50));
+		return Stream.of("a", "a".repeat(20), "가".repeat(20), "🎮".repeat(20));
 	}
 
 	@ParameterizedTest
@@ -107,7 +107,7 @@ class NicknameChangeControllerTest extends com.ssafy.thispatch.support.ActiveMem
 	}
 
 	static Stream<String> invalidNicknames() {
-		return Stream.of("", " \t\r\n", "\u2003", "\u00a0", "\u3000", "a".repeat(51), "🎮".repeat(51), "a\u0000b");
+		return Stream.of("", " \t\r\n", "\u2003", "\u00a0", "\u3000", "a".repeat(21), "가".repeat(21), "🎮".repeat(21), "a\u0000b");
 	}
 
 	@ParameterizedTest
@@ -202,7 +202,7 @@ class NicknameChangeControllerTest extends com.ssafy.thispatch.support.ActiveMem
 				assertThat(error.size()).isEqualTo(2);
 				assertThat(error.path("field").asText()).isEqualTo("nickname");
 				assertThat(error.path("message").asText()).isIn("닉네임을 입력해주세요.",
-					"닉네임은 50자 이하로 입력해주세요.", "닉네임에 NUL 문자를 사용할 수 없습니다.");
+					"닉네임은 20자 이하로 입력해주세요.", "닉네임에 NUL 문자를 사용할 수 없습니다.");
 			});
 		} else {
 			assertThat(body.has("errors")).isFalse();

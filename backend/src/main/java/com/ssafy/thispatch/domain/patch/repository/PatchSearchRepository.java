@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ssafy.thispatch.client.ai.AiPatchContracts.CaseChange;
+import com.ssafy.thispatch.domain.patch.config.PatchSearchProperties;
 import com.ssafy.thispatch.domain.patch.dto.request.CaseSearchRequest.ConfirmedSlot;
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class PatchSearchRepository {
 	private static final int CANDIDATES_PER_SLOT = 30;
 	private final NamedParameterJdbcTemplate jdbc;
+	private final PatchSearchProperties properties;
 
 	public Optional<GameContext> findGame(long gameId) {
 		return jdbc.query("""
@@ -54,7 +56,7 @@ public class PatchSearchRepository {
 		List<ConfirmedSlot> slots, List<Integer> genreIds) {
 		// 필터에서 탈락한 후보만큼 HNSW 탐색을 이어 간다. 설정은 이 트랜잭션에서만 유지한다.
 		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.iterative_scan = 'strict_order'");
-		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.ef_search = 100");
+		jdbc.getJdbcTemplate().execute("SET LOCAL hnsw.ef_search = " + properties.efSearch());
 		Map<String, Match> bestByPatch = new LinkedHashMap<>();
 		for (int index = 0; index < slots.size(); index++) {
 			for (Match match : nearest(vectors.get(index), model, slots.get(index), genreIds)) {

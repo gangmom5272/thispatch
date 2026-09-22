@@ -16,7 +16,7 @@ import jakarta.validation.constraints.Pattern;
 public record NicknameRequest(
 	@NotNull(message = "닉네임을 입력해주세요.")
 	@Pattern(regexp = "(?s).*[^\\p{javaWhitespace}\\p{Z}].*", message = "닉네임을 입력해주세요.")
-	@CodePointLength(max = 50, message = "닉네임은 50자 이하로 입력해주세요.")
+	@CodePointLength(max = 20, message = "닉네임은 20자 이하로 입력해주세요.")
 	@Pattern(regexp = "[^\\x00]*", message = "닉네임에 NUL 문자를 사용할 수 없습니다.")
 	@JsonDeserialize(using = NicknameDeserializer.class)
 	String nickname

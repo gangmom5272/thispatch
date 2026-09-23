@@ -305,6 +305,18 @@ export interface LanguageAnalysisDetail {
   representativeReviews: RepresentativeReview[]
 }
 
+export interface LanguageAnalysisReviews {
+  meta: AnalysisMeta
+  languageCode: string
+  representativeReviews: RepresentativeReview[]
+}
+
+export interface LanguageAnalysisSummary {
+  meta: AnalysisMeta
+  languageCode: string
+  summary: LanguageSummary
+}
+
 export interface PatchPlanHistoryItem {
   planId: number
   gameId: number

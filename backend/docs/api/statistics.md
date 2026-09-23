@@ -319,9 +319,46 @@ B4 = [Q3, ∞)
 표본 기준은 선택 구간의 리뷰 수(전체 선택이면 네 구간 합계)다. 30건 미만이면 기존 fallback 형식으로
 해당 리뷰를 도움됨 수·리뷰 ID 내림차순으로 제공하고 `itemsByBand`는 빈 구간까지 B1~B4를 유지한다.
 전체 기간 경계 데이터도 없으면 `scale.sampleCount`는 0, 세 분위 값은 `null`이다.
-`topics`는 토픽 ID 순서이며, 언급률의 분모는 해당 구간 리뷰 수다. `differencePp`는 선택 구간 언급률에서
-전체 언급률을 뺀 값이며, 전체 선택이면 `null`이다. `highestBand`는 비어 있지 않은 구간 중 언급률 최대 구간이고
-동률이면 작은 구간 번호를 사용한다.
+
+**Processing Rules / Notes — 토픽 분류 리뷰 수와 언급률 (S15P21A202-302)**
+
+| Field | Type | Description |
+|---|---|---|
+| `overall.reviewCount`, `bands[].reviewCount` | long | 토픽 분류 여부와 관계없는 분석 대상 리뷰 수. 기존 의미 유지 |
+| `overall.classifiedReviewCount` | long | 조회 기간의 분석 대상 전체 리뷰 중 토픽이 하나 이상 분류된 고유 리뷰 수 |
+| `bands[].classifiedReviewCount` | long | 같은 조회 기간·해당 구간에서 토픽이 하나 이상 분류된 고유 리뷰 수 |
+| `topics[].mentionCount` | long | 전체 또는 선택 구간에서 해당 토픽이 분류된 리뷰 수 |
+
+- 최신 `recent_review`를 기존 규칙대로 선택한 뒤 `review_topic` 연결이 하나 이상 있는 리뷰를 센다.
+  한 리뷰에 여러 토픽이 붙어도 `classifiedReviewCount`에는 1건만 포함한다.
+  토픽 연결 행 수 또는 `mentionCount` 합계는 분모로 사용하지 않는다.
+- 기간·게임·구간·플레이타임 결측/음수 제외 기준은 기존 리뷰 수 집계와 동일하다.
+  `overall.classifiedReviewCount`는 B1~B4 분류 리뷰 수의 합계다.
+- `topics`는 토픽 ID 순서다. `mentionRate`는 해당 토픽 리뷰 수를 전체 또는 선택 구간의
+  `classifiedReviewCount`로 나눈 백분율이다. `overallMentionRate`는 선택 구간과 관계없이
+  전체 해당 토픽 리뷰 수 / `overall.classifiedReviewCount` × 100이다.
+- `differencePp`는 선택 구간 언급률에서 전체 언급률을 뺀 값이며, 전체 선택이면 `null`이다.
+  비율은 소수점 둘째 자리에서 반올림(`HALF_UP`)하여 소수점 한 자리까지 반환한다.
+  차이는 반올림된 두 비율로 계산한다.
+- 분모가 0이면 `mentionRate` 또는 `overallMentionRate`는 숫자 `0.0`으로 반환한다.
+  구간 선택 시 `differencePp`도 이 값을 사용해 계산한다. 예를 들어 선택 구간 분류 리뷰가 0건이고
+  전체 언급률이 50.0이면 `differencePp=-50.0`이다. 전체 선택 시에는 기존처럼 `null`이다.
+- `highestBand`는 각 구간의 분류 리뷰 수를 분모로 계산한 언급률이 가장 높은 구간이다.
+  분류 리뷰가 0건인 구간은 제외하고, 동률이면 작은 구간 번호를 선택한다.
+  모든 구간의 분류 리뷰가 0건이면 `highestBand`는 `null`이다.
+- 표본 판단은 분류 여부와 관계없는 `reviewCount >= 30`을 유지한다.
+  표본이 충분하면 `bandNo` 선택과 관계없이 B1~B4를 모두 제공하고, 분류 리뷰가 0건이어도
+  `topics`의 토픽 목록은 유지하되 언급률을 `0.0`으로 반환한다.
+- 표본 부족 시 `bands=[]`, `topics=[]`와 기존 fallback을 유지한다.
+  `overall.classifiedReviewCount`는 항상 제공하며, 이 경우 선택 구간 분류 리뷰 수를 위한 별도 필드는 추가하지 않는다.
+- 한 리뷰에 여러 토픽이 붙을 수 있으므로 토픽별 비율의 합은 100%를 넘을 수 있다.
+  예: 전체 리뷰 1,000건, 분류 리뷰 100건, 해당 토픽 리뷰 40건이면
+  `reviewCount=1000`, `classifiedReviewCount=100`, `mentionCount=40`, `mentionRate=40.0`이다.
+- 상단 카드의 `reviewCount`, 긍정/부정 건수와 긍정률은 분석 대상 전체 리뷰 기준을 유지한다.
+  AI 요약 API와 입력 표본 선정은 변경하지 않는다. 신규 schema/migration은 추가하지 않는다.
+- 프론트의 토픽 건수 표시는 `classifiedReviewCount`를 사용하고, 막대와 전체 비교선 모두 새 비율을 사용한다.
+  분류 리뷰가 0건이면 언급률은 `0.0`이며, `classifiedReviewCount`로 분류된 리뷰가 없다는 안내를
+  구분할 수 있다. 프론트 구현은 별도 연동 범위다.
 
 **Response 주요 구조**
 
@@ -353,6 +390,7 @@ B4 = [Q3, ∞)
       "minMinutes": 0,
       "maxMinutesExclusive": null,
       "reviewCount": 486,
+      "classifiedReviewCount": 360,
       "positiveCount": 332,
       "negativeCount": 154,
       "positiveRate": 68.4,
@@ -364,6 +402,7 @@ B4 = [Q3, ∞)
         "minMinutes": 0,
         "maxMinutesExclusive": 90,
         "reviewCount": 120,
+        "classifiedReviewCount": 90,
         "positiveCount": 86,
         "negativeCount": 34,
         "positiveRate": 71.7,
@@ -375,12 +414,12 @@ B4 = [Q3, ∞)
         "topicId": 1,
         "name": "밸런스/너프·버프",
         "mentionCount": 212,
-        "mentionRate": 43.6,
-        "overallMentionRate": 43.6,
+        "mentionRate": 58.9,
+        "overallMentionRate": 58.9,
         "differencePp": null,
         "highestBand": {
           "band": "B4",
-          "mentionRate": 68.2
+          "mentionRate": 80.0
         }
       }
     ],
@@ -391,10 +430,16 @@ B4 = [Q3, ∞)
 
 **Processing Rules / Notes — 표본 부족 fallback**
 
+아래는 축약 예시다. `overall`의 기존 필드와 함께 `classifiedReviewCount`를 제공한다.
+
 ```json
 {
   "data": {
     "isSufficientSample": false,
+    "overall": {
+      "reviewCount": 22,
+      "classifiedReviewCount": 15
+    },
     "bands": [],
     "topics": [],
     "fallback": {

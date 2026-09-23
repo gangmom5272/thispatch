@@ -139,7 +139,7 @@ export interface PlanStructure {
   restatement: PlanRestatement
 }
 
-export type CaseSearchSort = "REVIEW_COUNT_DESC"
+export type CaseSearchSort = "SIMILARITY_DESC" | "REVIEW_COUNT_DESC" | "PATCHED_ON_DESC"
 
 export type CaseOutcome = "NEGATIVE_SHIFT" | "NO_CHANGE" | "POSITIVE_SHIFT"
 

@@ -12,9 +12,11 @@ import type { CaseSearchInput, CaseSearchSort, ConfirmedSlot, PlanSlot } from "@
 import OutcomeColumn from "./components/OutcomeColumn"
 
 const SORT_OPTIONS: Array<{ value: CaseSearchSort; label: string }> = [
-  { value: "REVIEW_COUNT_DESC", label: "리뷰 수 많은 순" },
+  { value: "SIMILARITY_DESC", label: "유사도 높은 순" },
+  { value: "REVIEW_COUNT_DESC", label: "리뷰 많은 순" },
+  { value: "PATCHED_ON_DESC", label: "최신순" },
 ]
-const DEFAULT_SORT: CaseSearchSort = "REVIEW_COUNT_DESC"
+const DEFAULT_SORT: CaseSearchSort = "SIMILARITY_DESC"
 
 const panelClass = "rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface"
 const linkClass =

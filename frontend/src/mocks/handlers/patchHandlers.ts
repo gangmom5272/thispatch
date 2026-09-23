@@ -3,6 +3,7 @@ import type {
   CaseGroup,
   CaseSearch,
   CaseSearchInput,
+  CaseSearchSort,
   PatchDetail,
   PatchPlanHistoryDetail,
   PatchPlanHistoryItem,
@@ -390,6 +391,12 @@ const sampleGroups: CaseGroup[] = [
   },
 ]
 
+const caseSorters: Record<CaseSearchSort, (a: SimilarCase, b: SimilarCase) => number> = {
+  SIMILARITY_DESC: (a, b) => b.similarity - a.similarity,
+  REVIEW_COUNT_DESC: (a, b) => b.reviewCount - a.reviewCount,
+  PATCHED_ON_DESC: (a, b) => b.patchedOn.localeCompare(a.patchedOn),
+}
+
 function repeatCases(cases: SimilarCase[], count: number): SimilarCase[] {
   return Array.from({ length: count }, (_, index) => {
     const base = cases[index % cases.length]
@@ -491,6 +498,7 @@ export const patchHandlers = [
       )
     }
     const genreIds = body.genreIds ?? []
+    const sortCases = caseSorters[body.sort]
     const groups = genreIds.length === 0 ? emptyGroups : sampleGroups
     const data: CaseSearch = {
       status: "COMPLETED",
@@ -501,9 +509,7 @@ export const patchHandlers = [
       totalCount: groups.reduce((sum, group) => sum + group.caseCount, 0),
       groups: groups.map((group) => ({
         ...group,
-        cases: repeatCases(group.cases, group.caseCount).sort(
-          (a, b) => b.reviewCount - a.reviewCount,
-        ),
+        cases: repeatCases(group.cases, group.caseCount).sort(sortCases),
       })),
       notices: [
         "유사도는 변경 슬롯 임베딩 유사도(0~100)이며 성공 확률이 아닙니다.",

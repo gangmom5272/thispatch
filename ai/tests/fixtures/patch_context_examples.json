@@ -1,0 +1,77 @@
+{
+  "note": "Actual stored quotes. Proposed reference labels are not independently reviewed. Live tests use semantic_checks, not exact equality to these proposed labels.",
+  "examples": [
+    {
+      "id": "2417769111288594927",
+      "game": "Blade Symphony",
+      "url": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2417769111288594927",
+      "title": "New swords and emblems, now in Patch 4!",
+      "context": "",
+      "text": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight.",
+      "reference": {
+        "target": "players",
+        "target_type": "player",
+        "attribute": null,
+        "action": "fix",
+        "values": null,
+        "conditions": [],
+        "source_sentence": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight."
+      },
+      "semantic_checks": {
+        "allowed_actions": [
+          "fix"
+        ],
+        "forbidden_target_types": []
+      }
+    },
+    {
+      "id": "1827626365749667",
+      "game": "War Thunder",
+      "url": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1827626365749667",
+      "title": "Meet the “Ninth Wave” Major Update! ",
+      "context": "",
+      "text": "RN Italia — the display of the star on the ship’s bow has been corrected. ( Report ).",
+      "reference": {
+        "target": "star",
+        "target_type": "other",
+        "attribute": "display",
+        "action": "fix",
+        "values": null,
+        "conditions": [],
+        "source_sentence": "RN Italia — the display of the star on the ship’s bow has been corrected. ( Report )."
+      },
+      "semantic_checks": {
+        "allowed_actions": [
+          "fix"
+        ],
+        "forbidden_target_types": [
+          "weapon"
+        ]
+      }
+    },
+    {
+      "id": "1823191198611935",
+      "game": "Rain World",
+      "url": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1823191198611935",
+      "title": "Patch Notes 1.11.6",
+      "context": "",
+      "text": "Restored Artificer's ability to explosion jump using the Special key.",
+      "reference": {
+        "target": "Artificer",
+        "target_type": "unknown",
+        "attribute": "explosion jump",
+        "action": "change",
+        "values": null,
+        "conditions": [],
+        "source_sentence": "Restored Artificer's ability to explosion jump using the Special key."
+      },
+      "semantic_checks": {
+        "allowed_actions": [
+          "fix",
+          "change"
+        ],
+        "forbidden_target_types": []
+      }
+    }
+  ]
+}

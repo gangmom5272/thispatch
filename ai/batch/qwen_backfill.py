@@ -75,50 +75,28 @@ def to_codes(change):
     return "modify", d
 
 
-GENERIC_TARGETS = {"player", "players", "game", "system", "ui", "hud", "server", "servers", "client", "menu", "settings",
-                   "audio", "performance", "controller", "camera", "matchmaking", "network", "localization", "text"}
-_TOK = re.compile(r"[a-z0-9]+")
-
-
-def is_grounded(target, text, context):
-    """근거 검사 3단계 (9/14 완화): ① 없음/일반 대상어 → valid ② 원문 부분문자열 → valid
-    ③ 대상 토큰의 60% 이상이 원문·문맥에 있으면 valid ('ship collision bug' → ship, collision). 그 외 needs_review.
-    Top50 실측: 정확 일치만 인정하면 21% 가 needs_review 였고 대부분 'player', 'game', 의역이었다."""
-    if not target:
-        return True
-    t = target.lower().strip()
-    if t in GENERIC_TARGETS:
-        return True
-    hay = (text + " " + context).lower()
-    if t in hay:
-        return True
-    toks = [w for w in _TOK.findall(t) if len(w) > 2]
-    if not toks:
-        return True
-    return sum(1 for w in toks if w in hay) / len(toks) >= 0.6
-
-
-def facts_to_rows(gid, seq, context, text, changes):
+def facts_to_rows(gid, seq, context, text, changes, title=""):
     rows, n = [], 0
-    for c in changes:
+    for c in qwen_worker.validate_changes(changes, title, context, text):
         codes = to_codes(c)
         if not codes:
             continue
         n += 1
         target = (c.get("target") or "").strip() or None
-        grounded = is_grounded(target, text, context)
         rows.append({"gid": gid, "seq": seq, "change_seq": n, "change_type": codes[0], "direction": codes[1],
                      "target_type": c.get("target_type") if c.get("target_type") in TARGET_TYPES else "unknown",
                      "target": target, "attribute": (c.get("attribute") or None),
-                     "evidence_quote": text, "validation_status": "valid" if grounded else "needs_review",
+                     "evidence_quote": c["source_sentence"], "validation_status": "valid",
                      "model_version": MODEL_TAG})
     return rows
 
 
-def load_done():
+def load_done(dt):
     if not STATE.exists():
-        return set()
-    return {json.loads(l)["key"] for l in STATE.open(encoding="utf-8") if l.strip()}
+        return {}
+    records = [json.loads(line) for line in STATE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return {record["key"]: record["input_hash"] for record in records
+            if record.get("model") == MODEL_TAG and record.get("dt") == dt and record.get("input_hash")}
 
 
 # ---- 1. 고르기 ----
@@ -128,9 +106,11 @@ def select_todo(dt, include_skipped=False, top_apps=0, since_days=0):
                           columns=["gid", "seq", "text", "embedding_status", "model_version"])
     if ck.empty:
         sys.exit("patch_chunk 없음. embed_chunks.py 먼저")
-    done = load_done()
+    done = load_done(dt)
     ck["key"] = ck.gid + ":" + ck.seq.astype(str)
-    todo = ck[~ck.key.isin(done) & (ck.model_version != MODEL_TAG)]
+    ck["input_hash"] = ck.text.map(lambda text: qwen_worker.input_hash(*qwen_worker.split_text(text)))
+    completed_input = ck.key.map(done).eq(ck.input_hash)
+    todo = ck[~completed_input & (ck.model_version != MODEL_TAG)]
     if not include_skipped:
         todo = todo[todo.embedding_status != "skipped"]   # 규칙이 변경점을 못 찾은 청크는 기본 제외(호출 1/3 절약)
     print(f"chunks total={len(ck):,} done={len(done):,} todo={len(todo):,}")
@@ -172,21 +152,50 @@ def write_shards(todo, n, d=SHARDS):
     print(f"shards={n} × {each:,.0f} 청크 ≈ 대당 {each*1.5/3600:.1f}시간 → {d}")
 
 
+def verify_sources(chunk_dir, records):
+    """응답이 현재 입력 청크에서 만들어졌는지 확인한다. 검증 전에는 파일을 교체하지 않는다."""
+    keys = pa.array(sorted(records))
+    found = set()
+    for path in sorted(chunk_dir.glob("part-*.parquet")):
+        table = pq.read_table(path, columns=["gid", "seq", "text"])
+        row_keys = pc.binary_join_element_wise(table["gid"], pc.cast(table["seq"], pa.string()), ":")
+        for chunk in table.filter(pc.is_in(row_keys, value_set=keys)).to_pylist():
+            key = f"{chunk['gid']}:{chunk['seq']}"
+            record = records[key]
+            title, context, text = qwen_worker.split_text(chunk["text"])
+            expected = qwen_worker.input_hash(title, context, text)
+            actual = qwen_worker.input_hash(record.get("title", ""), record["context"], record["text"])
+            if expected != actual or record.get("input_hash") != expected:
+                raise ValueError("Qwen result does not match the current source chunk: " + key)
+            found.add(key)
+    if found != set(records):
+        raise ValueError("Qwen result references missing source chunks")
+
+
 # ---- 3. 반영 ----
 def apply(dt, raw_dirs):
     """워커 결과 jsonl 을 읽어 patch_change 를 교체하고 patch_chunk.model_version 을 바꾼다."""
     recs = {}
     files = [f for d in raw_dirs for f in sorted(Path(d).glob("facts-*.jsonl"))]
     for f in files:
-        for line in f.open(encoding="utf-8"):
-            if line.strip():
-                r = json.loads(line)
-                recs[f"{r['gid']}:{r['seq']}"] = r      # 같은 청크가 두 번 있으면 뒤(최근) 것
-    done = load_done()
-    new = {k: r for k, r in recs.items() if k not in done}
+        with f.open(encoding="utf-8") as source:
+            for line in source:
+                if line.strip():
+                    r = json.loads(line)
+                    if r.get("model") == MODEL_TAG:
+                        recs[f"{r['gid']}:{r['seq']}"] = r      # 같은 판본의 결과만 현재 판본으로 반영
+    done = load_done(dt)
+    new = {k: r for k, r in recs.items() if not r.get("input_hash") or done.get(k) != r["input_hash"]}
     print(f"결과 파일 {len(files)}개 · 청크 {len(recs):,} · 새로 반영 {len(new):,}")
     if not new:
-        return
+        return 0
+
+    verify_sources(out_dir("embeddings/patch_chunk", dt), new)
+
+    # 원본 보관과 Parquet 교체 전에 전 청크를 검사한다. 한 청크의 불완전한 결과로 기존 행을 지우지 않는다.
+    rows = []
+    for r in new.values():
+        rows += facts_to_rows(r["gid"], int(r["seq"]), r["context"], r["text"], r["changes"], r.get("title", ""))
 
     # 원본 응답 보관 (HDFS /embeddings/qwen_raw/dt=D). 컬럼·매핑을 바꿔도 재실행 없이 여기서 다시 뽑는다
     raw_dir = out_dir("embeddings/qwen_raw", dt); raw_dir.mkdir(parents=True, exist_ok=True)
@@ -195,9 +204,6 @@ def apply(dt, raw_dirs):
             shutil.copy2(f, raw_dir / f"{f.parent.name}-{f.name}")
     (raw_dir / SUCCESS).touch()
 
-    rows = []
-    for r in new.values():
-        rows += facts_to_rows(r["gid"], int(r["seq"]), r["context"], r["text"], r["changes"])
     keys = set(new)
 
     ch_dir = out_dir("embeddings/patch_change", dt)
@@ -230,12 +236,13 @@ def apply(dt, raw_dirs):
     STATE.parent.mkdir(parents=True, exist_ok=True)
     with STATE.open("a", encoding="utf-8") as f:
         for k in keys:
-            f.write(json.dumps({"key": k, "dt": dt, "model": MODEL_TAG, "ts": ts}) + "\n")
+            f.write(json.dumps({"key": k, "dt": dt, "model": MODEL_TAG, "input_hash": new[k]["input_hash"], "ts": ts}) + "\n")
     print(f"반영: patch_chunk {touched:,}행 model_version 갱신 · patch_change {len(rows):,}행 교체")
     if rows:
         df = pd.DataFrame(rows)
         print("  target filled", f"{df.target.notna().mean():.0%}", "| attribute filled", f"{df.attribute.notna().mean():.0%}",
               "| needs_review", f"{(df.validation_status == 'needs_review').mean():.0%}")
+    return len(new)
 
 
 def main():
@@ -265,9 +272,9 @@ def main():
     write_shards(todo, 1, SHARDS / "local")
     raw_dir = out_dir("embeddings/qwen_raw", a.dt)
     n = qwen_worker.run(SHARDS / "local" / "shard-01.jsonl", raw_dir, max_seconds=a.max_seconds)
-    if n == 0:
+    applied = apply(a.dt, [raw_dir])
+    if n == 0 and applied == 0:
         sys.exit(f"Qwen 결과 0건. Ollama 상태 확인: {qwen_worker.DEFAULT_URL}")
-    apply(a.dt, [raw_dir])
 
 
 if __name__ == "__main__":

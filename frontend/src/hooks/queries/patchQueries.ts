@@ -55,7 +55,7 @@ export function useCaseSearch(gameId: number, input: CaseSearchInput | null) {
   return useQuery({
     ...caseSearchOptions(
       gameId,
-      input ?? { planId: 0, confirmedSlots: [], genreIds: [], sort: "REVIEW_COUNT_DESC" },
+      input ?? { planId: 0, confirmedSlots: [], genreIds: [], sort: "SIMILARITY_DESC" },
     ),
     enabled: input !== null,
   })

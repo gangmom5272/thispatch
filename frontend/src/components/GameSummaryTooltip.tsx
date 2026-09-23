@@ -1,21 +1,27 @@
-import type { Game, MyGame } from "@/types"
+import type { GameSummary } from "@/types"
+
+/** 게임 상세 조회(GET /games/{gameId})에는 개발사·플레이 모드가 없어 둘은 생략할 수 있다. */
+export type GameSummaryTooltipData = Pick<
+  GameSummary,
+  "releasedOn" | "description" | "userTags" | "reviewCount"
+> &
+  Partial<Pick<GameSummary, "developer" | "playModes">>
 
 interface GameSummaryTooltipProps {
   id: string
-  game: Game | MyGame
+  summary: GameSummaryTooltipData
 }
 
 /**
  * 게임 카드 옆에 뜨는 Steam 스토어식 요약 툴팁.
  * 카드에 이미 있는 이미지·장르·긍정률·최근 패치는 빼고, 카드에 없는 정보만 담는다.
- * 포인터를 받지 않으므로 툴팁 위로 마우스가 지나가면 카드를 벗어난 것으로 처리된다.
  */
-export default function GameSummaryTooltip({ id, game }: GameSummaryTooltipProps) {
-  const summary = game.gameSummary
+export default function GameSummaryTooltip({ id, summary }: GameSummaryTooltipProps) {
   const release = [
     summary.releasedOn ? `출시 ${summary.releasedOn}` : null,
     summary.developer,
   ].filter(Boolean)
+  const playModes = summary.playModes ?? []
 
   return (
     <div
@@ -25,7 +31,7 @@ export default function GameSummaryTooltip({ id, game }: GameSummaryTooltipProps
     >
       <div className="flex flex-col gap-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute tabular-nums">
         {release.length > 0 && <p>{release.join(" · ")}</p>}
-        {summary.playModes.length > 0 && <p>{summary.playModes.join(" · ")}</p>}
+        {playModes.length > 0 && <p>{playModes.join(" · ")}</p>}
       </div>
 
       <p className="leading-relaxed">{summary.description ?? "게임 설명이 없습니다."}</p>

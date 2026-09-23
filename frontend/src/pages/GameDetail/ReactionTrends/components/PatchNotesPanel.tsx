@@ -39,7 +39,8 @@ export function PatchNotesPanel({ gameId, patchId }: PatchNotesPanelProps) {
   })()
 
   return (
-    <section className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
+    <section className="flex flex-col gap-sb-3 rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
+      <h2 className="text-sb-title font-medium text-sb-ink">패치 노트</h2>
       {!patchId ? (
         <p className="text-sb-body text-sb-ink-mute">패치를 선택하면 노트가 표시됩니다.</p>
       ) : null}
@@ -53,7 +54,7 @@ export function PatchNotesPanel({ gameId, patchId }: PatchNotesPanelProps) {
         <>
           <header className="flex flex-wrap items-start justify-between gap-sb-3">
             <div className="min-w-0">
-              <h2 className="text-sb-title font-medium text-sb-ink">{displayTitle}</h2>
+              <h3 className="text-sb-body font-medium text-sb-ink">{displayTitle}</h3>
               <p className="mt-sb-1 font-sb-mono text-sb-caption text-sb-ink-mute">
                 {query.data.patchedOn} · {query.data.publishedAt}
               </p>
@@ -84,11 +85,9 @@ export function PatchNotesPanel({ gameId, patchId }: PatchNotesPanelProps) {
             </div>
           </header>
           {showTranslationError ? (
-            <div className="mt-sb-3">
-              <TranslationErrorNotice error={translationQuery.error} />
-            </div>
+            <TranslationErrorNotice error={translationQuery.error} />
           ) : (
-            <pre className="mt-sb-3 max-h-64 overflow-y-auto whitespace-pre-wrap font-sb-sans text-sb-body leading-relaxed text-sb-ink">
+            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap font-sb-sans text-sb-body leading-relaxed text-sb-ink">
               {displayBody}
             </pre>
           )}

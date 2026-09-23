@@ -239,3 +239,10 @@ export function useToggleSaved() {
 - **재발급**: `POST /auth/refresh`, body `{ refreshToken }` → `data.accessToken`. 401 시 single-flight로 한 번만 재발급 후 원요청을 재시도한다. 실패 시 토큰을 비운다.
 - **세션**: `GET /session`(Authorization 선택)으로 로그인 여부를 확인한다. 도메인 API는 `src/api/session.ts`, 훅은 `useSession`.
 - 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중일 수 있다 — 함수 위 TODO를 실제 호출로 교체한다.
+
+## 반응 추세 데모 조회 기간
+
+- 반응 추세 조회는 `startDate`와 `endDate`를 함께 전달하고 두 날짜 모두 Query Key에 포함한다.
+- 데모 종료일은 `src/lib/seoulDate.ts`의 `LATEST_DATA_DATE`(`2026-09-22`)에서 관리한다. 서울 기준 오늘이 더 이르면 오늘까지 조회한다.
+- 초기 조회는 종료일 포함 42일이며, 이전 일자를 추가 조회해도 종료일은 유지한다. AI 요약은 차트에 표시된 기간을 사용한다.
+- 수집 재개 후에는 데모 종료일 상수를 실제 집계 범위에 맞춰 갱신한다.

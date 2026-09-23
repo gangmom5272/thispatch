@@ -10,11 +10,12 @@ import { api } from "@/api/client"
 export function getReactionTrends(
   gameId: number,
   startDate: string,
+  endDate: string,
   signal?: AbortSignal,
 ): Promise<ReactionTrends> {
   return api.get<ReactionTrends>({
     path: `/games/${gameId}/reaction-trends`,
-    config: { params: { startDate }, signal },
+    config: { params: { startDate, endDate }, signal },
   })
 }
 

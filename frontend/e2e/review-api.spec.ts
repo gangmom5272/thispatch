@@ -343,7 +343,8 @@ test("집계 이력이 없어도 반응 추세 화면과 AI 이용 불가 안내
   await expect(page.getByText("Unexpected Application Error!")).toHaveCount(0)
 })
 
-test("집계 마지막 날 이후 일자는 반응 추세 차트에서 제외한다", async ({ page }) => {
+test("발표일에도 반응 추세와 AI 요약을 데모 종료일까지 조회한다", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-28T10:00:00+09:00"))
   const day = (date: string, reviewCount: number) => ({
     date,
     dataAvailable: true,
@@ -381,8 +382,19 @@ test("집계 마지막 날 이후 일자는 반응 추세 차트에서 제외한
     },
     "/games/7/summaries/reaction-trends": { meta, summary: unavailable },
   })
+  const trendsRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/games/7/reaction-trends",
+  )
+  const summaryRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/games/7/summaries/reaction-trends",
+  )
   await page.goto("/games/7/reaction-trends")
-  await expect(page.getByText("09-23")).toBeVisible()
+  const trendsParams = new URL((await trendsRequest).url()).searchParams
+  expect(trendsParams.get("startDate")).toBe("2026-08-12")
+  expect(trendsParams.get("endDate")).toBe("2026-09-22")
+  expect(new URL((await summaryRequest).url()).searchParams.get("endDate")).toBe("2026-09-22")
+  await expect(page.getByRole("application").getByText("09-22", { exact: true })).toBeVisible()
+  await expect(page.getByText("09-23")).toHaveCount(0)
   await expect(page.getByText("09-24")).toHaveCount(0)
-  await expect(page.getByRole("paragraph").filter({ hasText: /^30건$/ })).toBeVisible()
+  await expect(page.getByRole("paragraph").filter({ hasText: /^10건$/ })).toBeVisible()
 })

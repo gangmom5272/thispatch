@@ -141,12 +141,12 @@ function seriesForGame(gameId: number): ReactionTrendDaily[] {
   return series
 }
 
-function buildTrends(gameId: number, startDate: string): ReactionTrends {
-  const all = seriesForGame(gameId)
+function buildTrends(gameId: number, startDate: string, endDate: string): ReactionTrends {
+  const series = seriesForGame(gameId)
+  const all = series.filter((day) => day.date <= endDate)
   const availableStart = all[0]?.date ?? startDate
   const availableEnd = all.at(-1)?.date ?? startDate
   const daily = all.filter((day) => day.date >= startDate)
-  const endDate = daily.at(-1)?.date ?? availableEnd
   return {
     meta: {
       period: {
@@ -156,7 +156,7 @@ function buildTrends(gameId: number, startDate: string): ReactionTrends {
       },
       timezone: "Asia/Seoul",
       aggregationBasis: "UPDATED_AT",
-      lastCollectedAt: `${availableEnd}T04:00:00Z`,
+      lastCollectedAt: `${series.at(-1)?.date ?? availableEnd}T04:00:00Z`,
       dataStatus: "AVAILABLE",
     },
     availablePeriod: {
@@ -184,11 +184,17 @@ export const reactionTrendsHandlers = [
     if (!mockGames.some((game) => game.id === gameId)) {
       return respond(404, "게임을 찾을 수 없습니다.")
     }
-    const startDate = new URL(request.url).searchParams.get("startDate")
+    const url = new URL(request.url)
+    const startDate = url.searchParams.get("startDate")
+    const today = formatSeoulDate(new Date())
+    const endDate = url.searchParams.get("endDate") ?? today
     if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
       return respond(400, "시작 날짜가 올바르지 않습니다.")
     }
-    return respond(200, "성공했습니다.", buildTrends(gameId, startDate))
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate || endDate > today) {
+      return respond(400, "종료 날짜가 올바르지 않습니다.")
+    }
+    return respond(200, "성공했습니다.", buildTrends(gameId, startDate, endDate))
   }),
 
   http.get(`${baseURL}/games/:gameId/summaries/reaction-trends`, async ({ request, params }) => {

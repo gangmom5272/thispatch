@@ -1,8 +1,9 @@
-import { useId, useState } from "react"
+import { useId } from "react"
 import { Link } from "react-router"
 import { GameImage } from "@/components/GameImage"
 import RateBar from "@/components/RateBar"
 import { GAME_GENRES } from "@/constants/games"
+import { useCardTooltip } from "@/hooks/useCardTooltip"
 import { formatDeltaPp, formatPercent } from "@/lib/format"
 import { gameCaseDetailPath } from "@/router/paths"
 import type { CaseDetailLocationState, CaseOutcome, SimilarCase } from "@/types"
@@ -31,58 +32,6 @@ function SummaryRow({ label, tone, text }: { label: string; tone: string; text: 
   )
 }
 
-interface GameInfoAreaProps {
-  item: SimilarCase
-  detailPath: string
-  detailState: CaseDetailLocationState
-}
-
-function GameInfoArea({ item, detailPath, detailState }: GameInfoAreaProps) {
-  const popoverId = useId()
-  const [open, setOpen] = useState(false)
-  const show = () => setOpen(true)
-  const hide = () => setOpen(false)
-
-  return (
-    <div className="relative" onMouseLeave={hide}>
-      <Link
-        to={detailPath}
-        state={detailState}
-        aria-label={`${item.gameTitle} 사례 상세 비교`}
-        aria-describedby={open ? popoverId : undefined}
-        onMouseEnter={show}
-        onFocus={show}
-        onBlur={hide}
-        onKeyDown={(event) => event.key === "Escape" && hide()}
-        className="relative z-10 block rounded-t-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-      >
-        <GameImage
-          src={item.capsuleImageUrl}
-          loading="lazy"
-          className="aspect-[460/215] w-full rounded-t-sb-control"
-        />
-      </Link>
-      <div className="flex flex-wrap items-center justify-between gap-sb-2 px-sb-4 pt-sb-3">
-        <h3 className="min-w-0 text-sb-title font-medium">{item.gameTitle}</h3>
-        <span className="flex items-center gap-sb-1 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-px">
-          <span className="text-sb-ink-mute">유사도</span>
-          <span className="font-sb-mono font-medium text-sb-primary tabular-nums">
-            {item.similarity.toFixed(1)}
-          </span>
-        </span>
-        {open && (
-          <CaseGamePopover
-            id={popoverId}
-            gameId={item.gameId}
-            title={item.gameTitle}
-            capsuleImageUrl={item.capsuleImageUrl}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
 interface CaseCardProps {
   item: SimilarCase
   gameId: number
@@ -90,7 +39,15 @@ interface CaseCardProps {
   outcomeName: string
 }
 
+/** 카드 어디를 눌러도 사례 상세로 이동하고, 머무르거나 포커스하면 카드 옆에 게임 요약 툴팁이 뜬다. */
 export default function CaseCard({ item, gameId, outcome, outcomeName }: CaseCardProps) {
+  const {
+    rootRef,
+    isOpen: isTooltipOpen,
+    tooltipClassName,
+    handlers: tooltipHandlers,
+  } = useCardTooltip<HTMLLIElement>()
+  const tooltipId = useId()
   const genreNames = item.genres
     .map((id) => GAME_GENRES.find((genre) => genre.id === id)?.name)
     .filter((name) => name !== undefined)
@@ -99,8 +56,36 @@ export default function CaseCard({ item, gameId, outcome, outcomeName }: CaseCar
   const detailState: CaseDetailLocationState = { case: item, outcome, outcomeName }
 
   return (
-    <li className="relative flex flex-col rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-surface hover:border-sb-hairline-strong has-focus-visible:border-sb-primary">
-      <GameInfoArea item={item} detailPath={detailPath} detailState={detailState} />
+    <li
+      ref={rootRef}
+      {...tooltipHandlers}
+      className="relative flex flex-col rounded-sb-control border border-sb-hairline-cool bg-sb-canvas-surface hover:border-sb-hairline-strong has-focus-visible:border-sb-primary"
+    >
+      <GameImage
+        src={item.capsuleImageUrl}
+        loading="lazy"
+        className="aspect-[460/215] w-full rounded-t-sb-control"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-sb-2 px-sb-4 pt-sb-3">
+        <h3 className="min-w-0 text-sb-title font-medium">
+          {/* after 오버레이가 카드 전체를 덮어 어디를 눌러도 사례 상세로 이동한다. */}
+          <Link
+            to={detailPath}
+            state={detailState}
+            aria-label={`${item.gameTitle} 사례 상세 비교`}
+            aria-describedby={isTooltipOpen ? tooltipId : undefined}
+            className="rounded-sb-tag after:absolute after:inset-0 after:z-[1] after:rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
+          >
+            {item.gameTitle}
+          </Link>
+        </h3>
+        <span className="flex items-center gap-sb-1 rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-px">
+          <span className="text-sb-ink-mute">유사도</span>
+          <span className="font-sb-mono font-medium text-sb-primary tabular-nums">
+            {item.similarity.toFixed(1)}
+          </span>
+        </span>
+      </div>
       <div className="flex flex-col gap-sb-2 px-sb-4 pt-sb-2 pb-sb-3">
         {genreNames.length > 0 && <p className="text-sb-ink-mute">{genreNames.join(" · ")}</p>}
         <p className="font-sb-mono text-sb-ink-mute tabular-nums">
@@ -148,15 +133,13 @@ export default function CaseCard({ item, gameId, outcome, outcomeName }: CaseCar
             text={item.differenceSummary}
           />
         </div>
-
-        <Link
-          to={detailPath}
-          state={detailState}
-          className="mt-sb-1 self-end rounded-sb-tag text-sb-primary after:absolute after:inset-0 after:rounded-sb-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
-        >
-          사례 상세 비교 <span aria-hidden="true">→</span>
-        </Link>
       </div>
+
+      {isTooltipOpen && (
+        <div className={tooltipClassName}>
+          <CaseGamePopover id={tooltipId} gameId={item.gameId} />
+        </div>
+      )}
     </li>
   )
 }

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """기획안 전체의 문맥을 유지하면서 원문에 근거한 변경점만 추출한다."""
 import json
+import re
 import time
 from typing import Literal
 
@@ -61,26 +62,70 @@ class PlanFacts(BaseModel):
     changes: list[PlanFact] = Field(max_length=20)
 
 
+# 모델이 숫자와 단위 사이에 넣거나 뺀 가로 공백만 허용한다. 단어·숫자 내부 공백은 유지한다.
+NUMBER_UNIT_GAP = re.compile(
+    r"(?<=[0-9])(?P<gap>[ \t\u00a0]*)(?=%p|%|초|분|시간|일|주|개월|년|배|회|개|명|ms\b|s\b)"
+)
+
+
+def source_excerpt(excerpt: str, source: str) -> str | None:
+    """허용된 단위 공백 차이로만 매칭하고, 실제 원문 구간을 반환한다."""
+    if not excerpt.strip():
+        return None
+    pattern_parts = []
+    position = 0
+    for gap in NUMBER_UNIT_GAP.finditer(excerpt):
+        gap_start, gap_end = gap.span("gap")
+        pattern_parts.append(re.escape(excerpt[position:gap_start]))
+        pattern_parts.append(r"[ \t\u00a0]*")
+        position = gap_end
+    pattern_parts.append(re.escape(excerpt[position:]))
+    pattern = "".join(pattern_parts)
+    # '5 초'를 '15초', '-5초', '0.5초'의 일부로 매칭해 수치를 바꾸면 안 된다.
+    if excerpt[0] in "+-−0123456789":
+        pattern = r"(?<![0-9.,+−-])" + pattern
+    if excerpt[-1].isdigit():
+        pattern += r"(?![0-9]|[.,][0-9])"
+    if re.search(r"[0-9][ \t\u00a0]*(?:%p|%|ms|s)$", excerpt):
+        pattern += r"(?![A-Za-z])"
+    match = re.search(pattern, source)
+    return match.group(0) if match else None
+
+
 def validate_grounding(facts: PlanFacts, title: str, text: str) -> None:
     """용어 치환·없는 수치·번역된 조건이 검색 입력으로 그대로 넘어가는 것을 막는다.
 
     인용 일치만으로 수치의 의미적 귀속까지 증명하지는 못한다. 속성별 최소 구절 추출은
     프롬프트에서 요구하고, 실제 모델의 회귀 입력으로 별도 확인한다.
     """
+    grounded_changes = []
     for change in facts.changes:
-        if not change.source_sentence.strip() or change.source_sentence not in text:
+        sentence = source_excerpt(change.source_sentence, text)
+        if sentence is None:
             raise ValueError("source_sentence must be an exact nonempty excerpt from text")
-        if change.target is not None and (
-            not change.target.strip() or (change.target not in text and change.target not in title)
-        ):
-            raise ValueError("target must be an exact source excerpt; do not translate entity names")
+        updates = {"source_sentence": sentence}
+        if change.target is not None:
+            target = source_excerpt(change.target, text) or source_excerpt(change.target, title)
+            if target is None:
+                raise ValueError("target must be an exact source excerpt; do not translate entity names")
+            updates["target"] = target
         for field in ("attribute", "values"):
             value = getattr(change, field)
-            if value is not None and (not value.strip() or value not in change.source_sentence):
-                raise ValueError(f"{field} must occur in this property's source_sentence; use null if absent")
+            if value is not None:
+                grounded_value = source_excerpt(value, sentence)
+                if grounded_value is None:
+                    raise ValueError(f"{field} must occur in this property's source_sentence; use null if absent")
+                updates[field] = grounded_value
+        conditions = []
         for condition in change.conditions:
-            if not condition.strip() or condition not in text:
+            grounded_condition = source_excerpt(condition, text)
+            if grounded_condition is None:
                 raise ValueError("conditions must be exact nonempty excerpts from text, including negation")
+            conditions.append(grounded_condition)
+        updates["conditions"] = conditions
+        grounded_changes.append(change.model_copy(update=updates))
+    # 일부 변경점만 정상인 응답을 전체 성공처럼 반환하지 않는다.
+    facts.changes = grounded_changes
 
 
 def extract_plan(title: str, text: str) -> list[PlanFact]:

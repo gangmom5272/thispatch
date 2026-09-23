@@ -45,6 +45,21 @@ class PlanApiTest(unittest.TestCase):
         self.assertEqual(body["code"], "AI_UPSTREAM_ERROR")
         self.assertNotIn("private", response.text)
 
+    @patch("plan.httpx.post")
+    def test_returns_original_number_unit_spacing_in_success_response(self, post):
+        text = "첫 귀환 시간을 5초 앞당긴다."
+        post.return_value = model_response([
+            {"target": "첫 귀환", "target_type": "system", "attribute": "시간", "action": "decrease",
+             "values": "5 초", "conditions": [], "source_sentence": "첫 귀환 시간을 5 초 앞당긴다."},
+        ])
+        response = self.client.post("/plan/structure", json={"text": text})
+        self.assertEqual(response.status_code, 200)
+        change = response.json()["changes"][0]
+        self.assertEqual(change["source_sentence"], text)
+        self.assertEqual(change["values"], "5초")
+        self.assertIn("(5초)", change["restatement"])
+        post.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

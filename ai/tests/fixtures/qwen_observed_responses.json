@@ -1,0 +1,253 @@
+{
+  "description": "Actual Qwen responses provided 2026-09-23. Replaying these is offline validation, not a new model run.",
+  "source_hashes": {
+    "api/plan.py": "f28ca22a36cad5c0f0c5de31f472e279e4353e444bc274657e4144d8abae5024",
+    "batch/qwen_prompt.py": "3a327bd6f74cf78430bbc3e9d18fc10e23628994674d2301e4c74a984bb8fac9",
+    "batch/qwen_worker.py": "65de300b69c067d8687ff20801252932d347596c2f679ad35ec9e490ffb0a8cc"
+  },
+  "records": [
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "권총",
+            "target_type": "weapon",
+            "attribute": "피해량",
+            "action": "increase",
+            "values": "5%",
+            "conditions": [],
+            "source_sentence": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+          },
+          {
+            "target": "소총",
+            "target_type": "weapon",
+            "attribute": "재장전 시간",
+            "action": "decrease",
+            "values": "8%",
+            "conditions": [],
+            "source_sentence": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "도끼",
+            "target_type": "item",
+            "attribute": "내구성",
+            "action": "increase",
+            "values": "30%",
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+          },
+          {
+            "target": "나무 채집 속도",
+            "target_type": "skill",
+            "attribute": "속도",
+            "action": "increase",
+            "values": null,
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "도끼",
+            "target_type": "item",
+            "attribute": "내구성",
+            "action": "increase",
+            "values": "30%",
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고"
+          },
+          {
+            "target": "나무 채집 속도",
+            "target_type": "skill",
+            "attribute": "속도",
+            "action": "increase",
+            "values": null,
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "나무 채집 속도를 소폭 상향한다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5초 앞당긴다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "정글 몬스터",
+            "target_type": "enemy",
+            "attribute": "경험치",
+            "action": "decrease",
+            "values": null,
+            "conditions": [],
+            "source_sentence": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5 초 앞당긴다."
+          },
+          {
+            "target": "첫 귀환 시간",
+            "target_type": "system",
+            "attribute": null,
+            "action": "decrease",
+            "values": "5 초",
+            "conditions": [],
+            "source_sentence": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5 초 앞당긴다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "저격총 반동을 줄이고 연사 속도를 10% 낮춘다. 랭크 게임에만 적용하며, 신규 맵에서는 기존 값을 유지한다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "저격총",
+            "target_type": "weapon",
+            "attribute": "반동",
+            "action": "decrease",
+            "values": null,
+            "conditions": [
+              "랭크 게임에만 적용하며",
+              "신규 맵에서는 기존 값을 유지한다."
+            ],
+            "source_sentence": "저격총 반동을 줄이고"
+          },
+          {
+            "target": "저격총",
+            "target_type": "weapon",
+            "attribute": "연사 속도",
+            "action": "decrease",
+            "values": "10%",
+            "conditions": [
+              "랭크 게임에만 적용하며",
+              "신규 맵에서는 기존 값을 유지한다."
+            ],
+            "source_sentence": "연사 속도를 10% 낮춘다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "batch",
+      "input": [
+        {
+          "id": "2417769111288594927",
+          "title": "New swords and emblems, now in Patch 4!",
+          "context": "",
+          "text": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight."
+        },
+        {
+          "id": "1827626365749667",
+          "title": "Meet the “Ninth Wave” Major Update! ",
+          "context": "",
+          "text": "RN Italia — the display of the star on the ship’s bow has been corrected. ( Report )."
+        },
+        {
+          "id": "1823191198611935",
+          "title": "Patch Notes 1.11.6",
+          "context": "",
+          "text": "Restored Artificer's ability to explosion jump using the Special key."
+        }
+      ],
+      "response": {
+        "items": [
+          {
+            "changes": [
+              {
+                "source_sentence": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight.",
+                "action": "fix",
+                "attribute": "ability to change weapon",
+                "conditions": [
+                  "within an AI Opponent fight"
+                ],
+                "target": "players",
+                "target_type": "player",
+                "values": null
+              },
+              {
+                "source_sentence": "RN Italia — the display of the star on the ship’s bow has been corrected.",
+                "action": "fix",
+                "attribute": "display of the star",
+                "conditions": [],
+                "target": "RN Italia",
+                "target_type": "item",
+                "values": null
+              }
+            ],
+            "id": "2417769111288594927"
+          },
+          {
+            "changes": [
+              {
+                "source_sentence": "Restored Artificer's ability to explosion jump using the Special key.",
+                "action": "fix",
+                "attribute": "ability to explosion jump",
+                "conditions": [
+                  "using the Special key"
+                ],
+                "target": "Artificer",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "1827626365749667"
+          },
+          {
+            "changes": [
+              {
+                "source_sentence": "Restored Artificer's ability to explosion jump using the Special key.",
+                "action": "fix",
+                "attribute": "ability to explosion jump",
+                "conditions": [
+                  "using the Special key"
+                ],
+                "target": "Artificer",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "1823191198611935"
+          }
+        ]
+      }
+    }
+  ]
+}

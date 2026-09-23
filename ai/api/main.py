@@ -184,6 +184,9 @@ def restate(c, codes):
         verb = {"add": "추가", "remove": "제거", "deprecate": "지원 중단", "fix": "수정"}[ct]
     val = f" ({c['values']})" if c.get("values") else ""
     cond = f" — 조건: {', '.join(c['conditions'])}" if c.get("conditions") else ""
+    if not c.get("attribute") and c.get("source_sentence"):
+        # '도끼 증가 (30%)'처럼 무엇이 변했는지 빠진 요약 대신 원문을 보여준다.
+        return c["source_sentence"] + cond
     return f"{tgt}{attr} {verb}{val}{cond}"
 
 

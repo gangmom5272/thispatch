@@ -93,8 +93,11 @@ class PlanGroundingTest(unittest.TestCase):
 
         post.reset_mock(side_effect=True)
         post.return_value = model_response(invalid)
-        with self.assertRaisesRegex(ValueError, "source validation"):
-            extract_plan("", text)
+        result = extract_plan("", text)
+        self.assertEqual(len(result), 2)
+        self.assertIsNone(result[0].attribute)
+        self.assertEqual(result[0].values, "30%")
+        self.assertEqual(result[0].source_sentence, valid[0]["source_sentence"])
         self.assertEqual(post.call_count, 2)
 
     def test_failed_validation_does_not_partially_modify_facts(self):
@@ -194,7 +197,8 @@ class PlanLiveTest(unittest.TestCase):
         changes = extract_plan("", "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외.")
         self.assertEqual(len(changes), 2)
         self.assertEqual([change.values for change in changes], ["30%", None])
-        self.assertIn("내구도", changes[0].attribute)
+        self.assertTrue(changes[0].attribute is None or "내구도" in changes[0].attribute)
+        self.assertIn("내구도", changes[0].source_sentence)
         for change in changes:
             self.assertIn("하드코어 모드 제외", " ".join(change.conditions))
 

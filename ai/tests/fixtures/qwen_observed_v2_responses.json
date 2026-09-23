@@ -1,0 +1,336 @@
+{
+  "description": "Actual Qwen v2 diagnostic responses, 2026-09-23. Offline replay is not a fresh model run.",
+  "source_hashes": {
+    "api/plan.py": "b6264e71bd5fe2bd64a4f5c2fdc3837a126a4d9f882d465642849ee54d7aec32",
+    "api/main.py": "8423a3d08b2210ce977290a9bbb7d1e3a06851a3679f0c3fa1d38c88ddb34c24",
+    "batch/qwen_prompt.py": "cfe40d3e0f801a17610fa4077274da82db37d6fa8c047154a659d6a3b12a1cb0",
+    "batch/qwen_worker.py": "4aa1b757c4f4af7f7e5dee43ba3e119e6954d3cf1cdbf6e9fde143d4853d60de"
+  },
+  "records": [
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "권총",
+            "target_type": "weapon",
+            "attribute": "피해량",
+            "action": "increase",
+            "values": "5%",
+            "conditions": [],
+            "source_sentence": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+          },
+          {
+            "target": "소총",
+            "target_type": "weapon",
+            "attribute": "재장전 시간",
+            "action": "decrease",
+            "values": "8%",
+            "conditions": [],
+            "source_sentence": "권총 피해량을 5% 높이고 소총 재장전 시간을 8% 줄인다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "도끼",
+            "target_type": "item",
+            "attribute": "내구성",
+            "action": "increase",
+            "values": "30%",
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+          },
+          {
+            "target": "나무 채집 속도",
+            "target_type": "skill",
+            "attribute": "속도",
+            "action": "increase",
+            "values": null,
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "도끼 내구도를 30% 늘리고 나무 채집 속도를 소폭 상향한다. 하드코어 모드 제외."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "도끼",
+            "target_type": "item",
+            "attribute": "내구성",
+            "action": "increase",
+            "values": "30%",
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "도끼 내구도를 30% 늘리고"
+          },
+          {
+            "target": "나무 채집 속도",
+            "target_type": "skill",
+            "attribute": "속도",
+            "action": "increase",
+            "values": null,
+            "conditions": [
+              "하드코어 모드 제외"
+            ],
+            "source_sentence": "나무 채집 속도를 소폭 상향한다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5초 앞당긴다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "정글 몬스터",
+            "target_type": "enemy",
+            "attribute": "경험치",
+            "action": "decrease",
+            "values": null,
+            "conditions": [],
+            "source_sentence": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5 초 앞당긴다."
+          },
+          {
+            "target": "첫 귀환 시간",
+            "target_type": "system",
+            "attribute": null,
+            "action": "decrease",
+            "values": "5 초",
+            "conditions": [],
+            "source_sentence": "정글 몬스터 경험치를 하향하고 첫 귀환 시간을 5 초 앞당긴다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "plan",
+      "input": {
+        "title": "",
+        "text": "저격총 반동을 줄이고 연사 속도를 10% 낮춘다. 랭크 게임에만 적용하며, 신규 맵에서는 기존 값을 유지한다."
+      },
+      "response": {
+        "changes": [
+          {
+            "target": "저격총",
+            "target_type": "weapon",
+            "attribute": "반동",
+            "action": "decrease",
+            "values": null,
+            "conditions": [
+              "랭크 게임에만 적용하며",
+              "신규 맵에서는 기존 값을 유지한다."
+            ],
+            "source_sentence": "저격총 반동을 줄이고"
+          },
+          {
+            "target": "저격총",
+            "target_type": "weapon",
+            "attribute": "연사 속도",
+            "action": "decrease",
+            "values": "10%",
+            "conditions": [
+              "랭크 게임에만 적용하며",
+              "신규 맵에서는 기존 값을 유지한다."
+            ],
+            "source_sentence": "연사 속도를 10% 낮춘다."
+          }
+        ]
+      }
+    },
+    {
+      "client": "batch",
+      "input": [
+        {
+          "id": "27793479405b921e5ea262ca64c55a7670a2677a54c4d5e8cd0cd12c46c3a2b3",
+          "title": "New swords and emblems, now in Patch 4!",
+          "context": "",
+          "text": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight."
+        },
+        {
+          "id": "ebb6090b9487407a5558df5b0deba9adcf785aaabd32d6eec36af8ff286bc6e2",
+          "title": "Meet the “Ninth Wave” Major Update! ",
+          "context": "",
+          "text": "RN Italia — the display of the star on the ship’s bow has been corrected. ( Report )."
+        },
+        {
+          "id": "6b4ec690dd469e38461fae28500bf09e6d4613738158df7ec19bfd2e58f1a475",
+          "title": "Patch Notes 1.11.6",
+          "context": "",
+          "text": "Restored Artificer's ability to explosion jump using the Special key."
+        }
+      ],
+      "response": {
+        "items": [
+          {
+            "changes": [
+              {
+                "source_sentence": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight.",
+                "action": "fix",
+                "attribute": "ability to change weapon",
+                "conditions": [
+                  "within an AI Opponent fight"
+                ],
+                "target": "players",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "27793479405b921e5ea262ca64c55a7670a2677a54c4d5e8cd0cd12c46c3a2b3"
+          },
+          {
+            "changes": [
+              {
+                "source_sentence": "RN Italia — the display of the star on the ship’s bow has been corrected.",
+                "action": "fix",
+                "attribute": "display of the star",
+                "conditions": [
+                  "on the ship's bow"
+                ],
+                "target": "RN Italia",
+                "target_type": "item",
+                "values": null
+              }
+            ],
+            "id": "ebb6090b9487407a5558df5b0deba9adcf785aaabd32d6eec36af8ff286bc6e2"
+          },
+          {
+            "changes": [
+              {
+                "source_sentence": "Restored Artificer's ability to explosion jump using the Special key.",
+                "action": "fix",
+                "attribute": "ability to explosion jump",
+                "conditions": [
+                  "using the Special key"
+                ],
+                "target": "Artificer",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "6b4ec690dd469e38461fae28500bf09e6d4613738158df7ec19bfd2e58f1a475"
+          }
+        ]
+      }
+    },
+    {
+      "client": "batch",
+      "input": [
+        {
+          "id": "27793479405b921e5ea262ca64c55a7670a2677a54c4d5e8cd0cd12c46c3a2b3",
+          "title": "New swords and emblems, now in Patch 4!",
+          "context": "",
+          "text": "Fixed players not being able to change a bot’s weapon within an AI Opponent fight."
+        }
+      ],
+      "response": {
+        "items": [
+          {
+            "changes": [
+              {
+                "source_sentence": "Fixed players not being able to change a bot's weapon within an AI Opponent fight.",
+                "action": "fix",
+                "attribute": "ability to change weapon",
+                "conditions": [
+                  "within an AI Opponent fight"
+                ],
+                "target": "players",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "27793479405b921e5ea262ca64c55a7670a2677a54c4d5e8cd0cd12c46c3a2b3"
+          }
+        ]
+      }
+    },
+    {
+      "client": "batch",
+      "input": [
+        {
+          "id": "ebb6090b9487407a5558df5b0deba9adcf785aaabd32d6eec36af8ff286bc6e2",
+          "title": "Meet the “Ninth Wave” Major Update! ",
+          "context": "",
+          "text": "RN Italia — the display of the star on the ship’s bow has been corrected. ( Report )."
+        }
+      ],
+      "response": {
+        "items": [
+          {
+            "changes": [
+              {
+                "source_sentence": "RN Italia — the display of the star on the ship's bow has been corrected.",
+                "action": "fix",
+                "attribute": "display",
+                "conditions": [],
+                "target": "RN Italia",
+                "target_type": "item",
+                "values": null
+              }
+            ],
+            "id": "ebb6090b9487407a5558df5b0deba9adcf785aaabd32d6eec36af8ff286bc6e2"
+          }
+        ]
+      }
+    },
+    {
+      "client": "batch",
+      "input": [
+        {
+          "id": "6b4ec690dd469e38461fae28500bf09e6d4613738158df7ec19bfd2e58f1a475",
+          "title": "Patch Notes 1.11.6",
+          "context": "",
+          "text": "Restored Artificer's ability to explosion jump using the Special key."
+        }
+      ],
+      "response": {
+        "items": [
+          {
+            "changes": [
+              {
+                "source_sentence": "Restored Artificer's ability to explosion jump using the Special key.",
+                "action": "fix",
+                "attribute": "ability to explosion jump",
+                "conditions": [
+                  "using the Special key"
+                ],
+                "target": "Artificer",
+                "target_type": "player",
+                "values": null
+              }
+            ],
+            "id": "6b4ec690dd469e38461fae28500bf09e6d4613738158df7ec19bfd2e58f1a475"
+          }
+        ]
+      }
+    }
+  ]
+}

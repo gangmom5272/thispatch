@@ -26,7 +26,7 @@ class PlanApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(set(body), {"changes", "model", "prompt_version", "elapsed_ms"})
-        self.assertEqual(body["prompt_version"], "plan-grounded-1")
+        self.assertEqual(body["prompt_version"], "plan-grounded-2")
         self.assertEqual([change["change_seq"] for change in body["changes"]], [1, 2])
         for change in body["changes"]:
             self.assertEqual(change["change_type"], "modify")
@@ -44,6 +44,14 @@ class PlanApiTest(unittest.TestCase):
         self.assertEqual(set(body), {"code", "message", "responsedAt"})
         self.assertEqual(body["code"], "AI_UPSTREAM_ERROR")
         self.assertNotIn("private", response.text)
+
+    def test_short_input_uses_project_validation_error_contract(self):
+        response = self.client.post("/plan/structure", json={"text": "짧음"})
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["code"], "VALIDATION_FAILED")
+        self.assertIn("responsedAt", body)
+        self.assertEqual(body["errors"][0]["field"], "text")
 
     @patch("plan.httpx.post")
     def test_returns_original_number_unit_spacing_in_success_response(self, post):

@@ -29,8 +29,8 @@ export function addDaysIso(isoDate: string, deltaDays: number): string {
   return `${yy}-${mm}-${dd}`
 }
 
-/** 집계가 존재하는 마지막 날. 2026-09-24부터는 추석 연휴로 신규 집계가 없다. */
-export const LATEST_DATA_DATE = "2026-09-23"
+/** 발표 데모에서 사용하는 집계 종료일. 수집 재개 후 실제 집계 범위에 맞춰 갱신한다. */
+export const LATEST_DATA_DATE = "2026-09-22"
 
 /** 오늘(서울)과 집계 마지막 날 중 이른 쪽. */
 export function latestDataDate(): string {

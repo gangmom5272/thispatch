@@ -9,8 +9,8 @@ import {
 
 export const statisticsKeys = {
   all: ["statistics"] as const,
-  reactionTrends: (gameId: number, startDate: string) =>
-    [...statisticsKeys.all, "reaction-trends", gameId, startDate] as const,
+  reactionTrends: (gameId: number, startDate: string, endDate: string) =>
+    [...statisticsKeys.all, "reaction-trends", gameId, startDate, endDate] as const,
   reactionTrendsSummary: (gameId: number, startDate: string, endDate: string) =>
     [...statisticsKeys.all, "reaction-trends-summary", gameId, startDate, endDate] as const,
   patch: (gameId: number, patchId: string) =>
@@ -22,16 +22,20 @@ export const statisticsKeys = {
     [...statisticsKeys.all, "playtime-topics-summary", gameId, bandKey] as const,
 }
 
-export const reactionTrendsOptions = (gameId: number, startDate: string) =>
+export const reactionTrendsOptions = (gameId: number, startDate: string, endDate: string) =>
   queryOptions({
-    queryKey: statisticsKeys.reactionTrends(gameId, startDate),
-    queryFn: ({ signal }) => getReactionTrends(gameId, startDate, signal),
+    queryKey: statisticsKeys.reactionTrends(gameId, startDate, endDate),
+    queryFn: ({ signal }) => getReactionTrends(gameId, startDate, endDate, signal),
   })
 
-export function useReactionTrends(gameId: number | null, startDate: string | null) {
+export function useReactionTrends(
+  gameId: number | null,
+  startDate: string | null,
+  endDate: string | null,
+) {
   return useQuery({
-    ...reactionTrendsOptions(gameId ?? 0, startDate ?? ""),
-    enabled: gameId !== null && Boolean(startDate),
+    ...reactionTrendsOptions(gameId ?? 0, startDate ?? "", endDate ?? ""),
+    enabled: gameId !== null && Boolean(startDate) && Boolean(endDate),
     placeholderData: keepPreviousData,
   })
 }

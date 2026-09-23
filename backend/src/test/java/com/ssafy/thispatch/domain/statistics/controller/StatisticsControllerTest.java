@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.ssafy.thispatch.common.TimeRule;
 import com.ssafy.thispatch.domain.game.exception.GameDetailErrorCode;
 import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository.ReviewRow;
 import com.ssafy.thispatch.domain.statistics.repository.PlaytimeAnalysisRepository.BandReview;
@@ -57,6 +58,7 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 	void period() {
 		when(context.recentPeriod()).thenReturn(PERIOD);
 		when(context.periodStarting(PERIOD.startDate())).thenReturn(PERIOD);
+		when(context.periodBetween(any(), any())).thenCallRealMethod();
 	}
 
 	@Test
@@ -84,11 +86,75 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			new Patch("18446744073709551615", "패치", start.plusDays(1), 6, 7)));
 		mvc.perform(get("/games/7/reaction-trends").param("startDate", start.toString()).header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.summary.reviewCount").value(4))
+			.andExpect(jsonPath("$.data.meta.period.endDate").value(PERIOD.endDate().toString()))
 			.andExpect(jsonPath("$.data.summary.positiveRate").value(50.0))
 			.andExpect(jsonPath("$.data.daily[1].dataAvailable").value(true))
 			.andExpect(jsonPath("$.data.daily[1].positiveRate").isEmpty())
 			.andExpect(jsonPath("$.data.daily[1].patches[0].patchIndex").value(6))
 			.andExpect(jsonPath("$.data.daily[1].patches[0].totalPatchCount").value(7));
+		verify(context).periodStarting(start);
+		verify(context, never()).periodBetween(any(), any());
+	}
+
+	@Test
+	void reactionTrendsUsesExplicitEndDateForDaysTotalsAndPatches() throws Exception {
+		var start = LocalDate.of(2026, 9, 15);
+		var end = LocalDate.of(2026, 9, 23);
+		var selectedPeriod = new ReviewPeriod(start, end);
+		when(context.periodStarting(start)).thenReturn(new ReviewPeriod(start, LocalDate.of(2026, 9, 28)));
+		when(daily.findWithinPeriod(7, selectedPeriod)).thenReturn(start.datesUntil(end.plusDays(1))
+			.map(date -> new DailyCounts(date, 1, 0, 1, 1, 0, 0)).toList());
+		when(daily.firstStatDate(7)).thenReturn(start.minusDays(10));
+		when(patches.findWithinPeriod(7, selectedPeriod)).thenReturn(List.of(new Patch("123", "패치", end, 2, 3)));
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", start.toString())
+			.param("endDate", end.toString()).header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.meta.period.endDate").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.meta.period.dayCount").value(9))
+			.andExpect(jsonPath("$.data.availablePeriod.endDate").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.daily.length()").value(9))
+			.andExpect(jsonPath("$.data.daily[8].date").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.daily[8].patches[0].id").value("123"))
+			.andExpect(jsonPath("$.data.summary.reviewCount").value(9));
+		verify(context, never()).periodStarting(any());
+		verify(daily).findWithinPeriod(7, selectedPeriod);
+		verify(patches).findWithinPeriod(7, selectedPeriod);
+	}
+
+	@Test
+	void singleDayBeforeFirstStatisticHasNoAvailablePeriod() throws Exception {
+		var date = PERIOD.startDate();
+		var selectedPeriod = new ReviewPeriod(date, date);
+		when(daily.firstStatDate(7)).thenReturn(date.plusDays(1));
+		when(daily.findWithinPeriod(7, selectedPeriod)).thenReturn(List.of(new DailyCounts(date, 0, 0, 0, 0, 0, 0)));
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", date.toString())
+			.param("endDate", date.toString()).header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.meta.period.dayCount").value(1))
+			.andExpect(jsonPath("$.data.availablePeriod").isEmpty())
+			.andExpect(jsonPath("$.data.daily.length()").value(1))
+			.andExpect(jsonPath("$.data.summary.reviewCount").value(0));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"invalid", "2026-02-30", "2026-09-02"})
+	void reactionTrendsRejectsMalformedOrReversedEndDate(String endDate) throws Exception {
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", PERIOD.startDate().toString())
+			.param("endDate", endDate).header("Authorization", auth()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.data").doesNotExist())
+			.andExpect(jsonPath("$.success").doesNotExist());
+		verifyNoInteractions(daily, patches);
+	}
+
+	@Test
+	void reactionTrendsRejectsFutureEndDate() throws Exception {
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", PERIOD.startDate().toString())
+			.param("endDate", LocalDate.now(TimeRule.ZONE).plusDays(1).toString()).header("Authorization", auth()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+		verifyNoInteractions(daily, patches);
 	}
 
 	@Test

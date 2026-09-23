@@ -48,20 +48,46 @@ public class ReviewSummaryService {
 	}
 
 	public LanguageDetail language(long gameId, String languageCode) {
+		validateLanguageCode(languageCode);
+		ReviewPeriod period = context.recentPeriod();
+		Input input = reader.read(gameId, period, null, languageCode, 20);
+		return new LanguageDetail(AnalysisMeta.of(period), languageCode,
+			summarizeLanguage(gameId, languageCode, period, input), representatives(input));
+	}
+
+	public LanguageReviews languageReviews(long gameId, String languageCode) {
+		validateLanguageCode(languageCode);
+		ReviewPeriod period = context.recentPeriod();
+		Input input = reader.read(gameId, period, null, languageCode, 4);
+		return new LanguageReviews(AnalysisMeta.of(period), languageCode, representatives(input));
+	}
+
+	public LanguageSummaryResponse languageSummary(long gameId, String languageCode) {
+		validateLanguageCode(languageCode);
+		ReviewPeriod period = context.recentPeriod();
+		Input input = reader.read(gameId, period, null, languageCode, 20);
+		return new LanguageSummaryResponse(AnalysisMeta.of(period), languageCode,
+			summarizeLanguage(gameId, languageCode, period, input));
+	}
+
+	private static void validateLanguageCode(String languageCode) {
 		if (languageCode == null || !languageCode.matches("[a-z]{2,20}") || "koreana".equals(languageCode)) {
 			throw new BusinessException(CommonErrorCode.INVALID_REQUEST);
 		}
-		ReviewPeriod period = context.recentPeriod();
-		Input input = reader.read(gameId, period, null, languageCode, 20);
+	}
+
+	private LanguageSummary summarizeLanguage(long gameId, String languageCode, ReviewPeriod period, Input input) {
 		SummaryBody summary = summarize(gameId, period, input, "LANGUAGE", languageCode, 20,
 			new Selection("HELPFUL_DESC", 20, input.targetCount() + "건 중 도움됨 상위 "
 				+ input.reviews().size() + "건"));
-		List<ReviewItem> representatives = input.reviews().stream().limit(4)
+		return new LanguageSummary(summary.status(), summary.text(), summary.targetPeriod(),
+			summary.targetReviewCount(), summary.usedReviewCount(), summary.selection(),
+			summary.reasonCode(), summary.message());
+	}
+
+	private static List<ReviewItem> representatives(Input input) {
+		return input.reviews().stream().limit(4)
 			.map(row -> ReviewItem.of(row, input.tags().getOrDefault(row.id(), List.of()))).toList();
-		return new LanguageDetail(AnalysisMeta.of(period), languageCode,
-			new LanguageSummary(summary.status(), summary.text(), summary.targetPeriod(),
-				summary.targetReviewCount(), summary.usedReviewCount(), summary.selection(),
-				summary.reasonCode(), summary.message()), representatives);
 	}
 
 	private SummaryBody summarize(long gameId, ReviewPeriod period, Input input, String scopeType,
@@ -118,5 +144,11 @@ public class ReviewSummaryService {
 
 	public record LanguageDetail(AnalysisMeta meta, String languageCode, LanguageSummary summary,
 		List<ReviewItem> representativeReviews) {
+	}
+
+	public record LanguageReviews(AnalysisMeta meta, String languageCode, List<ReviewItem> representativeReviews) {
+	}
+
+	public record LanguageSummaryResponse(AnalysisMeta meta, String languageCode, LanguageSummary summary) {
 	}
 }

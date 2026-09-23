@@ -3,6 +3,8 @@ import type {
   AnalysisMeta,
   LanguageAnalysis,
   LanguageAnalysisDetail,
+  LanguageAnalysisReviews,
+  LanguageAnalysisSummary,
   LanguageShare,
   RepresentativeReview,
 } from "../../types"
@@ -246,43 +248,60 @@ export const languageAnalysisHandlers = [
     }
     return HttpResponse.json(okEnvelope(data))
   }),
-  http.get(
-    `${baseURL}/games/:gameId/language-analysis/:languageCode`,
-    async ({ request, params }) => {
-      await delay(500)
-      if (!userFromAuthHeader(request)) {
-        return unauthorized()
-      }
-      if (!mockGames.some((game) => game.id === Number(params.gameId))) {
-        return gameNotFound()
-      }
-      const languageCode = String(params.languageCode)
-      const language = languages.find((item) => item.languageCode === languageCode)
-      if (!language) {
-        return HttpResponse.json(errorBody("400", "언어 코드가 올바르지 않습니다."), {
-          status: 400,
-        })
-      }
-      const seed = reviewSeeds[languageCode] ?? fallbackSeed
-      const usedReviewCount = Math.min(language.reviewCount, 40)
-      const data: LanguageAnalysisDetail = {
-        meta,
-        languageCode,
-        summary: {
-          status: "COMPLETED",
-          text: seed.summary,
-          targetPeriod: meta.period,
-          targetReviewCount: language.reviewCount,
-          usedReviewCount,
-          selection: {
-            code: "HELPFUL_DESC",
-            limit: 40,
-            description: `${language.reviewCount}건 중 도움됨 상위 ${usedReviewCount}건`,
+  ...["", "/reviews", "/summary"].map((suffix) =>
+    http.get(
+      `${baseURL}/games/:gameId/language-analysis/:languageCode${suffix}`,
+      async ({ request, params }) => {
+        await delay(suffix === "/reviews" ? 200 : 500)
+        if (!userFromAuthHeader(request)) {
+          return unauthorized()
+        }
+        if (!mockGames.some((game) => game.id === Number(params.gameId))) {
+          return gameNotFound()
+        }
+        const languageCode = String(params.languageCode)
+        const language = languages.find((item) => item.languageCode === languageCode)
+        if (!language) {
+          return HttpResponse.json(errorBody("400", "언어 코드가 올바르지 않습니다."), {
+            status: 400,
+          })
+        }
+        const seed = reviewSeeds[languageCode] ?? fallbackSeed
+        const usedReviewCount = Math.min(language.reviewCount, 20)
+        const data: LanguageAnalysisDetail = {
+          meta,
+          languageCode,
+          summary: {
+            status: language.isSufficientSample ? "COMPLETED" : "SKIPPED",
+            text: language.isSufficientSample ? seed.summary : null,
+            targetPeriod: meta.period,
+            targetReviewCount: language.reviewCount,
+            usedReviewCount: language.isSufficientSample ? usedReviewCount : null,
+            reasonCode: language.isSufficientSample ? undefined : "INSUFFICIENT_SAMPLE",
+            selection: language.isSufficientSample
+              ? {
+                  code: "HELPFUL_DESC",
+                  limit: 20,
+                  description: `${language.reviewCount}건 중 도움됨 상위 ${usedReviewCount}건`,
+                }
+              : null,
           },
-        },
-        representativeReviews: withReviewIds(languageCode, seed.reviews),
-      }
-      return HttpResponse.json(okEnvelope(data))
-    },
+          representativeReviews: withReviewIds(languageCode, seed.reviews),
+        }
+        if (suffix === "/reviews") {
+          const reviews: LanguageAnalysisReviews = {
+            meta,
+            languageCode,
+            representativeReviews: data.representativeReviews,
+          }
+          return HttpResponse.json(okEnvelope(reviews))
+        }
+        if (suffix === "/summary") {
+          const summary: LanguageAnalysisSummary = { meta, languageCode, summary: data.summary }
+          return HttpResponse.json(okEnvelope(summary))
+        }
+        return HttpResponse.json(okEnvelope(data))
+      },
+    ),
   ),
 ]

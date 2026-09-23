@@ -32,7 +32,7 @@ function formatFollowUp(item: SimilarCase): string {
   if (item.nextPatchIntervalDays === null || item.followUpSpeedRatio === null) {
     return "정보 없음"
   }
-  return `${item.nextPatchIntervalDays}일 · 평소 주기의 ${item.followUpSpeedRatio.toFixed(1)}배`
+  return `${item.nextPatchIntervalDays.toFixed(1)}일 · 평소 주기의 ${item.followUpSpeedRatio.toFixed(1)}배`
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {

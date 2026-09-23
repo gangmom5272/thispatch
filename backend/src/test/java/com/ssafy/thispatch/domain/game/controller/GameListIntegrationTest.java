@@ -165,6 +165,8 @@ class GameListIntegrationTest {
 	void omittedAndBlankSearchKeepFilteredCountsAndCursorPagesIncludingGamesWithoutPatches(GameListSort sort)
 		throws Exception {
 		register(memberId, 2);
+		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 10), (?, ?, 10)",
+			firstId + 1, firstTag + 1, firstId + 2, firstTag);
 		preparePatches();
 		jdbc.update("update game set name = '' where appid = ?", firstId + 1);
 		jdbc.update("delete from patch_stat where appid = ?", firstId + 2);
@@ -232,16 +234,85 @@ class GameListIntegrationTest {
 	}
 
 	@Test
-	void combinesCaseInsensitiveLiteralSearchWithOrGenresAndDeduplicatesMatches() throws Exception {
+	void combinesCaseInsensitiveLiteralSearchWithAndGenresAndDeduplicatesMatches() throws Exception {
 		var data = request(memberId, GameListSort.POSITIVE_RATE_ASC, 10, null, " " + prefix.toUpperCase() + " ",
 			firstTag + "," + (firstTag + 1) + "," + firstTag);
-		assertThat(ids(data)).containsExactly(firstId + 1, firstId, firstId + 2);
-		assertThat(data.at("/page/totalCount").longValue()).isEqualTo(3);
+		assertThat(ids(data)).containsExactly(firstId);
+		assertThat(data.at("/page/totalCount").longValue()).isEqualTo(1);
 		jdbc.update("update game set name = ? where appid = ?", prefix + " 100%_!\\' SlAy", firstId);
 		jdbc.update("update game set name = ? where appid = ?", prefix + " 100xx!\\' SlAy", firstId + 1);
 		var literal = request(memberId, GameListSort.POSITIVE_RATE_ASC, 5, null,
 			"  " + prefix.toUpperCase() + " 100%_!\\' slay ", Integer.toString(firstTag));
 		assertThat(ids(literal)).containsExactly(firstId);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void genresRequireEverySelectedTagAndKeepOmittedSingleAndUnknownIdRules(String path) throws Exception {
+		register(memberId, 1);
+		register(memberId, 2);
+		var unfiltered = filterData(filterRequest(path));
+		assertThat(unfiltered.at("/page/totalCount").intValue()).isEqualTo(path.equals("/games") ? 6 : 3);
+		var firstGenre = filterData(filterRequest(path).param("genreIds", Integer.toString(firstTag)));
+		assertThat(ids(firstGenre)).containsExactly(firstId + 1, firstId);
+		assertThat(firstGenre.at("/page/totalCount").intValue()).isEqualTo(2);
+		var secondGenre = filterData(filterRequest(path).param("genreIds", Integer.toString(firstTag + 1)));
+		assertThat(ids(secondGenre)).containsExactly(firstId, firstId + 2);
+		assertThat(secondGenre.at("/page/totalCount").intValue()).isEqualTo(2);
+		String genres = (firstTag + 1) + "," + firstTag + "," + firstTag;
+		var both = filterData(filterRequest(path).param("genreIds", genres));
+		assertThat(ids(both)).containsExactly(firstId);
+		assertThat(both.at("/page/totalCount").intValue()).isEqualTo(1);
+		assertThat(both.at("/page/hasNext").asBoolean()).isFalse();
+		assertThat(both.at("/page/nextCursor").isNull()).isTrue();
+		assertEmpty(filterData(filterRequest(path).param("genreIds", firstTag + ",2147483647")), 0);
+		jdbc.update("delete from game_tag where appid = ? and tag_id = ?", firstId, firstTag + 1);
+		assertEmpty(filterData(filterRequest(path).param("genreIds", genres)), 0);
+	}
+
+	@ParameterizedTest
+	@EnumSource(GameListSort.class)
+	void pagesAndGenresAcrossTiesNullsAndMemberScopesWithoutDuplicates(GameListSort sort) throws Exception {
+		preparePatches();
+		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 10)", firstId + 2, firstTag);
+		for (int offset : List.of(4, 5)) {
+			jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 10), (?, ?, 10)",
+				firstId + offset, firstTag, firstId + offset, firstTag + 1);
+		}
+		register(memberId, 2);
+		register(memberId, 4);
+		register(otherMemberId, 5);
+		var offsets = switch (sort) {
+			case POSITIVE_RATE_ASC, REVIEW_COUNT_DESC -> List.of(0, 2, 4, 5);
+			case RELEASE_DATE_DESC, REACTION_CHANGE_DESC -> List.of(2, 0, 4, 5);
+		};
+		for (String path : List.of("/games", "/members/me/games")) {
+			var expected = offsets.stream().filter(i -> path.equals("/games") || i != 5)
+				.map(i -> firstId + i).toList();
+			String cursor = null;
+			List<Long> actual = new ArrayList<>();
+			for (int page = 0; page < expected.size(); page++) {
+				// 장르의 순서와 중복이 달라도 같은 조건으로 다음 페이지를 조회한다.
+				String genres = page == 0 ? firstTag + "," + (firstTag + 1)
+					: (firstTag + 1) + "," + firstTag + "," + firstTag;
+				var request = filterRequest(path).param("genreIds", genres).param("sort", sort.name()).param("limit", "1");
+				if (cursor != null) {
+					request.param("cursor", cursor);
+				}
+				var data = filterData(request);
+				actual.addAll(ids(data));
+				assertThat(data.get("items").size()).isEqualTo(1);
+				assertThat(data.at("/page/totalCount").intValue()).isEqualTo(expected.size());
+				assertThat(data.at("/page/hasNext").asBoolean()).isEqualTo(page + 1 < expected.size());
+				if (page + 1 < expected.size()) {
+					cursor = data.at("/page/nextCursor").asText();
+					assertThat(cursor).isNotBlank();
+				} else {
+					assertThat(data.at("/page/nextCursor").isNull()).isTrue();
+				}
+			}
+			assertThat(actual).doesNotHaveDuplicates().containsExactlyElementsOf(expected);
+		}
 	}
 
 	@Test
@@ -333,10 +404,10 @@ class GameListIntegrationTest {
 	@ValueSource(strings = {"/games", "/members/me/games"})
 	void combinesNewFiltersWithSearchGenresAndPaginationForEverySort(String path) throws Exception {
 		register(memberId, 2);
+		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 10)", firstId + 2, firstTag);
 		preparePatches();
 		jdbc.update("update game set developer = 'Valve Studio' where appid between ? and ?", firstId, firstId + 5);
-		var expectedIds = path.equals("/games")
-			? List.of(firstId, firstId + 1, firstId + 2) : List.of(firstId, firstId + 2);
+		var expectedIds = List.of(firstId, firstId + 2);
 		for (var sort : GameListSort.values()) {
 			String cursor = null;
 			List<Long> actual = new ArrayList<>();

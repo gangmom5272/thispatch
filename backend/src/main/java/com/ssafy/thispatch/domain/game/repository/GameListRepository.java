@@ -165,7 +165,9 @@ public class GameListRepository {
 			filter += " and lower(g.developer) like :developer escape '!'";
 		}
 		if (!query.genreIds().isEmpty()) {
-			filter += " and exists(select 1 from game_tag gt where gt.appid = g.appid and gt.tag_id in (:genreIds))";
+			// game_tag PK(appid, tag_id)와 정규화된 genreIds로 모든 선택 장르의 연결 여부를 확인한다.
+			filter += " and (select count(*) from game_tag gt where gt.appid = g.appid"
+				+ " and gt.tag_id in (:genreIds)) = :genreCount";
 		}
 		if (scope == GameListScope.MY) {
 			filter += " and exists(select 1 from my_game m where m.appid = g.appid and m.member_id = :memberId)";
@@ -177,6 +179,7 @@ public class GameListRepository {
 		var filters = query.filters();
 		return new MapSqlParameterSource("memberId", memberId)
 			.addValue("search", query.searchPattern()).addValue("genreIds", query.genreIds())
+			.addValue("genreCount", query.genreIds().size())
 			.addValue("releaseYearFrom", filters.releaseYearFrom()).addValue("releaseYearTo", filters.releaseYearTo())
 			.addValue("minReviewCount", filters.minReviewCount()).addValue("maxReviewCount", filters.maxReviewCount())
 			.addValue("minPositiveRate", filters.minPositiveRate()).addValue("maxPositiveRate", filters.maxPositiveRate())

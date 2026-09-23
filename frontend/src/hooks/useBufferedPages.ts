@@ -15,13 +15,16 @@ interface InfinitePagesSource {
  * 캐시가 항상 PREFETCH_PAGE_COUNT만큼 앞서도록 다음 페이지를 미리 받아 둔다.
  * 스크롤이 바닥에 닿으면 이미 받아 둔 페이지를 곧바로 보여 준다.
  * resetKey가 바뀌면(검색·필터 변경) 다시 첫 페이지만 노출한다.
+ * 캐시가 남은 채로 다시 마운트되면(뒤로가기 등) 이전에 노출하던 페이지 수부터 시작해 스크롤을 복원할 수 있게 한다.
  */
 export function useBufferedPages(
   loadedPageCount: number,
   query: InfinitePagesSource,
   resetKey: string,
 ) {
-  const [visiblePageCount, setVisiblePageCount] = useState(1)
+  const [visiblePageCount, setVisiblePageCount] = useState(() =>
+    Math.max(1, loadedPageCount - (query.hasNextPage ? PREFETCH_PAGE_COUNT : 0)),
+  )
   const [appliedResetKey, setAppliedResetKey] = useState(resetKey)
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query
 

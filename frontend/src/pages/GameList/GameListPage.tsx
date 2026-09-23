@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router"
 import { isApiError } from "../../api/error"
 import LoadMoreSentinel from "../../components/LoadMoreSentinel"
@@ -16,6 +16,7 @@ import {
 import { useGameList } from "../../hooks/queries/gameQueries"
 import { useGenreList } from "../../hooks/queries/genreQueries"
 import { useBufferedPages } from "../../hooks/useBufferedPages"
+import { rememberGamesSearch } from "../../router/paths"
 import type { Game, GameFilterConditions } from "../../types"
 import GameCard from "./components/GameCard"
 import GameFilterDialog from "./components/GameFilterDialog"
@@ -95,7 +96,12 @@ export default function GameListPage() {
     genreIds: applied.genreIds.length > 0 ? applied.genreIds : undefined,
   }
   const query = useGameList(filters)
-  const pages = useBufferedPages(query.data?.pages.length ?? 0, query, searchParams.toString())
+  const search = searchParams.toString()
+  const pages = useBufferedPages(query.data?.pages.length ?? 0, query, search)
+
+  useEffect(() => {
+    rememberGamesSearch(search)
+  }, [search])
 
   /** URL에 검색·필터 조건을 반영한다. 조건이 바뀌면 쿼리 키가 바뀌어 첫 페이지부터 다시 조회한다. */
   const apply = (next: AppliedConditions) => {

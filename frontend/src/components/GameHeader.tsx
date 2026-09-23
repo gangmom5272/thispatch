@@ -4,7 +4,7 @@ import Button from "@/components/Button"
 import { GameHeaderSkeleton } from "@/components/GameHeaderSkeleton"
 import { GameImage } from "@/components/GameImage"
 import { useGameDetail } from "@/hooks/queries/gameQueries"
-import { gameDetailPath, paths } from "@/router/paths"
+import { gameDetailPath, lastGamesPath, paths } from "@/router/paths"
 import type { GameDetail } from "@/types"
 
 function formatReviewCount(count: number | null): string {
@@ -107,7 +107,7 @@ export function GameHeader({ gameId, back = "games" }: GameHeaderProps) {
 
   const backLink =
     back === "games"
-      ? { to: paths.games, label: "게임 목록" }
+      ? { to: lastGamesPath(), label: "게임 목록" }
       : { to: gameDetailPath(gameId), label: "게임 분석" }
 
   return (

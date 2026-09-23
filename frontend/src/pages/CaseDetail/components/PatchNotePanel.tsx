@@ -48,7 +48,7 @@ export default function PatchNotePanel({
   return (
     <section
       aria-labelledby="patch-note-heading"
-      className="flex flex-col rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface"
+      className="flex flex-col rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface lg:contain-size"
     >
       <div className="flex flex-wrap items-center justify-between gap-x-sb-2 gap-y-sb-2 border-b border-sb-hairline px-sb-4 py-sb-3">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-sb-2 gap-y-sb-1">
@@ -90,7 +90,7 @@ export default function PatchNotePanel({
           </button>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-sb-4 p-sb-4">
+      <div className="flex max-h-96 min-h-0 flex-1 flex-col gap-sb-4 overflow-y-auto p-sb-4 lg:max-h-none">
         {patch.isPending && (
           <p role="status" aria-live="polite" className="text-sb-ink-mute">
             패치노트를 불러오는 중입니다…

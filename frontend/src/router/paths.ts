@@ -14,6 +14,18 @@ export const paths = {
   signup: "/signup",
 } as const
 
+let lastGamesSearch = ""
+
+/** 게임 목록에서 마지막으로 적용한 검색·필터 쿼리 문자열을 기억한다. */
+export function rememberGamesSearch(search: string) {
+  lastGamesSearch = search
+}
+
+/** 게임 상세에서 목록으로 돌아갈 때 마지막 검색·필터를 유지한 경로. */
+export function lastGamesPath(): string {
+  return lastGamesSearch ? `${paths.games}?${lastGamesSearch}` : paths.games
+}
+
 export const GAME_DETAIL_TABS = {
   reactionTrends: "reaction-trends",
   playtimeTopics: "playtime-topics",

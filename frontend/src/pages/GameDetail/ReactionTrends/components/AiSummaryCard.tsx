@@ -14,7 +14,8 @@ export function AiSummaryCard({
   awaitingRange = false,
 }: AiSummaryCardProps) {
   return (
-    <section className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
+    <section className="flex flex-col gap-sb-3 rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
+      <h2 className="text-sb-title font-medium text-sb-ink">AI 구간 요약</h2>
       {awaitingRange && !isPending && !isError && !data ? (
         <p className="text-sb-body text-sb-ink-mute">구간 AI 요약을 준비하는 중…</p>
       ) : null}

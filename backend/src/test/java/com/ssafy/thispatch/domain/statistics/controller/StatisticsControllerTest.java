@@ -160,8 +160,8 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 	@Test
 	void playtimeUsesStoredBoundariesAndSelectedVersusOverallTopicRates() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 90, 1000, 40, 20), new BandCount(2, 90, 480, 1000, 40, 20),
-			new BandCount(3, 480, 2100, 1000, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0)));
+			new BandCount(1, 0, 90, 1000, 40, 30, 20), new BandCount(2, 90, 480, 1000, 40, 10, 20),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
 		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
 			new TopicCount(1, 1, "밸런스", 20), new TopicCount(2, 1, "밸런스", 10),
 			new TopicCount(3, 1, "밸런스", 0), new TopicCount(4, 1, "밸런스", 0)));
@@ -170,23 +170,33 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			.andExpect(jsonPath("$.data.scale.p25Minutes").value(90))
 			.andExpect(jsonPath("$.data.bands.length()").value(4))
 			.andExpect(jsonPath("$.data.bands[2].reviewCount").value(0))
-			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(50.0))
-			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(37.5))
-			.andExpect(jsonPath("$.data.topics[0].differencePp").value(12.5))
-			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B1"));
+			.andExpect(jsonPath("$.data.overall.reviewCount").value(80))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(40))
+			.andExpect(jsonPath("$.data.overall.positiveRate").value(50.0))
+			.andExpect(jsonPath("$.data.bands[0].classifiedReviewCount").value(30))
+			.andExpect(jsonPath("$.data.bands[1].classifiedReviewCount").value(10))
+			.andExpect(jsonPath("$.data.bands[2].classifiedReviewCount").value(0))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(66.7))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(75.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(-8.3))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B2"))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.mentionRate").value(100.0));
 		verify(playtime, never()).findFallbackReviews(anyLong(), any(), any());
 	}
 
 	@Test
 	void insufficientSampleKeepsFourFallbackGroupsAndSkipsTopicQuery() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 100, 0, 0, 0), new BandCount(2, 100, 100, 0, 0, 0),
-			new BandCount(3, 100, 100, 0, 0, 0), new BandCount(4, 100, null, 29, 29, 10)));
+			new BandCount(1, 0, 100, 0, 0, 0, 0), new BandCount(2, 100, 100, 0, 0, 0, 0),
+			new BandCount(3, 100, 100, 0, 0, 0, 0), new BandCount(4, 100, null, 29, 29, 15, 10)));
 		mvc.perform(get("/games/7/playtime-topics").header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.isSufficientSample").value(false))
 			.andExpect(jsonPath("$.data.fallback.totalCount").value(29))
 			.andExpect(jsonPath("$.data.fallback.itemsByBand.length()").value(4))
-			.andExpect(jsonPath("$.data.fallback.itemsByBand[3].band").value("B4"));
+			.andExpect(jsonPath("$.data.fallback.itemsByBand[3].band").value("B4"))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(15))
+			.andExpect(jsonPath("$.data.bands").isEmpty())
+			.andExpect(jsonPath("$.data.topics").isEmpty());
 		verify(playtime, never()).findTopicCounts(anyLong(), any());
 	}
 
@@ -214,12 +224,15 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 	@Test
 	void selectedSmallBandFallsBackEvenWhenOverallHasEnoughReviews() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 90, 1000, 100, 50), new BandCount(2, 90, 480, 1000, 100, 50),
-			new BandCount(3, 480, 2100, 1000, 100, 50), new BandCount(4, 2100, null, 1000, 29, 10)));
+			new BandCount(1, 0, 90, 1000, 100, 60, 50), new BandCount(2, 90, 480, 1000, 100, 60, 50),
+			new BandCount(3, 480, 2100, 1000, 100, 60, 50), new BandCount(4, 2100, null, 1000, 29, 15, 10)));
 		mvc.perform(get("/games/7/playtime-topics").param("bandNo", "4").header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.overall.isSufficientSample").value(true))
 			.andExpect(jsonPath("$.data.isSufficientSample").value(false))
-			.andExpect(jsonPath("$.data.fallback.totalCount").value(29));
+			.andExpect(jsonPath("$.data.fallback.totalCount").value(29))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(195))
+			.andExpect(jsonPath("$.data.bands").isEmpty())
+			.andExpect(jsonPath("$.data.topics").isEmpty());
 		verify(playtime).findFallbackReviews(7, PERIOD, 4);
 		verify(playtime, never()).findTopicCounts(anyLong(), any());
 	}
@@ -230,6 +243,7 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.scale.sampleCount").value(0))
 			.andExpect(jsonPath("$.data.scale.p25Minutes").isEmpty())
 			.andExpect(jsonPath("$.data.overall.reviewCount").value(0))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(0))
 			.andExpect(jsonPath("$.data.fallback.itemsByBand.length()").value(4));
 	}
 
@@ -242,6 +256,75 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 		mvc.perform(get(path).param("startDate", PERIOD.startDate().toString()).header("Authorization", auth()))
 			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("GAME_NOT_FOUND"))
 			.andExpect(jsonPath("$.success").doesNotExist());
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {0, 1})
+	void noClassifiedReviewsKeepsSampleSufficientAndReturnsZeroRates(int selectedBand) throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 0, 20), new BandCount(2, 90, 480, 1000, 0, 0, 0),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(new TopicCount(1, 1, "밸런스", 0)));
+		var request = get("/games/7/playtime-topics").header("Authorization", auth());
+		if (selectedBand != 0) {
+			request.param("bandNo", String.valueOf(selectedBand));
+		}
+		mvc.perform(request).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(0))
+			.andExpect(jsonPath("$.data.bands.length()").value(4))
+			.andExpect(jsonPath("$.data.topics.length()").value(1))
+			.andExpect(jsonPath("$.data.topics[0].mentionCount").value(0))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(selectedBand == 0 ? null : 0.0))
+			.andExpect(jsonPath("$.data.topics[0].highestBand").value(org.hamcrest.Matchers.nullValue()))
+			.andExpect(jsonPath("$.data.fallback").isEmpty());
+		verify(playtime, never()).findFallbackReviews(anyLong(), any(), any());
+	}
+
+	@Test
+	void unclassifiedSelectionKeepsOverallRateAndExcludesItFromHighestBand() throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 0, 20), new BandCount(2, 90, 480, 1000, 10, 2, 5),
+			new BandCount(3, 480, 2100, 1000, 10, 2, 5), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
+			new TopicCount(1, 1, "밸런스", 0), new TopicCount(2, 1, "밸런스", 1),
+			new TopicCount(3, 1, "밸런스", 1), new TopicCount(4, 1, "밸런스", 0)));
+		mvc.perform(get("/games/7/playtime-topics").param("bandNo", "1").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(50.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(-50.0))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B2"))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.mentionRate").value(50.0));
+	}
+
+	@Test
+	void overallUsesClassifiedDenominatorAndAllowsMultipleTopicRatesToExceedHundred() throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 1, 20), new BandCount(2, 90, 480, 1000, 0, 0, 0),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
+			new TopicCount(1, 2, "버그", 1), new TopicCount(1, 1, "밸런스", 1),
+			new TopicCount(1, 3, "UI", 0)));
+		mvc.perform(get("/games/7/playtime-topics").param("startDate", PERIOD.startDate().toString())
+			.header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.selectedBand").value("ALL"))
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.overall.reviewCount").value(30))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(1))
+			.andExpect(jsonPath("$.data.overall.positiveCount").value(20))
+			.andExpect(jsonPath("$.data.overall.negativeCount").value(10))
+			.andExpect(jsonPath("$.data.overall.positiveRate").value(66.7))
+			.andExpect(jsonPath("$.data.topics[0].topicId").value(1))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").isEmpty())
+			.andExpect(jsonPath("$.data.topics[1].mentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[2].mentionRate").value(0.0));
+		verify(context).periodStarting(PERIOD.startDate());
 	}
 
 	private String auth() {

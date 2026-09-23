@@ -41,13 +41,17 @@ public class PlaytimeAnalysisRepository {
 		return jdbcTemplate.query(ASSIGNED_REVIEWS + """
 			SELECT b.band_no, b.playtime_from, b.playtime_to, b.all_time_count,
 			       count(r.review_id) AS review_count,
+			       count(r.review_id) FILTER (WHERE EXISTS (
+			           SELECT 1 FROM review_topic rt WHERE rt.review_id = r.review_id
+			       )) AS classified_review_count,
 			       count(r.review_id) FILTER (WHERE r.voted_up) AS positive_count
 			FROM bands b LEFT JOIN assigned_reviews r ON r.band_no = b.band_no
 			GROUP BY b.band_no, b.playtime_from, b.playtime_to, b.all_time_count
 			ORDER BY b.band_no
 			""", parameters(gameId, period), (row, index) -> new BandCount(row.getInt("band_no"),
 				row.getInt("playtime_from"), row.getObject("playtime_to", Integer.class),
-				row.getLong("all_time_count"), row.getLong("review_count"), row.getLong("positive_count")));
+				row.getLong("all_time_count"), row.getLong("review_count"),
+				row.getLong("classified_review_count"), row.getLong("positive_count")));
 	}
 
 	public List<TopicCount> findTopicCounts(long gameId, ReviewPeriod period) {
@@ -85,7 +89,7 @@ public class PlaytimeAnalysisRepository {
 	}
 
 	public record BandCount(int bandNo, int minMinutes, Integer maxMinutesExclusive,
-		long allTimeCount, long reviewCount, long positiveCount) {
+		long allTimeCount, long reviewCount, long classifiedReviewCount, long positiveCount) {
 	}
 
 	public record TopicCount(int bandNo, int topicId, String name, long mentionCount) {

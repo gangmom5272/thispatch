@@ -671,6 +671,62 @@ Authorization: Bearer {ACCESS_TOKEN}
 }
 ```
 
+## 기획안 내역 삭제
+
+### `DELETE /members/me/patch-plans/{planId}`
+
+[기획안 내역 삭제 원본 명세](https://app.notion.com/p/3e4776ebfd6881799b0ccecbd53ef53d)
+
+현재 로그인 사용자의 기획안 내역 한 건과 해당 내역의 하위 데이터를 삭제한다.
+
+**Auth**
+
+- Required (`Authorization: Bearer {ACCESS_TOKEN}`)
+
+**Path Variables**
+
+| Name | Type | Description |
+|---|---|---|
+| `planId` | long | 삭제할 기획안 내역 ID. 1 이상 |
+
+**Query Parameters**: 없음
+
+**Request Body**: 없음
+
+**Response 200**
+
+```json
+{
+  "code": "200",
+  "message": "성공했습니다.",
+  "responsedAt": "2026-09-23 15:30:00",
+  "success": true
+}
+```
+
+성공 응답에는 `data`를 포함하지 않는다.
+
+**Processing Rules / Notes**
+
+- 본인의 검색 완료 기획안 내역 한 건을 삭제한다.
+- 삭제 후 복구할 수 없으며 목록·상세에서 조회하거나 재검색에 사용할 수 없다.
+- 같은 원문이나 재검색으로 생성된 다른 기획안 내역에는 영향을 주지 않는다.
+- 없거나 이미 삭제된 내역, 다른 회원의 내역, 검색 미완료 내역은 `404 PATCH_PLAN_NOT_FOUND`를 반환한다.
+
+**Error Responses**
+
+| HTTP 상태 | code | message | 적용 상황 |
+|---|---|---|---|
+| `400` | `VALIDATION_FAILED` | 입력값을 확인해주세요. | `planId` 양수 검증 실패 (`errors` 포함) |
+| `400` | `INVALID_REQUEST` | 올바르지 않은 요청입니다. | `planId` 타입 오류·long 범위 초과 |
+| `401` | `UNAUTHORIZED` | 인증이 필요합니다. | 인증 없음·무효·만료 토큰·비활성 회원 |
+| `404` | `PATCH_PLAN_NOT_FOUND` | 기획안 내역을 찾을 수 없습니다. | 미존재·이미 삭제·타인 소유·검색 미완료 내역 |
+| `500` | `INTERNAL_SERVER_ERROR` | 서버 내부 오류가 발생했습니다. | DB 조회·삭제 실패 및 예상하지 못한 서버 오류 |
+
+오류 응답은 [공통 오류 계약](conventions.md#error-response)을 따른다. 필드 검증 오류가 있을 때만
+`errors`를 포함하고 `data`, `success`는 포함하지 않는다. `planId` 양수 검증 메시지는
+`planId는 1 이상이어야 합니다.`이며, `401` 응답에는 `WWW-Authenticate: Bearer` 헤더를 포함한다.
+
 ## 패치 상세
 
 ### `GET /games/{gameId}/patches/{patchId}`

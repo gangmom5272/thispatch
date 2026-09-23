@@ -179,20 +179,21 @@ class MyGameListIntegrationTest {
 	}
 
 	@Test
-	void genresUseOrDeduplicateAndCountOnlyFilteredRegistrations() throws Exception {
+	void genresUseAndDeduplicateAndCountOnlyFilteredRegistrations() throws Exception {
 		long first = game("필터 게임", 10, 100);
 		long second = game("필터 게임", 20, 100);
 		long noTag = game("필터 게임", 30, 100);
 		long unregistered = game("필터 게임", 0, 100);
 		for (long id : List.of(first, second, noTag)) register(memberId, id);
 		for (int n = 0; n < 3; n++) jdbc.update("insert into tag (tag_id, name_ko) values (?, ?)", tagId + n, "장르" + n);
-		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 1), (?, ?, 1), (?, ?, 1), (?, ?, 1)",
-			first, tagId, first, tagId + 1, second, tagId + 1, unregistered, tagId);
+		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 1), (?, ?, 1), (?, ?, 1), (?, ?, 1), (?, ?, 1)",
+			first, tagId, first, tagId + 1, second, tagId + 1, unregistered, tagId, unregistered, tagId + 1);
 		var filtered = data(request(memberId).queryParam("genreIds", tagId + "," + (tagId + 1) + "," + tagId)
 			.queryParam("limit", "1").queryParam("search", "필터"));
 		assertThat(ids(filtered)).containsExactly(first);
-		assertThat(filtered.path("page").path("totalCount").asLong()).isEqualTo(2);
-		assertThat(filtered.path("page").path("hasNext").asBoolean()).isTrue();
+		assertThat(filtered.path("page").path("totalCount").asLong()).isEqualTo(1);
+		assertThat(filtered.path("page").path("hasNext").asBoolean()).isFalse();
+		assertThat(filtered.path("page").path("nextCursor").isNull()).isTrue();
 		assertThat(ids(data(request(memberId).queryParam("genreIds", Integer.toString(tagId + 2))))).isEmpty();
 	}
 

@@ -16,12 +16,55 @@ from common import OLLAMA_URL
 
 KO = {
     "change_type": {"add": "추가", "remove": "제거", "modify": "변경", "fix": "수정", "deprecate": "지원 중단"},
-    "direction": {"increase": "상향", "decrease": "하향", "none": "방향 없음", "not_applicable": "해당 없음", "unknown": "방향 불명"},
+    "direction": {"increase": "수치 증가", "decrease": "수치 감소", "none": "방향 없음", "not_applicable": "해당 없음", "unknown": "방향 불명"},
     "target_type": {"player": "플레이어", "enemy": "적", "weapon": "무기", "item": "아이템", "skill": "스킬", "map": "맵",
                     "system": "시스템", "other": "기타", "unknown": "미확인"},
 }
 PCT = re.compile(r"[+\-−–]?\s*\d+(?:\.\d+)?\s*%")
 FROMTO = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(?:->|→|to)\s*(\d[\d,]*(?:\.\d+)?)", re.I)
+
+
+VERB = {"increase": "늘리는", "decrease": "줄이는"}
+
+
+def has_final(word):
+    """끝 글자에 받침이 있나. '을/를', '으로/로' 을 고르는 데 쓴다."""
+    if not word:
+        return False
+    ch = word[-1]
+    return "가" <= ch <= "힣" and (ord(ch) - 0xAC00) % 28 != 0
+
+
+def josa(word, with_final, without_final):
+    return word + (with_final if has_final(word) else without_final)
+
+
+def cut(text, limit=90):
+    """근거 문장은 단어 중간에서 자르지 않는다. 잘랐을 때만 줄임표를 붙인다."""
+    t = " ".join((text or "").split())
+    if len(t) <= limit:
+        return t
+    head = t[:limit]
+    sp = head.rfind(" ")
+    return (head[:sp] if sp > limit * 0.6 else head).rstrip(" ,.;:") + "…"
+
+
+def uniq(seq):
+    out = []
+    for x in seq:
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
+def cycle_line(cyc):
+    """'평소 주기의 0.0배' 는 뜻이 없다(9/23 화면 실측). 일수를 같이 쓰고, 하루가 안 되면 말로 쓴다."""
+    ratio, days = (cyc or {}).get("ratio"), (cyc or {}).get("next_patch_days")
+    if ratio is None or days is None:
+        return ""
+    if days < 1:
+        return "후속 패치가 하루도 안 돼 이어졌습니다."
+    return "후속 패치까지 %.0f일 걸렸습니다(평소 주기의 %.1f배)." % (days, ratio)
 
 
 def ko(kind, code):
@@ -49,64 +92,101 @@ def match_axis(plan_changes, case_changes):
 
 
 # ---------- 화면 05: 공통점 3 · 차이점 3 (문장 틀) ----------
+# 9/23 화면 실측에서 세 가지가 어긋났다.
+#   공통에 "두 건 모두 플레이어 상향"이라 해놓고 차이에 "초안은 적, 사례는 플레이어"라고 했다.
+#   사례 값만 보고 문장을 만들면서 초안과 맞는지는 확인하지 않아서다.
+#   조건이 변경점마다 달려 "PvP만, PvP만"으로 나왔고, 근거 문장이 단어 중간에서 잘렸다.
+# 그래서 원칙을 셋 둔다.
+#   1) 공통에는 실제로 맞은 축만 쓴다. 맞지 않은 축을 '같다'고 묶지 않는다.
+#   2) 근거 문장은 그 축이 실제로 드러날 때만 붙인다. 아니면 생략한다.
+#   3) 결정에 쓰는 순서로 놓는다 — 방향·대상 → 폭 → 범위 → 동시 변경 → 장르.
+# 후속 패치 간격은 화면 위쪽 카드에 같은 수치가 이미 있어 여기서는 빼 둔다. 차이 칸이 3개뿐이라
+# 되풀이하면 '동시 변경' 경고가 밀려난다.
+DIR_WORDS = re.compile(
+    r"\b(increas\w*|rais\w*|buff\w*|higher|more|reduc\w*|decreas\w*|lower\w*|nerf\w*|less)\b", re.I)
+# 조건 표현은 좁게 잡는다. 'higher', 'above' 같은 단어는 수치 문장에도 흔해 오탐이 많았다(9/14)
+COND_RE = re.compile(
+    r"\b(only (in|on|for|when)|in [A-Z]\w+ mode|on (hard|nightmare|expert|master) difficulty"
+    r"|ascension \d|tier \d|when [a-z]+ing|while [a-z]+ing)\b", re.I)
+
+
 def template_compare(plan, case):
-    """plan: {changes:[...], genres:[...], conditions:[...]}  case: {changes:[...], genres, stats, cycle}"""
+    """plan: {changes:[...], genres:[...]}  case: {changes:[...], genres, stats, cycle}"""
     common, diff = [], []
     pc, cc = plan["changes"], case["changes"]
     (p, c), _ = match_axis(pc, cc) if pc and cc else ((None, None), 0)
+    if not (p and c):
+        return {"common": [], "differences": []}
 
-    # 1. 변경 방향·대상
-    if p and c:
-        if p["direction"] == c["direction"] and p["direction"] in ("increase", "decrease"):
-            common.append({"title": "변경 방향이 같습니다",
-                           "body": f"두 건 모두 {ko('target_type', c['target_type'])} 관련 {ko('direction', c['direction'])} 조정입니다. "
-                                   f"사례 근거: “{c['evidence_quote'][:80]}”"})
-        elif p["direction"] != c["direction"]:
-            diff.append({"title": "변경 방향이 다릅니다",
-                         "body": f"초안은 {ko('direction', p['direction'])}, 사례는 {ko('direction', c['direction'])}입니다. "
-                                 f"사례 근거: “{c['evidence_quote'][:80]}”"})
-        if p["target_type"] == c["target_type"] and p["target_type"] != "unknown":
-            common.append({"title": "변경 대상 종류가 같습니다",
-                           "body": f"둘 다 {ko('target_type', p['target_type'])}을(를) 조정합니다."})
-        elif p["target_type"] != c["target_type"] and "unknown" not in (p["target_type"], c["target_type"]):
-            diff.append({"title": "변경 대상 종류가 다릅니다",
-                         "body": f"초안은 {ko('target_type', p['target_type'])}, 사례는 {ko('target_type', c['target_type'])}입니다."})
+    pt, ct = ko("target_type", p["target_type"]), ko("target_type", c["target_type"])
+    pd = ko("direction", p["direction"])
+    same_dir = p["direction"] == c["direction"] and p["direction"] in ("increase", "decrease")
+    same_target = p["target_type"] == c["target_type"] and p["target_type"] != "unknown"
+    quote = cut(c["evidence_quote"])
+    show_quote = bool(DIR_WORDS.search(c["evidence_quote"] or ""))
 
-    # 2. 변경 폭 (숫자가 양쪽에 있을 때만)
-    if p and c:
-        pn, cn = p.get("values") or "", ", ".join(numbers(c["evidence_quote"]))
-        if pn and cn:
-            diff.append({"title": "변경 폭을 비교하세요",
-                         "body": f"초안 {pn}, 사례 {cn}. 폭이 다르면 반응도 다를 수 있습니다."})
+    # 1) 방향·대상
+    if same_dir and same_target:
+        body = "둘 다 %s 수치를 %s 변경입니다." % (pt, VERB[p["direction"]])
+        if show_quote:
+            body += " 사례 근거: “%s”" % quote
+        common.append({"title": "%s %s로 같습니다" % (pt, pd), "body": body})
+    elif same_dir:
+        body = "같은 점은 %s라는 방향뿐입니다. 초안은 %s, 사례는 %s 건드립니다." % (pd, pt, josa(ct, "을", "를"))
+        if show_quote:
+            body += " 사례 근거: “%s”" % quote
+        common.append({"title": "%s라는 점만 같습니다" % pd, "body": body})
+        diff.append({"title": "건드린 대상이 다릅니다",
+                     "body": "초안은 %s, 사례는 %s입니다. 대상이 다르면 같은 방향이어도 반응이 다르게 나옵니다." % (pt, ct)})
+    else:
+        diff.append({"title": "변경 방향이 다릅니다",
+                     "body": "초안은 %s, 사례는 %s입니다." % (pd, ko("direction", c["direction"]))
+                             + (" 사례 근거: “%s”" % quote if show_quote else "")})
 
-    # 3. 동시 변경 (사례가 다른 종류의 변경을 같은 회차에 넣었나)
-    case_kinds = {(x["change_type"], x["target_type"]) for x in cc}
-    plan_kinds = {(x["change_type"], x["target_type"]) for x in pc}
-    extra = [ko("target_type", t) + " " + ko("change_type", ct) for ct, t in case_kinds - plan_kinds if t != "unknown"]
-    if extra:
-        diff.append({"title": "동시 변경 여부가 다릅니다",
-                     "body": f"사례는 같은 회차에 {', '.join(sorted(set(extra))[:3])}도 함께 넣어 반응이 어느 항목 때문인지 분리되지 않습니다. "
-                             f"초안은 변경점 {len(pc)}개만 담고 있습니다."})
-    elif len(cc) == len(pc):
-        common.append({"title": "변경점 수가 같습니다", "body": f"둘 다 변경점 {len(pc)}개로 구성이 비슷합니다."})
+    # 2) 폭
+    plan_n, case_n = p.get("values") or "", ", ".join(numbers(c["evidence_quote"]))
+    if plan_n and case_n:
+        diff.append({"title": "변경 폭이 다릅니다",
+                     "body": "초안 %s, 사례 %s. 폭이 다르면 반응 크기도 달라집니다." % (plan_n, case_n)})
 
-    # 4. 장르
-    pg, cg = set(plan.get("genres") or []), set(case.get("genres") or [])
-    if pg & cg:
-        common.append({"title": "장르가 같습니다", "body": f"공통 장르: {', '.join(sorted(pg & cg)[:3])}. 난이도 체감이 비슷한 방식으로 쌓입니다."})
-    elif pg and cg:
-        diff.append({"title": "장르가 다릅니다", "body": f"초안 {', '.join(sorted(pg)[:2])}, 사례 {', '.join(sorted(cg)[:2])}. 세션 구조가 달라 반응 비교에 주의가 필요합니다."})
-
-    # 5. 적용 범위 (초안 조건 vs 사례 근거 문장에 조건 표현 유무)
-    pcond = [x for ch in pc for x in (ch.get("conditions") or [])]
-    # 조건 표현은 좁게 잡는다. 'higher', 'above' 같은 단어는 수치 문장에도 흔해 오탐이 많았다(9/14)
-    ccond = any(re.search(r"\b(only (in|on|for|when)|in [A-Z]\w+ mode|on (hard|nightmare|expert|master) difficulty|ascension \d|tier \d|when [a-z]+ing|while [a-z]+ing)\b",
-                          x["evidence_quote"], re.I) for x in cc)
+    # 3) 적용 범위 (초안 조건 vs 사례 근거 문장에 조건 표현 유무)
+    pcond = uniq([x for ch in pc for x in (ch.get("conditions") or [])])
+    ccond = any(COND_RE.search(x["evidence_quote"]) for x in cc)
     if pcond and not ccond:
         diff.append({"title": "적용 범위가 다릅니다",
-                     "body": f"초안은 {', '.join(pcond[:2])}로 한정되지만, 사례 근거 문장에는 범위 제한이 보이지 않아 전체 적용으로 읽힙니다."})
+                     "body": "초안은 %s 한정했지만, 사례는 범위를 좁힌 흔적이 없어 전체 적용으로 보입니다. "
+                             "범위를 좁히면 반응 폭도 작아집니다." % josa(", ".join(pcond[:2]), "으로", "로")})
     elif pcond and ccond:
-        common.append({"title": "적용 범위를 한정한 점이 같습니다", "body": f"초안 조건: {', '.join(pcond[:2])}. 사례도 특정 조건에서만 적용했습니다."})
+        common.append({"title": "적용 범위를 좁힌 점이 같습니다",
+                       "body": "초안은 %s, 사례도 특정 조건에서만 적용했습니다." % ", ".join(pcond[:2])})
+
+    # 4) 동시 변경 — 반응 수치를 어디까지 믿을 수 있는지가 걸린다
+    case_kinds = {(x["change_type"], x["target_type"]) for x in cc}
+    plan_kinds = {(x["change_type"], x["target_type"]) for x in pc}
+    extra = sorted({ko("target_type", t) + " " + ko("change_type", ct2)
+                    for ct2, t in case_kinds - plan_kinds if t != "unknown"})
+    if extra and len(cc) > len(pc):
+        diff.append({"title": "사례는 한 번에 더 많이 바꿨습니다",
+                     "body": "사례는 같은 회차에 %s도 함께 넣었습니다(변경점 %d개). 초안은 %d개라, "
+                             "아래 반응 수치를 초안 변경점 탓으로만 읽으면 안 됩니다."
+                             % (", ".join(extra[:3]), len(cc), len(pc))})
+    elif extra:
+        # 개수는 같아도 종류가 다르면 반응이 어디서 왔는지 갈라 볼 수 없다
+        diff.append({"title": "함께 들어간 변경이 다릅니다",
+                     "body": "사례는 같은 회차에 %s도 넣었습니다. 반응 수치에 그 몫이 섞여 있습니다."
+                             % ", ".join(extra[:3])})
+    elif len(cc) == len(pc):
+        common.append({"title": "한 번에 바꾼 양이 비슷합니다",
+                       "body": "둘 다 변경점 %d개입니다. 반응을 견주기 좋은 조건입니다." % len(pc)})
+
+    # 5) 장르
+    pg, cg = set(plan.get("genres") or []), set(case.get("genres") or [])
+    if pg & cg:
+        common.append({"title": "장르가 같습니다", "body": "공통 장르: %s." % ", ".join(sorted(pg & cg)[:3])})
+    elif pg and cg:
+        diff.append({"title": "장르가 다릅니다",
+                     "body": "초안 %s, 사례 %s. 세션 구조가 달라 반응 비교에 주의가 필요합니다."
+                             % (", ".join(sorted(pg)[:2]), ", ".join(sorted(cg)[:2]))})
 
     return {"common": common[:3], "differences": diff[:3]}
 
@@ -115,7 +195,7 @@ def template_compare(plan, case):
 COMPARE_SYSTEM = (
     "You compare a game designer's DRAFT patch plan with ONE PAST PATCH of another game, for the designer to learn from. "
     "Write in Korean. Output JSON {\"common\":[{\"title\",\"body\"}],\"differences\":[{\"title\",\"body\"}]}, at most 3 each. "
-    "Compare ONLY these five axes: (1) 변경 방향(상향/하향) (2) 변경 대상 종류와 이름 (3) 변경 폭·수치 (4) 적용 범위·조건 "
+    "Compare ONLY these five axes: (1) 변경 방향(수치 증가/수치 감소) (2) 변경 대상 종류와 이름 (3) 변경 폭·수치 (4) 적용 범위·조건 "
     "(5) 같은 회차에 함께 들어간 다른 변경. Optionally 장르. NEVER compare writing style, sentence form, tone, or length. "
     "common = something BOTH the draft and the case share on one axis. differences = one axis where they differ. "
     "A fact about only one side (e.g. patch cycle, review count) is NOT a common point; put it under differences only if the draft has a comparable value. "
@@ -150,27 +230,42 @@ def qwen_compare(plan, case, timeout=120):
 
 
 # ---------- 화면 04: 카드 1줄 공통 / 1줄 차이 ----------
+# 목록은 사례가 수십 건이라 카드마다 Qwen 을 부르면 응답이 분 단위가 된다. 그래서 틀로 즉시 만들고,
+# 해석은 상세(qwen_compare)에 맡긴다. 9/23 실측에서 두 곳을 고쳤다.
+#   대상 종류가 다른데도 공통에 사례 값을 넣어 "플레이어 상향이라 같다 / 플레이어라서 다르다"가 됐다.
+#   주기를 배수로만 써서 "평소 주기의 0.0배"가 흔했다. 39건 중 여러 건이 그랬다 — 뜻이 없는 숫자다.
 def card_lines(plan, case):
     pc, cc = plan["changes"], case["changes"]
     if not (pc and cc):
         return {"common": "매칭 축을 찾지 못했습니다.", "difference": ""}
     (p, c), _ = match_axis(pc, cc)
-    common = f"{ko('target_type', c['target_type'])} {ko('direction', c['direction'])} 조정이라는 점이 초안과 같습니다."
-    if plan.get("genres") and set(plan["genres"]) & set(case.get("genres") or []):
-        common = f"{sorted(set(plan['genres']) & set(case['genres']))[0]} 장르로 같고, " + common
-    cyc = case.get("cycle") or {}
+    pt, ct = ko("target_type", p["target_type"]), ko("target_type", c["target_type"])
+    same_target = p["target_type"] == c["target_type"] and p["target_type"] != "unknown"
+    same_dir = p["direction"] == c["direction"]
+
+    if same_target and same_dir:
+        common = "%s %s라는 점이 초안과 같습니다." % (ct, ko("direction", c["direction"]))
+    elif same_dir:
+        common = "%s라는 점이 초안과 같습니다." % ko("direction", c["direction"])
+    else:
+        common = "%s라는 점이 초안과 같습니다." % ko("change_type", c["change_type"])
+    shared = set(plan.get("genres") or []) & set(case.get("genres") or [])
+    if shared:
+        common = "%s 장르로 같고, " % sorted(shared)[0] + common
+
     diff = ""
-    if p["target_type"] != c["target_type"] and "unknown" not in (p["target_type"], c["target_type"]):
-        diff = f"변경 대상이 {ko('target_type', c['target_type'])}로 초안({ko('target_type', p['target_type'])})과 다릅니다."
+    if not same_target and "unknown" not in (p["target_type"], c["target_type"]):
+        diff = "변경 대상이 %s로 초안(%s)과 다릅니다." % (ct, pt)
     elif len(cc) > len(pc):
-        diff = f"같은 회차에 변경점 {len(cc)}개를 함께 넣어 초안({len(pc)}개)보다 복합적입니다."
-    if cyc.get("ratio") is not None:
-        diff += f" 후속 패치까지 평소 주기의 {cyc['ratio']:.1f}배가 걸렸습니다."
-    return {"common": common, "difference": diff.strip()}
+        diff = "같은 회차에 변경점 %d개를 함께 넣어 초안(%d개)보다 복합적입니다." % (len(cc), len(pc))
+    line = cycle_line(case.get("cycle"))
+    if line:
+        diff = (diff + " " + line).strip()
+    return {"common": common, "difference": diff}
 
 
 # ---------- 화면 04: 결과군 패턴 3줄 ----------
-def group_patterns(cases, min_n=20):
+def group_patterns(cases, min_n=5):
     """같은 결과군 사례들의 코드 조합 빈도로 문장 3줄. 표본이 min_n 미만이면 요약하지 않는다."""
     if len(cases) < min_n:
         return {"patterns": [], "note": f"{len(cases)}건 · 소표본 해석 주의. 표본이 적어 공통 패턴을 요약하지 않습니다."}

@@ -28,8 +28,8 @@ public class ReactionTrendsService {
 	private final AnalysisContext context;
 
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-	public ReactionTrends getTrends(long gameId, LocalDate startDate) {
-		var period = context.periodStarting(startDate);
+	public ReactionTrends getTrends(long gameId, LocalDate startDate, LocalDate endDate) {
+		var period = endDate == null ? context.periodStarting(startDate) : context.periodBetween(startDate, endDate);
 		context.requireGame(gameId);
 		var patchesByDate = patchRepository.findWithinPeriod(gameId, period).stream()
 			.collect(Collectors.groupingBy(Patch::patchedOn));
@@ -48,7 +48,8 @@ public class ReactionTrendsService {
 			written, writtenPositive, written - writtenPositive, percentage(writtenPositive, written),
 			edited, editedPositive, edited - editedPositive, percentage(editedPositive, edited));
 		var firstDate = repository.firstStatDate(gameId);
-		var available = firstDate == null ? null : Period.of(new ReviewPeriod(firstDate, period.endDate()));
+		var available = firstDate == null || firstDate.isAfter(period.endDate())
+			? null : Period.of(new ReviewPeriod(firstDate, period.endDate()));
 		return new ReactionTrends(CollectionMeta.of(period), available, summary, daily);
 	}
 

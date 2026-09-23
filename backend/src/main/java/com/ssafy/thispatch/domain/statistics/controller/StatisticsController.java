@@ -33,8 +33,9 @@ public class StatisticsController {
 
 	@GetMapping("/games/{gameId}/reaction-trends")
 	public AnalysisResponse<ReactionTrends> getTrends(@PathVariable("gameId") long gameId,
-		@RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate) {
-		return AnalysisResponse.success(reactionService.getTrends(gameId, startDate));
+		@RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+		@RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+		return AnalysisResponse.success(reactionService.getTrends(gameId, startDate, endDate));
 	}
 
 	@GetMapping("/games/{gameId}/playtime-topics")

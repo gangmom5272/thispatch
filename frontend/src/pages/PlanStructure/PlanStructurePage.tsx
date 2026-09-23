@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react"
+import { useId, type FormEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
@@ -9,8 +9,8 @@ import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
 import { gameCasesPath, paths } from "@/router/paths"
-import type { PlanSlot } from "@/types"
 import PlanStructureResult from "./components/PlanStructureResult"
+import { usePlanDraft, useUpdatePlanDraft } from "./planDraftStore"
 
 const MAX_TEXT_LENGTH = 500
 
@@ -29,9 +29,8 @@ export default function PlanStructurePage() {
 function PlanStructureContent({ gameId }: { gameId: number }) {
   const textId = useId()
   const genreLabelId = useId()
-  const [text, setText] = useState("")
-  const [excludedGenreIds, setExcludedGenreIds] = useState<number[]>([])
-  const [editedSlots, setEditedSlots] = useState<PlanSlot[] | null>(null)
+  const { text, excludedGenreIds, structure: savedStructure, editedSlots } = usePlanDraft(gameId)
+  const updateDraft = useUpdatePlanDraft()
   const navigate = useNavigate()
   const game = useGameDetail(gameId)
   const structure = useCreatePlanStructure()
@@ -46,13 +45,18 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!canSubmit) return
-    structure.mutate({ gameId, text: trimmedText }, { onSuccess: () => setEditedSlots(null) })
+    structure.mutate(
+      { gameId, text: trimmedText },
+      { onSuccess: (data) => updateDraft(gameId, { structure: data, editedSlots: null }) },
+    )
   }
 
   const toggleGenre = (id: number) =>
-    setExcludedGenreIds((prev) =>
-      prev.includes(id) ? prev.filter((genreId) => genreId !== id) : [...prev, id],
-    )
+    updateDraft(gameId, {
+      excludedGenreIds: excludedGenreIds.includes(id)
+        ? excludedGenreIds.filter((genreId) => genreId !== id)
+        : [...excludedGenreIds, id],
+    })
 
   return (
     <>
@@ -77,7 +81,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
               maxLength={MAX_TEXT_LENGTH}
               required
               placeholder="예: Axebot의 체력을 20% 높이고 공격력을 10% 증가시킨다. 고통 4 이상 난이도에서만 적용한다."
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => updateDraft(gameId, { text: event.target.value })}
             />
             <div className="flex flex-wrap items-center gap-sb-2">
               <span id={genreLabelId} className="text-sb-ink-mute">
@@ -107,7 +111,7 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
                 {genres.length > 0 && (
                   <Button
                     variant="secondary"
-                    onClick={() => setExcludedGenreIds([])}
+                    onClick={() => updateDraft(gameId, { excludedGenreIds: [] })}
                     disabled={excludedGenreIds.length === 0}
                   >
                     전체 선택
@@ -146,23 +150,23 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
             변경점을 구조화하는 중입니다…
           </p>
         )}
-        {structure.isSuccess && (
+        {savedStructure && !structure.isPending && (
           <PlanStructureResult
-            structure={structure.data}
-            slots={editedSlots ?? structure.data.slots}
-            onSaveSlots={setEditedSlots}
+            structure={savedStructure}
+            slots={editedSlots ?? savedStructure.slots}
+            onSaveSlots={(slots) => updateDraft(gameId, { editedSlots: slots })}
             onSearchCases={() =>
               navigate(gameCasesPath(gameId), {
                 state: {
-                  planId: structure.data.planId,
-                  slots: editedSlots ?? structure.data.slots,
+                  planId: savedStructure.planId,
+                  slots: editedSlots ?? savedStructure.slots,
                   genreIds: selectedGenreIds,
                 },
               })
             }
           />
         )}
-        {structure.isIdle && (
+        {!savedStructure && !structure.isPending && (
           <div className={`${panelClass} flex flex-col gap-sb-2 p-sb-6`}>
             <p>아직 구조화한 결과가 없습니다.</p>
             <p className="text-sb-ink-mute">

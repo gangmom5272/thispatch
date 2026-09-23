@@ -59,6 +59,12 @@ AI 장애로 숨기지 않는다. 반응 추세 요약은 별도 `POST /trends/s
 | Name | Type | Required | Description |
 |---|---|---:|---|
 | `startDate` | date | Yes | 포함 시작일, Asia/Seoul |
+| `endDate` | date | No | 포함 종료일, Asia/Seoul. 생략하면 기존처럼 서버의 오늘 날짜 |
+
+- 날짜 형식은 `yyyy-MM-dd`다. 종료일이 시작일보다 이르거나 한국 시간 기준 오늘보다 미래이면 `400 INVALID_REQUEST`다.
+- 지정한 양 끝 날짜를 포함해 `meta.period`, 일별 그래프, 기간 합계, 기간 내 패치를 조회한다.
+- 예: `GET /games/7/reaction-trends?startDate=2026-09-15&endDate=2026-09-23`은 9월 15~23일의 9일만 반환한다.
+- 종료일을 생략한 기존 호출은 그대로 동작한다. 다른 분석 API의 기간 정책은 변경하지 않는다.
 
 **Response 200**
 
@@ -154,7 +160,8 @@ updatedNegativeCount      = edited_review_count - edited_positive_count
 
 `positiveRate`는 분모가 0이면 `null`.
 
-`availablePeriod`는 전체 일별 통계의 첫 날짜부터 오늘까지다. 통계 이력이 전혀 없으면 `null`이다.
+`availablePeriod`는 전체 일별 통계의 첫 날짜부터 이번 조회의 종료일까지다. 종료일을 생략하면 기존처럼 오늘까지다.
+통계 이력이 전혀 없거나 첫 집계일이 조회 종료일보다 늦으면 `null`이다.
 기존 행의 `negative_count`가 `null`이면 리뷰 수에서 첫 작성·수정 채널의 긍정 수를 빼서 계산한다.
 
 **Processing Rules / Notes — Patch rules**
@@ -167,7 +174,7 @@ updatedNegativeCount      = edited_review_count - edited_positive_count
 
 **Error Responses**
 
-- `400`: 시작 날짜 오류
+- `400`: 필수 시작일 누락, 날짜 형식 오류, 시작일·종료일 역전, 미래 종료일
 - `401`: 인증 필요
 - `404`: 게임 없음
 - `500`: 서버 내부 오류

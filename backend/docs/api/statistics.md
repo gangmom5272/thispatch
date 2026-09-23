@@ -59,6 +59,12 @@ AI 장애로 숨기지 않는다. 반응 추세 요약은 별도 `POST /trends/s
 | Name | Type | Required | Description |
 |---|---|---:|---|
 | `startDate` | date | Yes | 포함 시작일, Asia/Seoul |
+| `endDate` | date | No | 포함 종료일, Asia/Seoul. 생략하면 기존처럼 서버의 오늘 날짜 |
+
+- 날짜 형식은 `yyyy-MM-dd`다. 종료일이 시작일보다 이르거나 한국 시간 기준 오늘보다 미래이면 `400 INVALID_REQUEST`다.
+- 지정한 양 끝 날짜를 포함해 `meta.period`, 일별 그래프, 기간 합계, 기간 내 패치를 조회한다.
+- 예: `GET /games/7/reaction-trends?startDate=2026-09-15&endDate=2026-09-23`은 9월 15~23일의 9일만 반환한다.
+- 종료일을 생략한 기존 호출은 그대로 동작한다. 다른 분석 API의 기간 정책은 변경하지 않는다.
 
 **Response 200**
 
@@ -154,7 +160,8 @@ updatedNegativeCount      = edited_review_count - edited_positive_count
 
 `positiveRate`는 분모가 0이면 `null`.
 
-`availablePeriod`는 전체 일별 통계의 첫 날짜부터 오늘까지다. 통계 이력이 전혀 없으면 `null`이다.
+`availablePeriod`는 전체 일별 통계의 첫 날짜부터 이번 조회의 종료일까지다. 종료일을 생략하면 기존처럼 오늘까지다.
+통계 이력이 전혀 없거나 첫 집계일이 조회 종료일보다 늦으면 `null`이다.
 기존 행의 `negative_count`가 `null`이면 리뷰 수에서 첫 작성·수정 채널의 긍정 수를 빼서 계산한다.
 
 **Processing Rules / Notes — Patch rules**
@@ -167,7 +174,7 @@ updatedNegativeCount      = edited_review_count - edited_positive_count
 
 **Error Responses**
 
-- `400`: 시작 날짜 오류
+- `400`: 필수 시작일 누락, 날짜 형식 오류, 시작일·종료일 역전, 미래 종료일
 - `401`: 인증 필요
 - `404`: 게임 없음
 - `500`: 서버 내부 오류
@@ -312,9 +319,46 @@ B4 = [Q3, ∞)
 표본 기준은 선택 구간의 리뷰 수(전체 선택이면 네 구간 합계)다. 30건 미만이면 기존 fallback 형식으로
 해당 리뷰를 도움됨 수·리뷰 ID 내림차순으로 제공하고 `itemsByBand`는 빈 구간까지 B1~B4를 유지한다.
 전체 기간 경계 데이터도 없으면 `scale.sampleCount`는 0, 세 분위 값은 `null`이다.
-`topics`는 토픽 ID 순서이며, 언급률의 분모는 해당 구간 리뷰 수다. `differencePp`는 선택 구간 언급률에서
-전체 언급률을 뺀 값이며, 전체 선택이면 `null`이다. `highestBand`는 비어 있지 않은 구간 중 언급률 최대 구간이고
-동률이면 작은 구간 번호를 사용한다.
+
+**Processing Rules / Notes — 토픽 분류 리뷰 수와 언급률 (S15P21A202-302)**
+
+| Field | Type | Description |
+|---|---|---|
+| `overall.reviewCount`, `bands[].reviewCount` | long | 토픽 분류 여부와 관계없는 분석 대상 리뷰 수. 기존 의미 유지 |
+| `overall.classifiedReviewCount` | long | 조회 기간의 분석 대상 전체 리뷰 중 토픽이 하나 이상 분류된 고유 리뷰 수 |
+| `bands[].classifiedReviewCount` | long | 같은 조회 기간·해당 구간에서 토픽이 하나 이상 분류된 고유 리뷰 수 |
+| `topics[].mentionCount` | long | 전체 또는 선택 구간에서 해당 토픽이 분류된 리뷰 수 |
+
+- 최신 `recent_review`를 기존 규칙대로 선택한 뒤 `review_topic` 연결이 하나 이상 있는 리뷰를 센다.
+  한 리뷰에 여러 토픽이 붙어도 `classifiedReviewCount`에는 1건만 포함한다.
+  토픽 연결 행 수 또는 `mentionCount` 합계는 분모로 사용하지 않는다.
+- 기간·게임·구간·플레이타임 결측/음수 제외 기준은 기존 리뷰 수 집계와 동일하다.
+  `overall.classifiedReviewCount`는 B1~B4 분류 리뷰 수의 합계다.
+- `topics`는 토픽 ID 순서다. `mentionRate`는 해당 토픽 리뷰 수를 전체 또는 선택 구간의
+  `classifiedReviewCount`로 나눈 백분율이다. `overallMentionRate`는 선택 구간과 관계없이
+  전체 해당 토픽 리뷰 수 / `overall.classifiedReviewCount` × 100이다.
+- `differencePp`는 선택 구간 언급률에서 전체 언급률을 뺀 값이며, 전체 선택이면 `null`이다.
+  비율은 소수점 둘째 자리에서 반올림(`HALF_UP`)하여 소수점 한 자리까지 반환한다.
+  차이는 반올림된 두 비율로 계산한다.
+- 분모가 0이면 `mentionRate` 또는 `overallMentionRate`는 숫자 `0.0`으로 반환한다.
+  구간 선택 시 `differencePp`도 이 값을 사용해 계산한다. 예를 들어 선택 구간 분류 리뷰가 0건이고
+  전체 언급률이 50.0이면 `differencePp=-50.0`이다. 전체 선택 시에는 기존처럼 `null`이다.
+- `highestBand`는 각 구간의 분류 리뷰 수를 분모로 계산한 언급률이 가장 높은 구간이다.
+  분류 리뷰가 0건인 구간은 제외하고, 동률이면 작은 구간 번호를 선택한다.
+  모든 구간의 분류 리뷰가 0건이면 `highestBand`는 `null`이다.
+- 표본 판단은 분류 여부와 관계없는 `reviewCount >= 30`을 유지한다.
+  표본이 충분하면 `bandNo` 선택과 관계없이 B1~B4를 모두 제공하고, 분류 리뷰가 0건이어도
+  `topics`의 토픽 목록은 유지하되 언급률을 `0.0`으로 반환한다.
+- 표본 부족 시 `bands=[]`, `topics=[]`와 기존 fallback을 유지한다.
+  `overall.classifiedReviewCount`는 항상 제공하며, 이 경우 선택 구간 분류 리뷰 수를 위한 별도 필드는 추가하지 않는다.
+- 한 리뷰에 여러 토픽이 붙을 수 있으므로 토픽별 비율의 합은 100%를 넘을 수 있다.
+  예: 전체 리뷰 1,000건, 분류 리뷰 100건, 해당 토픽 리뷰 40건이면
+  `reviewCount=1000`, `classifiedReviewCount=100`, `mentionCount=40`, `mentionRate=40.0`이다.
+- 상단 카드의 `reviewCount`, 긍정/부정 건수와 긍정률은 분석 대상 전체 리뷰 기준을 유지한다.
+  AI 요약 API와 입력 표본 선정은 변경하지 않는다. 신규 schema/migration은 추가하지 않는다.
+- 프론트의 토픽 건수 표시는 `classifiedReviewCount`를 사용하고, 막대와 전체 비교선 모두 새 비율을 사용한다.
+  분류 리뷰가 0건이면 언급률은 `0.0`이며, `classifiedReviewCount`로 분류된 리뷰가 없다는 안내를
+  구분할 수 있다. 프론트 구현은 별도 연동 범위다.
 
 **Response 주요 구조**
 
@@ -346,6 +390,7 @@ B4 = [Q3, ∞)
       "minMinutes": 0,
       "maxMinutesExclusive": null,
       "reviewCount": 486,
+      "classifiedReviewCount": 360,
       "positiveCount": 332,
       "negativeCount": 154,
       "positiveRate": 68.4,
@@ -357,6 +402,7 @@ B4 = [Q3, ∞)
         "minMinutes": 0,
         "maxMinutesExclusive": 90,
         "reviewCount": 120,
+        "classifiedReviewCount": 90,
         "positiveCount": 86,
         "negativeCount": 34,
         "positiveRate": 71.7,
@@ -368,12 +414,12 @@ B4 = [Q3, ∞)
         "topicId": 1,
         "name": "밸런스/너프·버프",
         "mentionCount": 212,
-        "mentionRate": 43.6,
-        "overallMentionRate": 43.6,
+        "mentionRate": 58.9,
+        "overallMentionRate": 58.9,
         "differencePp": null,
         "highestBand": {
           "band": "B4",
-          "mentionRate": 68.2
+          "mentionRate": 80.0
         }
       }
     ],
@@ -384,10 +430,16 @@ B4 = [Q3, ∞)
 
 **Processing Rules / Notes — 표본 부족 fallback**
 
+아래는 축약 예시다. `overall`의 기존 필드와 함께 `classifiedReviewCount`를 제공한다.
+
 ```json
 {
   "data": {
     "isSufficientSample": false,
+    "overall": {
+      "reviewCount": 22,
+      "classifiedReviewCount": 15
+    },
     "bands": [],
     "topics": [],
     "fallback": {
@@ -424,6 +476,20 @@ B4 = [Q3, ∞)
 ## 대표 반응 AI 요약
 
 ### `GET /games/{gameId}/summaries/playtime-topics`
+
+**Processing Rules / Notes — 공백 리뷰 제외 (S15P21A202-304)**
+
+- 게임별 `recommendationid`의 최신 버전을 먼저 선택한다. 수정 시각이 같으면 높은 `review_id`가 최신이다.
+  이후 조회 기간과 플레이타임 구간을 적용하고, 본문이 `null`, 빈 문자열 또는 공백 문자만인 리뷰를 DB 조회에서 제외한다.
+  공백 문자는 Java `String.isBlank()`와 같은 기준이며 탭·개행·전각 공백도 포함한다.
+  최신 본문이 공백이면 과거의 비어 있지 않은 버전을 대신 사용하지 않는다.
+- 공백 제외 후 도움됨 수(`votes_up`) 내림차순, 동률이면 `review_id` 내림차순으로 최대 40건을 선택한다.
+  상위 40건을 먼저 뽑은 뒤 공백을 제거하는 방식은 사용하지 않는다. 전체 선택과 1~4 구간 모두 같은 기준이다.
+- `targetReviewCount`는 최대 40건 제한을 적용하기 전의 공백 제외 유효 리뷰 수다.
+  30건 미만이면 AI 호출 없이 `SKIPPED` / `INSUFFICIENT_SAMPLE`을 반환한다.
+  30~39건이면 유효 리뷰 전부, 40건 이상이면 상위 40건을 보내며, 완료 시 `usedReviewCount`는 실제 AI 입력 건수다.
+- 저장 원문, 별도 통계 API의 전체 리뷰 수, 언어별 요약·대표 리뷰 선정 기준은 변경하지 않는다.
+  정상 요약 캐시 정책도 유지하며, 실제 AI 입력이 달라지면 새 캐시 키를 사용한다.
 
 **Auth**
 
@@ -562,6 +628,34 @@ B4 = [Q3, ∞)
 - `404`
 
 ## 언어별 요약 / 대표 리뷰 조회
+
+언어를 펼치는 화면은 아래 분리 API 두 개를 동시에 호출하고 각 영역의 로딩·오류·재시도를 독립적으로 처리한다.
+기존 통합 API는 호환성을 위해 유지하며, 이 API는 여전히 AI 처리가 끝난 뒤 대표 리뷰와 요약을 함께 반환한다.
+
+### `GET /games/{gameId}/language-analysis/{languageCode}/reviews`
+
+- Auth: Required. Path Variables: `gameId`는 long, `languageCode`는 string.
+- Query Parameters와 Request Body는 없다.
+- HTTP 200은 공통 성공 envelope를 사용하며 `data`는 `{ meta, languageCode, representativeReviews }`다.
+- 각 필드의 타입·의미는 아래 통합 API와 같다. `summary` 필드는 반환하지 않는다.
+- 최근 14일의 해당 언어 최신 리뷰를 도움됨 수·리뷰 ID 내림차순으로 최대 4건 반환한다. 없는 경우 빈 배열이다.
+- DB 조회만 수행하며 AI 서버와 AI 요약 캐시는 호출하지 않는다. 본문 일반 텍스트 변환과 태그는 기존과 같다.
+- 오류: `400 INVALID_REQUEST`(잘못되거나 등록되지 않은 언어 코드), `401 UNAUTHORIZED`,
+  `404 GAME_NOT_FOUND`, 예상하지 못한 DB·내부 오류는 `500 INTERNAL_SERVER_ERROR`. 공통 오류 envelope를 사용한다.
+
+### `GET /games/{gameId}/language-analysis/{languageCode}/summary`
+
+- Auth: Required. Path Variables: `gameId`는 long, `languageCode`는 string.
+- Query Parameters와 Request Body는 없다.
+- HTTP 200은 공통 성공 envelope를 사용하며 `data`는 `{ meta, languageCode, summary }`다.
+- 각 필드의 타입·의미는 아래 통합 API와 같다. `representativeReviews` 필드는 반환하지 않는다.
+- 최근 14일의 해당 언어 리뷰 중 도움됨 상위 최대 20건을 사용한다. 대상 표본이 30건 미만이면
+  AI 호출 없이 `SKIPPED` / `INSUFFICIENT_SAMPLE`, 정상 완료는 `COMPLETED`, AI 일시 장애는
+  `UNAVAILABLE` / `AI_UNAVAILABLE`다. 기존 요약 캐시와 상태별 null 정책을 유지한다.
+- 오류: `400 INVALID_REQUEST`, `401 UNAUTHORIZED`, `404 GAME_NOT_FOUND`,
+  예상하지 못한 DB·내부 오류는 `500 INTERNAL_SERVER_ERROR`. AI 일시 장애는 위 HTTP 200의 요약 상태로 표시한다.
+- 두 API는 독립 요청이므로 같은 DB 스냅샷을 공유하지 않는다. 자정 또는 배치 갱신을 사이에 둔 요청은
+  기간이나 선택 리뷰가 다를 수 있으며 각 응답의 `meta.period`는 실제 조회 기준이다.
 
 ### `GET /games/{gameId}/language-analysis/{languageCode}`
 

@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.ssafy.thispatch.common.TimeRule;
 import com.ssafy.thispatch.domain.game.exception.GameDetailErrorCode;
 import com.ssafy.thispatch.domain.review.repository.ReviewReadRepository.ReviewRow;
 import com.ssafy.thispatch.domain.statistics.repository.PlaytimeAnalysisRepository.BandReview;
@@ -57,6 +58,7 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 	void period() {
 		when(context.recentPeriod()).thenReturn(PERIOD);
 		when(context.periodStarting(PERIOD.startDate())).thenReturn(PERIOD);
+		when(context.periodBetween(any(), any())).thenCallRealMethod();
 	}
 
 	@Test
@@ -84,18 +86,82 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			new Patch("18446744073709551615", "패치", start.plusDays(1), 6, 7)));
 		mvc.perform(get("/games/7/reaction-trends").param("startDate", start.toString()).header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.summary.reviewCount").value(4))
+			.andExpect(jsonPath("$.data.meta.period.endDate").value(PERIOD.endDate().toString()))
 			.andExpect(jsonPath("$.data.summary.positiveRate").value(50.0))
 			.andExpect(jsonPath("$.data.daily[1].dataAvailable").value(true))
 			.andExpect(jsonPath("$.data.daily[1].positiveRate").isEmpty())
 			.andExpect(jsonPath("$.data.daily[1].patches[0].patchIndex").value(6))
 			.andExpect(jsonPath("$.data.daily[1].patches[0].totalPatchCount").value(7));
+		verify(context).periodStarting(start);
+		verify(context, never()).periodBetween(any(), any());
+	}
+
+	@Test
+	void reactionTrendsUsesExplicitEndDateForDaysTotalsAndPatches() throws Exception {
+		var start = LocalDate.of(2026, 9, 15);
+		var end = LocalDate.of(2026, 9, 23);
+		var selectedPeriod = new ReviewPeriod(start, end);
+		when(context.periodStarting(start)).thenReturn(new ReviewPeriod(start, LocalDate.of(2026, 9, 28)));
+		when(daily.findWithinPeriod(7, selectedPeriod)).thenReturn(start.datesUntil(end.plusDays(1))
+			.map(date -> new DailyCounts(date, 1, 0, 1, 1, 0, 0)).toList());
+		when(daily.firstStatDate(7)).thenReturn(start.minusDays(10));
+		when(patches.findWithinPeriod(7, selectedPeriod)).thenReturn(List.of(new Patch("123", "패치", end, 2, 3)));
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", start.toString())
+			.param("endDate", end.toString()).header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.meta.period.endDate").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.meta.period.dayCount").value(9))
+			.andExpect(jsonPath("$.data.availablePeriod.endDate").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.daily.length()").value(9))
+			.andExpect(jsonPath("$.data.daily[8].date").value("2026-09-23"))
+			.andExpect(jsonPath("$.data.daily[8].patches[0].id").value("123"))
+			.andExpect(jsonPath("$.data.summary.reviewCount").value(9));
+		verify(context, never()).periodStarting(any());
+		verify(daily).findWithinPeriod(7, selectedPeriod);
+		verify(patches).findWithinPeriod(7, selectedPeriod);
+	}
+
+	@Test
+	void singleDayBeforeFirstStatisticHasNoAvailablePeriod() throws Exception {
+		var date = PERIOD.startDate();
+		var selectedPeriod = new ReviewPeriod(date, date);
+		when(daily.firstStatDate(7)).thenReturn(date.plusDays(1));
+		when(daily.findWithinPeriod(7, selectedPeriod)).thenReturn(List.of(new DailyCounts(date, 0, 0, 0, 0, 0, 0)));
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", date.toString())
+			.param("endDate", date.toString()).header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.meta.period.dayCount").value(1))
+			.andExpect(jsonPath("$.data.availablePeriod").isEmpty())
+			.andExpect(jsonPath("$.data.daily.length()").value(1))
+			.andExpect(jsonPath("$.data.summary.reviewCount").value(0));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"invalid", "2026-02-30", "2026-09-02"})
+	void reactionTrendsRejectsMalformedOrReversedEndDate(String endDate) throws Exception {
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", PERIOD.startDate().toString())
+			.param("endDate", endDate).header("Authorization", auth()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.data").doesNotExist())
+			.andExpect(jsonPath("$.success").doesNotExist());
+		verifyNoInteractions(daily, patches);
+	}
+
+	@Test
+	void reactionTrendsRejectsFutureEndDate() throws Exception {
+		mvc.perform(get("/games/7/reaction-trends").param("startDate", PERIOD.startDate().toString())
+			.param("endDate", LocalDate.now(TimeRule.ZONE).plusDays(1).toString()).header("Authorization", auth()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+		verifyNoInteractions(daily, patches);
 	}
 
 	@Test
 	void playtimeUsesStoredBoundariesAndSelectedVersusOverallTopicRates() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 90, 1000, 40, 20), new BandCount(2, 90, 480, 1000, 40, 20),
-			new BandCount(3, 480, 2100, 1000, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0)));
+			new BandCount(1, 0, 90, 1000, 40, 30, 20), new BandCount(2, 90, 480, 1000, 40, 10, 20),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
 		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
 			new TopicCount(1, 1, "밸런스", 20), new TopicCount(2, 1, "밸런스", 10),
 			new TopicCount(3, 1, "밸런스", 0), new TopicCount(4, 1, "밸런스", 0)));
@@ -104,23 +170,33 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			.andExpect(jsonPath("$.data.scale.p25Minutes").value(90))
 			.andExpect(jsonPath("$.data.bands.length()").value(4))
 			.andExpect(jsonPath("$.data.bands[2].reviewCount").value(0))
-			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(50.0))
-			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(37.5))
-			.andExpect(jsonPath("$.data.topics[0].differencePp").value(12.5))
-			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B1"));
+			.andExpect(jsonPath("$.data.overall.reviewCount").value(80))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(40))
+			.andExpect(jsonPath("$.data.overall.positiveRate").value(50.0))
+			.andExpect(jsonPath("$.data.bands[0].classifiedReviewCount").value(30))
+			.andExpect(jsonPath("$.data.bands[1].classifiedReviewCount").value(10))
+			.andExpect(jsonPath("$.data.bands[2].classifiedReviewCount").value(0))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(66.7))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(75.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(-8.3))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B2"))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.mentionRate").value(100.0));
 		verify(playtime, never()).findFallbackReviews(anyLong(), any(), any());
 	}
 
 	@Test
 	void insufficientSampleKeepsFourFallbackGroupsAndSkipsTopicQuery() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 100, 0, 0, 0), new BandCount(2, 100, 100, 0, 0, 0),
-			new BandCount(3, 100, 100, 0, 0, 0), new BandCount(4, 100, null, 29, 29, 10)));
+			new BandCount(1, 0, 100, 0, 0, 0, 0), new BandCount(2, 100, 100, 0, 0, 0, 0),
+			new BandCount(3, 100, 100, 0, 0, 0, 0), new BandCount(4, 100, null, 29, 29, 15, 10)));
 		mvc.perform(get("/games/7/playtime-topics").header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.isSufficientSample").value(false))
 			.andExpect(jsonPath("$.data.fallback.totalCount").value(29))
 			.andExpect(jsonPath("$.data.fallback.itemsByBand.length()").value(4))
-			.andExpect(jsonPath("$.data.fallback.itemsByBand[3].band").value("B4"));
+			.andExpect(jsonPath("$.data.fallback.itemsByBand[3].band").value("B4"))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(15))
+			.andExpect(jsonPath("$.data.bands").isEmpty())
+			.andExpect(jsonPath("$.data.topics").isEmpty());
 		verify(playtime, never()).findTopicCounts(anyLong(), any());
 	}
 
@@ -148,12 +224,15 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 	@Test
 	void selectedSmallBandFallsBackEvenWhenOverallHasEnoughReviews() throws Exception {
 		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
-			new BandCount(1, 0, 90, 1000, 100, 50), new BandCount(2, 90, 480, 1000, 100, 50),
-			new BandCount(3, 480, 2100, 1000, 100, 50), new BandCount(4, 2100, null, 1000, 29, 10)));
+			new BandCount(1, 0, 90, 1000, 100, 60, 50), new BandCount(2, 90, 480, 1000, 100, 60, 50),
+			new BandCount(3, 480, 2100, 1000, 100, 60, 50), new BandCount(4, 2100, null, 1000, 29, 15, 10)));
 		mvc.perform(get("/games/7/playtime-topics").param("bandNo", "4").header("Authorization", auth()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.overall.isSufficientSample").value(true))
 			.andExpect(jsonPath("$.data.isSufficientSample").value(false))
-			.andExpect(jsonPath("$.data.fallback.totalCount").value(29));
+			.andExpect(jsonPath("$.data.fallback.totalCount").value(29))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(195))
+			.andExpect(jsonPath("$.data.bands").isEmpty())
+			.andExpect(jsonPath("$.data.topics").isEmpty());
 		verify(playtime).findFallbackReviews(7, PERIOD, 4);
 		verify(playtime, never()).findTopicCounts(anyLong(), any());
 	}
@@ -164,6 +243,7 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.scale.sampleCount").value(0))
 			.andExpect(jsonPath("$.data.scale.p25Minutes").isEmpty())
 			.andExpect(jsonPath("$.data.overall.reviewCount").value(0))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(0))
 			.andExpect(jsonPath("$.data.fallback.itemsByBand.length()").value(4));
 	}
 
@@ -176,6 +256,75 @@ class StatisticsControllerTest extends ActiveMemberWebMvcTest {
 		mvc.perform(get(path).param("startDate", PERIOD.startDate().toString()).header("Authorization", auth()))
 			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("GAME_NOT_FOUND"))
 			.andExpect(jsonPath("$.success").doesNotExist());
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {0, 1})
+	void noClassifiedReviewsKeepsSampleSufficientAndReturnsZeroRates(int selectedBand) throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 0, 20), new BandCount(2, 90, 480, 1000, 0, 0, 0),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(new TopicCount(1, 1, "밸런스", 0)));
+		var request = get("/games/7/playtime-topics").header("Authorization", auth());
+		if (selectedBand != 0) {
+			request.param("bandNo", String.valueOf(selectedBand));
+		}
+		mvc.perform(request).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(0))
+			.andExpect(jsonPath("$.data.bands.length()").value(4))
+			.andExpect(jsonPath("$.data.topics.length()").value(1))
+			.andExpect(jsonPath("$.data.topics[0].mentionCount").value(0))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(selectedBand == 0 ? null : 0.0))
+			.andExpect(jsonPath("$.data.topics[0].highestBand").value(org.hamcrest.Matchers.nullValue()))
+			.andExpect(jsonPath("$.data.fallback").isEmpty());
+		verify(playtime, never()).findFallbackReviews(anyLong(), any(), any());
+	}
+
+	@Test
+	void unclassifiedSelectionKeepsOverallRateAndExcludesItFromHighestBand() throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 0, 20), new BandCount(2, 90, 480, 1000, 10, 2, 5),
+			new BandCount(3, 480, 2100, 1000, 10, 2, 5), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
+			new TopicCount(1, 1, "밸런스", 0), new TopicCount(2, 1, "밸런스", 1),
+			new TopicCount(3, 1, "밸런스", 1), new TopicCount(4, 1, "밸런스", 0)));
+		mvc.perform(get("/games/7/playtime-topics").param("bandNo", "1").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(0.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(50.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").value(-50.0))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.band").value("B2"))
+			.andExpect(jsonPath("$.data.topics[0].highestBand.mentionRate").value(50.0));
+	}
+
+	@Test
+	void overallUsesClassifiedDenominatorAndAllowsMultipleTopicRatesToExceedHundred() throws Exception {
+		when(playtime.findBandCounts(7, PERIOD)).thenReturn(List.of(
+			new BandCount(1, 0, 90, 1000, 30, 1, 20), new BandCount(2, 90, 480, 1000, 0, 0, 0),
+			new BandCount(3, 480, 2100, 1000, 0, 0, 0), new BandCount(4, 2100, null, 1000, 0, 0, 0)));
+		when(playtime.findTopicCounts(7, PERIOD)).thenReturn(List.of(
+			new TopicCount(1, 2, "버그", 1), new TopicCount(1, 1, "밸런스", 1),
+			new TopicCount(1, 3, "UI", 0)));
+		mvc.perform(get("/games/7/playtime-topics").param("startDate", PERIOD.startDate().toString())
+			.header("Authorization", auth())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.selectedBand").value("ALL"))
+			.andExpect(jsonPath("$.data.isSufficientSample").value(true))
+			.andExpect(jsonPath("$.data.overall.reviewCount").value(30))
+			.andExpect(jsonPath("$.data.overall.classifiedReviewCount").value(1))
+			.andExpect(jsonPath("$.data.overall.positiveCount").value(20))
+			.andExpect(jsonPath("$.data.overall.negativeCount").value(10))
+			.andExpect(jsonPath("$.data.overall.positiveRate").value(66.7))
+			.andExpect(jsonPath("$.data.topics[0].topicId").value(1))
+			.andExpect(jsonPath("$.data.topics[0].mentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[0].overallMentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[0].differencePp").isEmpty())
+			.andExpect(jsonPath("$.data.topics[1].mentionRate").value(100.0))
+			.andExpect(jsonPath("$.data.topics[2].mentionRate").value(0.0));
+		verify(context).periodStarting(PERIOD.startDate());
 	}
 
 	private String auth() {

@@ -48,6 +48,18 @@ class GameListFilterControllerTest extends ActiveMemberWebMvcTest {
 
 	@ParameterizedTest
 	@ValueSource(strings = {"/games", "/members/me/games"})
+	void validatesOriginalSearchLengthBeforeRemovingPunctuation(String path) throws Exception {
+		mvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, auth()).param("search", "!".repeat(101)))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+			.andExpect(jsonPath("$.message").value("입력값을 확인해주세요."))
+			.andExpect(jsonPath("$.errors[0].field").value("search"))
+			.andExpect(jsonPath("$.errors[0].message").value("검색어는 100자 이하여야 합니다."))
+			.andExpect(jsonPath("$.data").doesNotExist()).andExpect(jsonPath("$.success").doesNotExist());
+		verifyNoInteractions(repository);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
 	void passesAllFiltersAndTheirInclusiveLimitsToTheCorrectScope(String path) throws Exception {
 		mvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, auth())
 			.param("releaseYearFrom", "1").param("releaseYearTo", "9999")

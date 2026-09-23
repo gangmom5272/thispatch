@@ -29,6 +29,9 @@ public class GameListService {
 
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public GameListResponse getGames(long memberId, GameListQuery query, String cursor, GameListScope scope) {
+		if (!query.search().isEmpty()) {
+			query = repository.normalizeSearch(query);
+		}
 		Boundary boundary = cursors.decode(cursor, query, scope, memberId);
 		long totalCount = repository.count(memberId, query, scope);
 		var rows = repository.findPage(memberId, query, scope, boundary);

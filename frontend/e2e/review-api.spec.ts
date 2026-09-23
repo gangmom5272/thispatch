@@ -27,6 +27,34 @@ const reviews = Array.from({ length: 4 }, (_, index) => ({
   reviewDate: "2026-09-17",
 }))
 
+const languageOverview = {
+  meta,
+  totalReviewCount: 40,
+  isSufficientSample: true,
+  minimumSampleCount: 30,
+  languages: [
+    {
+      languageCode: "korean",
+      displayName: "한국어",
+      reviewCount: 40,
+      reviewShare: 100,
+      positiveRate: 80,
+      positiveCount: 32,
+      negativeCount: 8,
+      isSufficientSample: true,
+    },
+  ],
+}
+
+const languageSummary = {
+  status: "COMPLETED",
+  text: "한국어 리뷰 요약이 완료되었습니다.",
+  targetPeriod: period,
+  targetReviewCount: 40,
+  usedReviewCount: 20,
+  selection: { code: "HELPFUL_DESC", limit: 20, description: "40건 중 도움됨 상위 20건" },
+}
+
 async function mockApi(page: Page, responses: Record<string, unknown>) {
   await page.addInitScript(() => localStorage.setItem("thispatch.accessToken", "test-token"))
   const defaults: Record<string, unknown> = {
@@ -93,28 +121,16 @@ test("대표 리뷰 객체 응답의 items 네 건과 플레이타임 결측을 
 
 test("언어 요약이 이용 불가여도 표본 충족과 대표 리뷰 네 건을 유지한다", async ({ page }) => {
   await mockApi(page, {
-    "/games/7/language-analysis": {
-      meta,
-      totalReviewCount: 40,
-      isSufficientSample: true,
-      minimumSampleCount: 30,
-      languages: [
-        {
-          languageCode: "korean",
-          displayName: "한국어",
-          reviewCount: 40,
-          reviewShare: 100,
-          positiveRate: 80,
-          positiveCount: 32,
-          negativeCount: 8,
-          isSufficientSample: true,
-        },
-      ],
-    },
-    "/games/7/language-analysis/korean": {
+    "/reviews/1/translation": { reviewId: 1, translatedText: reviews[0].body },
+    "/games/7/language-analysis": languageOverview,
+    "/games/7/language-analysis/korean/summary": {
       meta,
       languageCode: "korean",
       summary: { ...unavailable, targetReviewCount: 40, usedReviewCount: null, selection: null },
+    },
+    "/games/7/language-analysis/korean/reviews": {
+      meta,
+      languageCode: "korean",
       representativeReviews: reviews,
     },
   })
@@ -124,9 +140,129 @@ test("언어 요약이 이용 불가여도 표본 충족과 대표 리뷰 네 �
   await expect(page.getByText(unavailable.message, { exact: true })).toBeVisible()
   for (const review of reviews)
     await expect(page.getByText(review.body, { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "번역", exact: true }).first()).toBeDisabled()
+  const translatedResponse = page.waitForResponse("**/api/reviews/1/translation")
+  await page.getByRole("button", { name: "번역", exact: true }).first().click()
+  await translatedResponse
+  await expect(page.getByRole("button", { name: "번역", exact: true }).first()).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(page.getByText(reviews[0].body, { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "원문", exact: true }).first().click()
   await expect(page.getByText(reviews[0].body, { exact: true })).toBeVisible()
+})
+
+test("AI 요약을 기다리는 동안 대표 리뷰를 먼저 표시한다", async ({ page }) => {
+  await mockApi(page, {
+    "/games/7/language-analysis": languageOverview,
+    "/games/7/language-analysis/korean/reviews": {
+      meta,
+      languageCode: "korean",
+      representativeReviews: reviews,
+    },
+    "/games/7/language-analysis/korean/summary": {
+      meta,
+      languageCode: "korean",
+      summary: languageSummary,
+    },
+  })
+  const summaryGate = Promise.withResolvers<void>()
+  await page.route("**/api/games/7/language-analysis/korean/summary", async (route) => {
+    await summaryGate.promise
+    await route.fallback()
+  })
+
+  try {
+    await page.goto("/games/7/language-analysis")
+    await page.getByRole("button", { name: /한국어/ }).click()
+    await expect(page.getByRole("status")).toHaveText("AI 요약을 불러오는 중입니다.")
+    for (const review of reviews) {
+      await expect(page.getByText(review.body, { exact: true })).toBeVisible()
+    }
+    summaryGate.resolve()
+    await expect(page.getByText(languageSummary.text, { exact: true })).toBeVisible()
+    await expect(page.getByText("AI 요약을 불러오는 중입니다.")).toBeHidden()
+  } finally {
+    summaryGate.resolve()
+  }
+})
+
+test("언어 요약 요청 실패와 재시도 중에도 리뷰를 유지한다", async ({ page }) => {
+  await mockApi(page, {
+    "/games/7/language-analysis": languageOverview,
+    "/games/7/language-analysis/korean/reviews": {
+      meta,
+      languageCode: "korean",
+      representativeReviews: reviews,
+    },
+    "/games/7/language-analysis/korean/summary": {
+      meta,
+      languageCode: "korean",
+      summary: languageSummary,
+    },
+  })
+  let summaryUnavailable = true
+  const retryGate = Promise.withResolvers<void>()
+  await page.route("**/api/games/7/language-analysis/korean/summary", async (route) => {
+    if (summaryUnavailable) {
+      await route.fulfill({
+        status: 503,
+        json: { code: "AI_UNAVAILABLE", message: "요약 요청에 실패했습니다." },
+      })
+      return
+    }
+    await retryGate.promise
+    await route.fallback()
+  })
+
+  try {
+    await page.goto("/games/7/language-analysis")
+    await page.getByRole("button", { name: /한국어/ }).click()
+    await expect(page.getByRole("alert")).toHaveText("요약 요청에 실패했습니다.", {
+      timeout: 15_000,
+    })
+    for (const review of reviews) {
+      await expect(page.getByText(review.body, { exact: true })).toBeVisible()
+    }
+    summaryUnavailable = false
+    await page.getByRole("button", { name: "요약 다시 시도" }).click()
+    await expect(page.getByRole("status")).toHaveText("AI 요약을 불러오는 중입니다.")
+    for (const review of reviews) {
+      await expect(page.getByText(review.body, { exact: true })).toBeVisible()
+    }
+    retryGate.resolve()
+    await expect(page.getByText(languageSummary.text, { exact: true })).toBeVisible()
+  } finally {
+    retryGate.resolve()
+  }
+})
+
+test("언어 리뷰가 없으면 빈 상태와 요약 표본 부족을 따로 표시한다", async ({ page }) => {
+  await mockApi(page, {
+    "/games/7/language-analysis": languageOverview,
+    "/games/7/language-analysis/korean/reviews": {
+      meta,
+      languageCode: "korean",
+      representativeReviews: [],
+    },
+    "/games/7/language-analysis/korean/summary": {
+      meta,
+      languageCode: "korean",
+      summary: {
+        status: "SKIPPED",
+        reasonCode: "INSUFFICIENT_SAMPLE",
+        text: null,
+        targetPeriod: period,
+        targetReviewCount: 0,
+        usedReviewCount: null,
+        selection: null,
+      },
+    },
+  })
+  await page.goto("/games/7/language-analysis")
+  await page.getByRole("button", { name: /한국어/ }).click()
+  await expect(page.getByText("이 구간에 표시할 대표 리뷰가 없습니다.")).toBeVisible()
+  await expect(page.getByText("표본이 부족해 AI 요약을 건너뛰었습니다.")).toBeVisible()
 })
 
 test("isSufficientSample로 토픽 집계를 표시하고 AI 장애를 구분한다", async ({ page }) => {
@@ -207,7 +343,8 @@ test("집계 이력이 없어도 반응 추세 화면과 AI 이용 불가 안내
   await expect(page.getByText("Unexpected Application Error!")).toHaveCount(0)
 })
 
-test("집계 마지막 날 이후 일자는 반응 추세 차트에서 제외한다", async ({ page }) => {
+test("발표일에도 반응 추세와 AI 요약을 데모 종료일까지 조회한다", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-28T10:00:00+09:00"))
   const day = (date: string, reviewCount: number) => ({
     date,
     dataAvailable: true,
@@ -245,8 +382,19 @@ test("집계 마지막 날 이후 일자는 반응 추세 차트에서 제외한
     },
     "/games/7/summaries/reaction-trends": { meta, summary: unavailable },
   })
+  const trendsRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/games/7/reaction-trends",
+  )
+  const summaryRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/games/7/summaries/reaction-trends",
+  )
   await page.goto("/games/7/reaction-trends")
-  await expect(page.getByText("09-23")).toBeVisible()
+  const trendsParams = new URL((await trendsRequest).url()).searchParams
+  expect(trendsParams.get("startDate")).toBe("2026-08-12")
+  expect(trendsParams.get("endDate")).toBe("2026-09-22")
+  expect(new URL((await summaryRequest).url()).searchParams.get("endDate")).toBe("2026-09-22")
+  await expect(page.getByRole("application").getByText("09-22", { exact: true })).toBeVisible()
+  await expect(page.getByText("09-23")).toHaveCount(0)
   await expect(page.getByText("09-24")).toHaveCount(0)
-  await expect(page.getByRole("paragraph").filter({ hasText: /^30건$/ })).toBeVisible()
+  await expect(page.getByRole("paragraph").filter({ hasText: /^10건$/ })).toBeVisible()
 })

@@ -44,10 +44,11 @@ public class PlaytimeAnalysisService {
 		var counts = repository.findBandCounts(gameId, period);
 		validateBoundaries(counts);
 		var bands = counts.stream().map(count -> band("B" + count.bandNo(), count.minMinutes(),
-			count.maxMinutesExclusive(), count.reviewCount(), count.positiveCount())).toList();
+			count.maxMinutesExclusive(), count.reviewCount(), count.classifiedReviewCount(), count.positiveCount())).toList();
 		long total = counts.stream().mapToLong(BandCount::reviewCount).sum();
+		long classifiedTotal = counts.stream().mapToLong(BandCount::classifiedReviewCount).sum();
 		long positive = counts.stream().mapToLong(BandCount::positiveCount).sum();
-		var overall = band("ALL", 0, null, total, positive);
+		var overall = band("ALL", 0, null, total, classifiedTotal, positive);
 		var scale = new Scale("ALL_GAME_REVIEWS", counts.stream().mapToLong(BandCount::allTimeCount).sum(),
 			counts.isEmpty() ? null : counts.get(0).maxMinutesExclusive(),
 			counts.isEmpty() ? null : counts.get(1).maxMinutesExclusive(),
@@ -56,7 +57,7 @@ public class PlaytimeAnalysisService {
 		boolean sufficient = selectedCount >= MINIMUM_SAMPLE_COUNT;
 		return new PlaytimeAnalysis(AnalysisMeta.of(period), bandNo == null ? "ALL" : "B" + bandNo,
 			MINIMUM_SAMPLE_COUNT, sufficient, scale, overall, sufficient ? bands : List.of(),
-			sufficient ? topics(repository.findTopicCounts(gameId, period), counts, bandNo, total) : List.of(),
+			sufficient ? topics(repository.findTopicCounts(gameId, period), counts, bandNo, classifiedTotal) : List.of(),
 			sufficient ? null : fallback(gameId, period, bandNo, selectedCount));
 	}
 
@@ -98,7 +99,8 @@ public class PlaytimeAnalysisService {
 		return new Fallback("INSUFFICIENT_SAMPLE", "표본이 부족해 구간·토픽 집계 대신 원문을 표시합니다.", count, items);
 	}
 
-	private static List<Topic> topics(List<TopicCount> mentions, List<BandCount> bands, Integer selectedBand, long total) {
+	private static List<Topic> topics(List<TopicCount> mentions, List<BandCount> bands, Integer selectedBand,
+		long classifiedTotal) {
 		Map<Integer, List<TopicCount>> byTopic = mentions.stream()
 			.collect(Collectors.groupingBy(TopicCount::topicId, TreeMap::new, Collectors.toList()));
 		List<Topic> topics = new ArrayList<>();
@@ -106,33 +108,40 @@ public class PlaytimeAnalysisService {
 			long overallCount = topicCounts.stream().mapToLong(TopicCount::mentionCount).sum();
 			long selectedCount = selectedBand == null ? overallCount : topicCounts.stream()
 				.filter(item -> item.bandNo() == selectedBand).mapToLong(TopicCount::mentionCount).sum();
-			long denominator = selectedBand == null ? total : bands.get(selectedBand - 1).reviewCount();
-			var rate = percentage(selectedCount, denominator);
-			var overallRate = percentage(overallCount, total);
+			long denominator = selectedBand == null ? classifiedTotal : bands.get(selectedBand - 1).classifiedReviewCount();
+			var rate = topicPercentage(selectedCount, denominator);
+			var overallRate = topicPercentage(overallCount, classifiedTotal);
 			HighestBand highest = null;
-			// 동률이면 B1부터 유지한다. 빈 구간의 비율은 비교 대상이 아니다.
+			// 동률이면 B1부터 유지한다. 분류 리뷰가 없는 구간의 비율은 비교 대상이 아니다.
 			for (var band : bands) {
+				if (band.classifiedReviewCount() == 0) {
+					continue;
+				}
 				long count = topicCounts.stream().filter(item -> item.bandNo() == band.bandNo())
 					.mapToLong(TopicCount::mentionCount).sum();
-				var bandRate = percentage(count, band.reviewCount());
+				var bandRate = percentage(count, band.classifiedReviewCount());
 				if (bandRate != null && (highest == null || bandRate.compareTo(highest.mentionRate()) > 0)) {
 					highest = new HighestBand("B" + band.bandNo(), bandRate);
 				}
 			}
 			var first = topicCounts.get(0);
 			topics.add(new Topic(first.topicId(), first.name(), selectedCount, rate, overallRate,
-				selectedBand == null || rate == null || overallRate == null ? null : rate.subtract(overallRate), highest));
+				selectedBand == null ? null : rate.subtract(overallRate), highest));
 		}
 		return topics;
 	}
 
-	private static Band band(String name, int from, Integer to, long count, long positive) {
-		return new Band(name, from, to, count, positive, count - positive, percentage(positive, count),
+	private static Band band(String name, int from, Integer to, long count, long classifiedCount, long positive) {
+		return new Band(name, from, to, count, classifiedCount, positive, count - positive, percentage(positive, count),
 			count >= MINIMUM_SAMPLE_COUNT);
 	}
 
 	private static BigDecimal percentage(long count, long total) {
 		return total == 0 ? null : BigDecimal.valueOf(count).multiply(BigDecimal.valueOf(100))
 			.divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP);
+	}
+
+	private static BigDecimal topicPercentage(long count, long classifiedTotal) {
+		return classifiedTotal == 0 ? BigDecimal.valueOf(0, 1) : percentage(count, classifiedTotal);
 	}
 }

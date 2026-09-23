@@ -24,6 +24,16 @@ public class GameListRepository {
 
 	private final NamedParameterJdbcTemplate jdbc;
 
+	public GameListQuery normalizeSearch(GameListQuery query) {
+		if (query.search().isEmpty()) {
+			return query;
+		}
+		String search = jdbc.queryForObject("select " + GameTitleSearch.expression(":rawSearch"),
+			new MapSqlParameterSource("rawSearch", query.search())
+				.addValue("ignoredTitleCharacters", GameTitleSearch.IGNORED_CHARACTERS), String.class);
+		return new GameListQuery(search, query.sort(), query.limit(), query.genreIds(), query.filters());
+	}
+
 	public long count(long memberId, GameListQuery query, GameListScope scope) {
 		return jdbc.queryForObject("select count(*) from game g where " + filter(query, scope),
 			parameters(memberId, query), Long.class);
@@ -141,7 +151,8 @@ public class GameListRepository {
 	}
 
 	private String filter(GameListQuery query, GameListScope scope) {
-		String filter = query.search().isEmpty() ? "true" : "lower(g.name) like :search escape '!'";
+		String filter = query.search().isEmpty() ? "true"
+			: GameTitleSearch.expression("g.name") + " like :search escape '!'";
 		var filters = query.filters();
 		if (filters.releaseYearFrom() != null) {
 			filter += " and extract(year from g.release_ts at time zone 'Asia/Seoul') >= :releaseYearFrom";
@@ -165,7 +176,9 @@ public class GameListRepository {
 			filter += " and lower(g.developer) like :developer escape '!'";
 		}
 		if (!query.genreIds().isEmpty()) {
-			filter += " and exists(select 1 from game_tag gt where gt.appid = g.appid and gt.tag_id in (:genreIds))";
+			// game_tag PK(appid, tag_id)와 정규화된 genreIds로 모든 선택 장르의 연결 여부를 확인한다.
+			filter += " and (select count(*) from game_tag gt where gt.appid = g.appid"
+				+ " and gt.tag_id in (:genreIds)) = :genreCount";
 		}
 		if (scope == GameListScope.MY) {
 			filter += " and exists(select 1 from my_game m where m.appid = g.appid and m.member_id = :memberId)";
@@ -176,7 +189,9 @@ public class GameListRepository {
 	private MapSqlParameterSource parameters(long memberId, GameListQuery query) {
 		var filters = query.filters();
 		return new MapSqlParameterSource("memberId", memberId)
+			.addValue("ignoredTitleCharacters", GameTitleSearch.IGNORED_CHARACTERS)
 			.addValue("search", query.searchPattern()).addValue("genreIds", query.genreIds())
+			.addValue("genreCount", query.genreIds().size())
 			.addValue("releaseYearFrom", filters.releaseYearFrom()).addValue("releaseYearTo", filters.releaseYearTo())
 			.addValue("minReviewCount", filters.minReviewCount()).addValue("maxReviewCount", filters.maxReviewCount())
 			.addValue("minPositiveRate", filters.minPositiveRate()).addValue("maxPositiveRate", filters.maxPositiveRate())

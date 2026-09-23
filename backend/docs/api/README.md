@@ -33,10 +33,13 @@
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/summaries/playtime-topics` | 플레이타임 AI 요약 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/language-analysis` | 언어별 통계 |
 | statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/language-analysis/{languageCode}` | 언어 상세/AI 요약/대표 리뷰 |
+| statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/language-analysis/{languageCode}/reviews` | 언어별 대표 리뷰 (AI 호출 없음) |
+| statistics | [statistics.md](statistics.md) | `GET /games/{gameId}/language-analysis/{languageCode}/summary` | 언어별 AI 요약 |
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/plan-structures` | 기획안 구조화 |
 | patch | [patch.md](patch.md) | `POST /games/{gameId}/case-searches` | 유사 사례 검색/상세 비교 |
 | patch | [patch.md](patch.md) | `GET /members/me/patch-plans` | 마이페이지 기획안 내역 목록 조회 (인증 필수) |
 | patch | [patch.md](patch.md) | `GET /members/me/patch-plans/{planId}` | 마이페이지 기획안 내역 상세 조회 (인증 필수) |
+| patch | [patch.md](patch.md) | `DELETE /members/me/patch-plans/{planId}` | 마이페이지 기획안 내역 삭제 (인증 필수) |
 | patch | [patch.md](patch.md) | `GET /games/{gameId}/patches/{patchId}` | 패치 원문 상세 |
 | patch | [patch.md](patch.md) | `GET /patches/{patchId}/translation` | 패치노트 한국어 번역 |
 

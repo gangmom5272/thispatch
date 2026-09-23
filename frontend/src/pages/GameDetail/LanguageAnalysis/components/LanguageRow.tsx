@@ -1,10 +1,13 @@
 import { useState } from "react"
 import { isApiError } from "@/api/error"
 import Button from "@/components/Button"
-import { useLanguageAnalysisDetail } from "@/hooks/queries/languageAnalysisQueries"
+import {
+  useLanguageAnalysisReviews,
+  useLanguageAnalysisSummary,
+} from "@/hooks/queries/languageAnalysisQueries"
 import { cn } from "@/lib/cn"
 import { formatPercent } from "@/lib/format"
-import type { LanguageAnalysisDetail, LanguageShare } from "@/types"
+import type { LanguageAnalysisSummary, LanguageShare } from "@/types"
 import ReviewCard from "./ReviewCard"
 
 const REPRESENTATIVE_REVIEW_COUNT = 4
@@ -57,7 +60,7 @@ function Bar({
   )
 }
 
-function summarySource(detail: LanguageAnalysisDetail): string {
+function summarySource(detail: LanguageAnalysisSummary): string {
   const { summary, languageCode } = detail
   const source = summary.selection
     ? `${summary.selection.description} 기준`
@@ -65,30 +68,25 @@ function summarySource(detail: LanguageAnalysisDetail): string {
   return `최근 ${summary.targetPeriod.dayCount}일 ${languageCode} 리뷰 · ${source}`
 }
 
-function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode: string }) {
-  const query = useLanguageAnalysisDetail(gameId, languageCode)
+function LanguageReviews({ gameId, languageCode }: { gameId: number; languageCode: string }) {
+  const query = useLanguageAnalysisReviews(gameId, languageCode)
 
   if (query.isPending) {
     return (
       <div
         aria-busy="true"
-        className="flex flex-col gap-[14px] pb-sb-5 pl-sb-4 pr-sb-4 pt-sb-4 md:pl-[42px] md:pr-[18px]"
+        aria-label="대표 리뷰 로딩 중"
+        className="grid gap-[14px] md:grid-cols-2"
       >
-        <div className="h-[112px] animate-pulse rounded-sb-control bg-sb-canvas-surface" />
-        <div className="grid gap-[14px] md:grid-cols-2">
-          <div className="h-[147px] animate-pulse rounded-sb-control bg-sb-canvas-surface" />
-          <div className="h-[147px] animate-pulse rounded-sb-control bg-sb-canvas-surface" />
-        </div>
+        <div className="h-[147px] animate-pulse rounded-sb-control bg-sb-canvas-surface" />
+        <div className="h-[147px] animate-pulse rounded-sb-control bg-sb-canvas-surface" />
       </div>
     )
   }
 
   if (query.isError) {
     return (
-      <div
-        role="alert"
-        className="flex flex-wrap items-center gap-sb-3 pb-sb-5 pl-sb-4 pr-sb-4 pt-sb-4 md:pl-[42px] md:pr-[18px]"
-      >
+      <div role="alert" className="flex flex-wrap items-center gap-sb-3">
         <p className="text-sb-ink">
           {isApiError(query.error)
             ? query.error.message
@@ -101,8 +99,55 @@ function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode
     )
   }
 
-  const { summary, representativeReviews } = query.data
-  const reviews = representativeReviews.slice(0, REPRESENTATIVE_REVIEW_COUNT)
+  const reviews = query.data.representativeReviews.slice(0, REPRESENTATIVE_REVIEW_COUNT)
+  if (reviews.length === 0) {
+    return <p className="text-sb-ink-mute">이 구간에 표시할 대표 리뷰가 없습니다.</p>
+  }
+  return (
+    <div className="grid gap-[14px] md:grid-cols-2">
+      {reviews.map((review) => (
+        <ReviewCard key={review.id} review={review} />
+      ))}
+    </div>
+  )
+}
+
+function LanguageAiSummary({ gameId, languageCode }: { gameId: number; languageCode: string }) {
+  const query = useLanguageAnalysisSummary(gameId, languageCode)
+
+  if (query.isPending) {
+    return (
+      <section
+        aria-label="AI 대표 리뷰 요약"
+        aria-busy="true"
+        className="rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]"
+      >
+        <p role="status" className="text-sb-ink-mute">
+          AI 요약을 불러오는 중입니다.
+        </p>
+      </section>
+    )
+  }
+
+  if (query.isError) {
+    return (
+      <section
+        aria-label="AI 대표 리뷰 요약"
+        className="flex flex-wrap items-center gap-sb-3 rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]"
+      >
+        <p role="alert" className="text-sb-ink">
+          {isApiError(query.error)
+            ? query.error.message
+            : "AI 요약을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."}
+        </p>
+        <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
+          요약 다시 시도
+        </Button>
+      </section>
+    )
+  }
+
+  const { summary } = query.data
   let summaryText = summary.text ?? "요약 본문이 비어 있습니다."
   if (summary.status === "UNAVAILABLE") {
     summaryText = summary.message ?? "AI 요약을 일시적으로 이용할 수 없습니다."
@@ -111,32 +156,34 @@ function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode
   }
 
   return (
-    <div className="flex flex-col gap-[14px] pb-sb-5 pl-sb-4 pr-sb-4 pt-sb-4 md:pl-[42px] md:pr-[18px]">
-      <section
-        aria-label="AI 대표 리뷰 요약"
-        className="flex flex-col gap-sb-2 rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]"
-      >
-        <div className="flex flex-wrap items-center gap-[10px]">
-          <span className="rounded-sb-tag bg-sb-tint-blue px-[7px] py-0.5 font-sb-mono font-medium text-sb-primary">
-            AI
-          </span>
-          <h3 className="font-medium text-sb-ink">대표 리뷰 요약</h3>
-          <p className="font-sb-mono text-sb-ink-mute tabular-nums md:ml-auto">
-            {summarySource(query.data)}
-          </p>
-        </div>
-        <p className="text-sb-ink">{summaryText}</p>
-      </section>
+    <section
+      aria-label="AI 대표 리뷰 요약"
+      className="flex flex-col gap-sb-2 rounded-sb-control bg-sb-canvas-surface px-[15px] py-[13px]"
+    >
+      <div className="flex flex-wrap items-center gap-[10px]">
+        <span className="rounded-sb-tag bg-sb-tint-blue px-[7px] py-0.5 font-sb-mono font-medium text-sb-primary">
+          AI
+        </span>
+        <h3 className="font-medium text-sb-ink">대표 리뷰 요약</h3>
+        <p className="font-sb-mono text-sb-ink-mute tabular-nums md:ml-auto">
+          {summarySource(query.data)}
+        </p>
+      </div>
+      <p className="text-sb-ink">{summaryText}</p>
+      {summary.status === "UNAVAILABLE" ? (
+        <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
+          요약 다시 시도
+        </Button>
+      ) : null}
+    </section>
+  )
+}
 
-      {reviews.length === 0 ? (
-        <p className="text-sb-ink-mute">이 구간에 표시할 대표 리뷰가 없습니다.</p>
-      ) : (
-        <div className="grid gap-[14px] md:grid-cols-2">
-          {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
-        </div>
-      )}
+function LanguageDetail({ gameId, languageCode }: { gameId: number; languageCode: string }) {
+  return (
+    <div className="flex flex-col gap-[14px] pb-sb-5 pl-sb-4 pr-sb-4 pt-sb-4 md:pl-[42px] md:pr-[18px]">
+      <LanguageAiSummary gameId={gameId} languageCode={languageCode} />
+      <LanguageReviews gameId={gameId} languageCode={languageCode} />
     </div>
   )
 }

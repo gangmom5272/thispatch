@@ -57,6 +57,8 @@ fetcher는 위치 인자가 아니라 **단일 객체 인자**를 받는다: `ap
 
 일반 조회 제한 시간은 10초다. AI 요약을 포함하는 반응 추세 요약·플레이타임 요약·언어별 상세 조회는 서버의 상태 확인과 30초 추론 대기를 고려해 해당 도메인 API 함수에서만 `timeout: 45_000`을 지정한다.
 
+언어별 분석 화면은 `/language-analysis/{languageCode}/reviews`와 `/language-analysis/{languageCode}/summary`를 별도 Query로 동시에 조회한다. 대표 리뷰는 기본 제한 시간을 사용하고 AI 요약은 `45_000ms`를 사용한다. 두 영역의 로딩·오류·재시도는 독립적으로 처리해 요약을 기다리는 동안에도 리뷰를 표시한다. 기존 통합 상세 API는 호환성을 위해 유지하지만 이 화면에서는 호출하지 않는다.
+
 - 함수명은 동사로 시작: `getXxx` / `createXxx` / `updateXxx` / `deleteXxx` / `toggleXxx`.
 - 파라미터는 axios config 모양(`params?: {...}`, `headers?: {...}`)이 아니라 **도메인 타입 인자**로 받는다. 그 값이 쿼리스트링(`params`)으로 가는지 body로 가는지는 함수 내부에서 매핑한다 — 호출부는 통신 세부사항을 몰라야 한다.
 - 조회 함수는 마지막 인자로 `signal?: AbortSignal`을 받아 fetcher에 그대로 전달한다 (TanStack Query가 언마운트·쿼리 키 변경 시 네트워크 요청을 자동 취소).
@@ -237,3 +239,10 @@ export function useToggleSaved() {
 - **재발급**: `POST /auth/refresh`, body `{ refreshToken }` → `data.accessToken`. 401 시 single-flight로 한 번만 재발급 후 원요청을 재시도한다. 실패 시 토큰을 비운다.
 - **세션**: `GET /session`(Authorization 선택)으로 로그인 여부를 확인한다. 도메인 API는 `src/api/session.ts`, 훅은 `useSession`.
 - 백엔드 미완성 엔드포인트는 도메인 함수 본문이 목데이터를 반환 중일 수 있다 — 함수 위 TODO를 실제 호출로 교체한다.
+
+## 반응 추세 데모 조회 기간
+
+- 반응 추세 조회는 `startDate`와 `endDate`를 함께 전달하고 두 날짜 모두 Query Key에 포함한다.
+- 데모 종료일은 `src/lib/seoulDate.ts`의 `LATEST_DATA_DATE`(`2026-09-22`)에서 관리한다. 서울 기준 오늘이 더 이르면 오늘까지 조회한다.
+- 초기 조회는 종료일 포함 42일이며, 이전 일자를 추가 조회해도 종료일은 유지한다. AI 요약은 차트에 표시된 기간을 사용한다.
+- 수집 재개 후에는 데모 종료일 상수를 실제 집계 범위에 맞춰 갱신한다.

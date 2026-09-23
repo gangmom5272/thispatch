@@ -23,7 +23,7 @@ import {
   addDaysIso,
   formatCollectedLabel,
   initialReactionTrendsStartDate,
-  LATEST_DATA_DATE,
+  latestDataDate,
 } from "@/lib/seoulDate"
 import type { ReactionTrendPatchMarker } from "@/types/statistics"
 
@@ -41,7 +41,8 @@ function parseGameId(raw: string | undefined): number | null {
 export default function ReactionTrendsPage() {
   const { gameId: rawGameId } = useParams()
   const gameId = parseGameId(rawGameId)
-  const [startDate, setStartDate] = useState(() => initialReactionTrendsStartDate())
+  const endDate = latestDataDate()
+  const [startDate, setStartDate] = useState(() => initialReactionTrendsStartDate(endDate))
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null)
   const [aiRange, setAiRange] = useState<{ start: string; end: string } | null>(null)
   const [viewport, setViewport] = useState<{ startIndex: number; endIndex: number } | null>(null)
@@ -56,11 +57,11 @@ export default function ReactionTrendsPage() {
   const loadingMoreRef = useRef(false)
   const dayWidth = useChartDayWidth(scrollEl)
 
-  const query = useReactionTrends(gameId, startDate)
+  const query = useReactionTrends(gameId, startDate, endDate)
   // 집계 마지막 날 이후는 빈 데이터라 차트에서 제외한다.
   const daily = useMemo(
-    () => (query.data?.daily ?? []).filter((day) => day.date <= LATEST_DATA_DATE),
-    [query.data?.daily],
+    () => (query.data?.daily ?? []).filter((day) => day.date <= endDate),
+    [query.data?.daily, endDate],
   )
   const rows = useMemo(() => toChartRows(daily), [daily])
 

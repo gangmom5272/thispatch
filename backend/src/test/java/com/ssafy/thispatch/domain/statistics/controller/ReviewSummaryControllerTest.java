@@ -124,6 +124,64 @@ class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
 	}
 
 	@Test
+	void languageReviewsReturnWithoutCallingAiOrRedis() throws Exception {
+		when(reader.read(7, PERIOD, null, "korean", 4)).thenReturn(input(80, 4));
+		mvc.perform(get("/games/7/language-analysis/korean/reviews").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.languageCode").value("korean"))
+			.andExpect(jsonPath("$.data.meta.period.startDate").value(PERIOD.startDate().toString()))
+			.andExpect(jsonPath("$.data.representativeReviews.length()").value(4))
+			.andExpect(jsonPath("$.data.representativeReviews[0].tags[0].id").value(1))
+			.andExpect(jsonPath("$.data.summary").doesNotExist());
+		verifyNoInteractions(ai, redis);
+	}
+
+	@Test
+	void emptyLanguageReviewsDoNotDependOnSummary() throws Exception {
+		when(reader.read(7, PERIOD, null, "korean", 4)).thenReturn(input(0, 0));
+		mvc.perform(get("/games/7/language-analysis/korean/reviews").header("Authorization", auth()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.representativeReviews").isEmpty());
+		verifyNoInteractions(ai, redis);
+	}
+
+	@Test
+	void languageSummaryUsesSameTwentyReviewSelectionWithoutReturningReviews() throws Exception {
+		when(reader.read(7, PERIOD, null, "korean", 20)).thenReturn(input(80, 20));
+		mvc.perform(get("/games/7/language-analysis/korean/summary").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.languageCode").value("korean"))
+			.andExpect(jsonPath("$.data.summary.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.data.summary.usedReviewCount").value(20))
+			.andExpect(jsonPath("$.data.representativeReviews").doesNotExist());
+		verify(ai).summarize(argThat(request -> request.scopeType().equals("LANGUAGE")
+			&& request.scopeKey().equals("korean") && request.reviews().size() == 20));
+	}
+
+	@Test
+	void insufficientLanguageSummarySkipsAi() throws Exception {
+		when(reader.read(7, PERIOD, null, "korean", 20)).thenReturn(input(29, 20));
+		mvc.perform(get("/games/7/language-analysis/korean/summary").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.summary.status").value("SKIPPED"))
+			.andExpect(jsonPath("$.data.summary.reasonCode").value("INSUFFICIENT_SAMPLE"));
+		verifyNoInteractions(ai, redis);
+	}
+
+	@Test
+	void unavailableLanguageSummaryDoesNotPreventSeparateReviewRead() throws Exception {
+		when(reader.read(7, PERIOD, null, "korean", 20)).thenReturn(input(80, 20));
+		when(reader.read(7, PERIOD, null, "korean", 4)).thenReturn(input(80, 4));
+		doThrow(new BusinessException(AiErrorCode.AI_UNAVAILABLE)).when(ai).summarize(any());
+		mvc.perform(get("/games/7/language-analysis/korean/summary").header("Authorization", auth()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.summary.status").value("UNAVAILABLE"))
+			.andExpect(jsonPath("$.data.summary.reasonCode").value("AI_UNAVAILABLE"));
+		mvc.perform(get("/games/7/language-analysis/korean/reviews").header("Authorization", auth()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.representativeReviews.length()").value(4));
+		verify(ai, times(1)).summarize(any());
+	}
+
+	@Test
 	void languageRepresentativeRendersMarkupWithoutChangingAiInput() throws Exception {
 		String raw = "[b]좋아요[/b]<br>재미있어요[img src='map.jpg']";
 		var existing = input(80, 20);
@@ -141,7 +199,8 @@ class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"summaries/playtime-topics?bandNo=5", "summaries/playtime-topics?bandNo=oops", "language-analysis/koreana"})
+	@ValueSource(strings = {"summaries/playtime-topics?bandNo=5", "summaries/playtime-topics?bandNo=oops",
+		"language-analysis/koreana", "language-analysis/koreana/reviews", "language-analysis/koreana/summary"})
 	void invalidParameters(String path) throws Exception {
 		mvc.perform(get("/games/7/" + path).header("Authorization", auth())).andExpect(status().isBadRequest());
 		verifyNoInteractions(ai, reader);
@@ -194,7 +253,8 @@ class ReviewSummaryControllerTest extends ActiveMemberWebMvcTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"summaries/playtime-topics", "language-analysis/korean"})
+	@ValueSource(strings = {"summaries/playtime-topics", "language-analysis/korean",
+		"language-analysis/korean/reviews", "language-analysis/korean/summary"})
 	void authenticationRequired(String endpoint) throws Exception {
 		mvc.perform(get("/games/7/" + endpoint)).andExpect(status().isUnauthorized());
 		verifyNoInteractions(reader, ai);

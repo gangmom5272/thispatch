@@ -1,11 +1,20 @@
 import { queryOptions, useQuery } from "@tanstack/react-query"
-import { getLanguageAnalysis, getLanguageAnalysisDetail } from "../../api/languageAnalysis"
+import {
+  getLanguageAnalysis,
+  getLanguageAnalysisDetail,
+  getLanguageAnalysisReviews,
+  getLanguageAnalysisSummary,
+} from "../../api/languageAnalysis"
 
 export const languageAnalysisKeys = {
   all: ["language-analysis"] as const,
   overview: (gameId: number) => [...languageAnalysisKeys.all, "overview", gameId] as const,
   detail: (gameId: number, languageCode: string) =>
     [...languageAnalysisKeys.all, "detail", gameId, languageCode] as const,
+  reviews: (gameId: number, languageCode: string) =>
+    [...languageAnalysisKeys.all, "reviews", gameId, languageCode] as const,
+  summary: (gameId: number, languageCode: string) =>
+    [...languageAnalysisKeys.all, "summary", gameId, languageCode] as const,
 }
 
 export const languageAnalysisOptions = (gameId: number) =>
@@ -26,4 +35,24 @@ export const languageAnalysisDetailOptions = (gameId: number, languageCode: stri
 
 export function useLanguageAnalysisDetail(gameId: number, languageCode: string) {
   return useQuery(languageAnalysisDetailOptions(gameId, languageCode))
+}
+
+export const languageAnalysisReviewsOptions = (gameId: number, languageCode: string) =>
+  queryOptions({
+    queryKey: languageAnalysisKeys.reviews(gameId, languageCode),
+    queryFn: ({ signal }) => getLanguageAnalysisReviews(gameId, languageCode, signal),
+  })
+
+export function useLanguageAnalysisReviews(gameId: number, languageCode: string) {
+  return useQuery(languageAnalysisReviewsOptions(gameId, languageCode))
+}
+
+export const languageAnalysisSummaryOptions = (gameId: number, languageCode: string) =>
+  queryOptions({
+    queryKey: languageAnalysisKeys.summary(gameId, languageCode),
+    queryFn: ({ signal }) => getLanguageAnalysisSummary(gameId, languageCode, signal),
+  })
+
+export function useLanguageAnalysisSummary(gameId: number, languageCode: string) {
+  return useQuery(languageAnalysisSummaryOptions(gameId, languageCode))
 }

@@ -1,0 +1,23 @@
+gradle.projectsEvaluated {
+    def backendProject = gradle.rootProject.project(':backend')
+    def output = backendProject.layout.buildDirectory.dir('game-title-search-benchmark/classes')
+    def compileTask = backendProject.tasks.register('compileGameTitleSearchBenchmark', JavaCompile) {
+        dependsOn backendProject.tasks.named('classes')
+        source backendProject.file('tools/GameTitleSearchBenchmark.java')
+        classpath = backendProject.sourceSets.main.runtimeClasspath
+        destinationDirectory = output
+        javaCompiler = backendProject.javaToolchains.compilerFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        options.encoding = 'UTF-8'
+    }
+    backendProject.tasks.register('benchmarkGameTitleSearch', JavaExec) {
+        dependsOn compileTask
+        classpath = backendProject.files(output) + backendProject.sourceSets.main.runtimeClasspath
+        mainClass = 'com.ssafy.thispatch.domain.game.repository.GameTitleSearchBenchmark'
+        workingDir = backendProject.projectDir
+        javaLauncher = backendProject.javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+}

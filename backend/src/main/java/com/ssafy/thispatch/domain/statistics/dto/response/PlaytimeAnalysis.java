@@ -11,7 +11,8 @@ public record PlaytimeAnalysis(AnalysisMeta meta, String selectedBand, int minim
 	}
 
 	public record Band(String band, int minMinutes, Integer maxMinutesExclusive, long reviewCount,
-		long positiveCount, long negativeCount, BigDecimal positiveRate, boolean isSufficientSample) {
+		long classifiedReviewCount, long positiveCount, long negativeCount, BigDecimal positiveRate,
+		boolean isSufficientSample) {
 	}
 
 	public record Topic(int topicId, String name, long mentionCount, BigDecimal mentionRate,

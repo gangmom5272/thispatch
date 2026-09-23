@@ -10,14 +10,13 @@
   POST /reviews/summarize  화면 02  구간·언어별 AI 대표 반응 요약 (Qwen 1회)
   POST /trends/summarize   화면 01  반응 추세 통계 요약 — 일별 집계·패치 시점 (문장 틀 + Qwen 옵션)
 
-검색 자체(pgvector 상위 30 → 슬롯 필터)는 백엔드가 SQL 로 한다. 여기서는 호출하지 않는다.
+검색 자체(슬롯·장르·통계 조건을 통과한 pgvector 상위 30)는 백엔드가 SQL 로 한다.
 질의 벡터는 배치 임베딩(embed_chunks.py)과 같은 모델·같은 실행기·같은 입력 형식으로 만든다
 (HF bf16, truncate 512, 프롬프트 없음, "title: … | text: …" 틀). 다른 실행기(Ollama)와 섞지 않는다.
 
 실행  uvicorn main:app --host 0.0.0.0 --port 8100   (ai/api 에서)
 환경  OLLAMA_URL (기본 http://127.0.0.1:11434), EMBED_MODEL_ID
 """
-import json
 import sys
 import time
 from pathlib import Path
@@ -28,11 +27,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "batch"))
-from chunking import build_input_text, split_sentences  # noqa: E402
+from chunking import build_input_text  # noqa: E402
 from common import EMBED_DIM, EMBED_MODEL_ID, EMBED_MODEL_TAG, OLLAMA_URL  # noqa: E402
 from qwen_backfill import to_codes  # noqa: E402
-from qwen_prompt import FORMAT, MESSAGES, MODEL, OPTIONS, PROMPT_VERSION  # noqa: E402
-from rules import slots  # noqa: E402
+from qwen_prompt import MODEL  # noqa: E402
+from plan import PROMPT_VERSION, extract_plan  # noqa: E402
 
 app = FastAPI(title="This Patch AI", version="0.1")
 _ready = {"embedder": False, "qwen": False, "error": None}   # 기동 워밍업 상태. /health 가 돌려준다
@@ -191,34 +190,21 @@ def restate(c, codes):
 @app.post("/plan/structure", response_model=PlanOut)
 def plan_structure(p: PlanIn):
     t0 = time.time()
-    sents = split_sentences(p.text)
-    items = [{"id": f"p{i}", "context": p.title, "text": s} for i, s in enumerate(sents, 1)]
-    body = {"model": MODEL, "messages": MESSAGES + [{"role": "user", "content": json.dumps(items, ensure_ascii=False)}],
-            "format": FORMAT, "options": OPTIONS, "stream": False, "think": False, "keep_alive": "10m"}
     try:
-        r = httpx.post(OLLAMA_URL + "/api/chat", json=body, timeout=180).json()
-        got = {it["id"]: it.get("changes", []) for it in json.loads(r["message"]["content"]).get("items", [])}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, f"Qwen 호출 실패: {type(e).__name__}") from e
+        facts = extract_plan(p.title, p.text)
+    except (httpx.HTTPError, ValueError) as error:
+        import logging
+        logging.getLogger("ai").warning("plan extraction failed: %s", type(error).__name__)
+        raise HTTPException(502, "기획안의 변경점을 원문과 대조하지 못했습니다. 다시 시도해주세요.") from error
 
-    out, n = [], 0
-    for i, s in enumerate(sents, 1):
-        changes = got.get(f"p{i}", [])
-        if not changes:  # Qwen 이 비우면 규칙으로 최소 슬롯
-            rs = slots(s, p.title)
-            if rs:
-                changes = [{"action": {"add": "add", "remove": "remove", "fix": "fix", "deprecate": "deprecate",
-                                       "modify": {"increase": "increase", "decrease": "decrease"}.get(rs["direction"], "change")}[rs["change_type"]],
-                            "target": None, "target_type": rs["target_type"], "attribute": None, "values": None, "conditions": []}]
-        for c in changes:
-            codes = to_codes(c)
-            if not codes:
-                continue
-            n += 1
-            out.append(Change(change_seq=n, change_type=codes[0], direction=codes[1],
-                              target_type=c.get("target_type") or "unknown", target=c.get("target"),
-                              attribute=c.get("attribute"), values=c.get("values"), conditions=c.get("conditions") or [],
-                              restatement=restate(c, codes), source_sentence=s))
+    out = []
+    for fact in facts:
+        change = fact.model_dump()
+        codes = to_codes(change)
+        out.append(Change(change_seq=len(out) + 1, change_type=codes[0], direction=codes[1],
+                          target_type=fact.target_type, target=fact.target,
+                          attribute=fact.attribute, values=fact.values, conditions=fact.conditions,
+                          restatement=restate(change, codes), source_sentence=fact.source_sentence))
     return PlanOut(changes=out, model=MODEL, prompt_version=PROMPT_VERSION, elapsed_ms=int((time.time() - t0) * 1000))
 
 

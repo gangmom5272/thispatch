@@ -61,11 +61,11 @@ export default function PlaytimeTopicsPage() {
     selectedBandNo === null
       ? undefined
       : data.bands.find((band) => band.band === `B${selectedBandNo}`)
-  // selectedReviewCount: 현재 선택 구간의 리뷰 수(전체면 overall)
-  const selectedReviewCount =
+  // selectedClassifiedCount: 현재 선택 구간의 토픽 분류 리뷰 수(전체면 overall)
+  const selectedClassifiedCount =
     selectedBandNo === null
-      ? data.overall.reviewCount
-      : (selectedBandStats?.reviewCount ?? data.overall.reviewCount)
+      ? data.overall.classifiedReviewCount
+      : (selectedBandStats?.classifiedReviewCount ?? data.overall.classifiedReviewCount)
 
   return (
     <div className="mx-auto flex max-w-sb-page flex-col gap-sb-6 px-sb-4 py-sb-6 md:px-sb-12">
@@ -95,7 +95,7 @@ export default function PlaytimeTopicsPage() {
         <div className="grid gap-sb-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <TopicBars
             topics={data.topics}
-            reviewCount={selectedReviewCount}
+            classifiedReviewCount={selectedClassifiedCount}
             isOverall={selectedBandNo === null}
           />
           <TopicAiSummaryCard

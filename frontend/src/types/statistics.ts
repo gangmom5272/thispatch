@@ -107,6 +107,8 @@ export interface PlaytimeBandStats {
   /** null이면 상한 없음(B4). */
   maxMinutesExclusive: number | null
   reviewCount: number
+  /** 토픽이 하나 이상 분류된 고유 리뷰 수. 토픽 언급률의 분모. */
+  classifiedReviewCount: number
   positiveCount: number
   negativeCount: number
   positiveRate: number | null

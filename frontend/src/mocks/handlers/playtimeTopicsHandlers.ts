@@ -111,6 +111,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       minMinutes: 0,
       maxMinutesExclusive: p25Minutes,
       reviewCount: 120,
+      classifiedReviewCount: 90,
       positiveCount: 86,
       negativeCount: 34,
       positiveRate: 71.7,
@@ -121,6 +122,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       minMinutes: p25Minutes,
       maxMinutesExclusive: medianMinutes,
       reviewCount: 171,
+      classifiedReviewCount: 130,
       positiveCount: 129,
       negativeCount: 42,
       positiveRate: 75.4,
@@ -131,6 +133,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       minMinutes: medianMinutes,
       maxMinutesExclusive: p75Minutes,
       reviewCount: 129,
+      classifiedReviewCount: 90,
       positiveCount: 85,
       negativeCount: 44,
       positiveRate: 65.9,
@@ -142,6 +145,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
       maxMinutesExclusive: null,
       // 표본 부족 시나리오: 어느 게임에서든 B4 카드·선택으로 fallback 확인 가능
       reviewCount: 8,
+      classifiedReviewCount: 6,
       positiveCount: 3,
       negativeCount: 5,
       positiveRate: null,
@@ -153,6 +157,7 @@ function buildBands(scale: PlaytimeScale): PlaytimeBandStats[] {
 /** 전체(ALL) 통계. */
 function buildOverall(bands: PlaytimeBandStats[]): PlaytimeBandStats {
   const reviewCount = bands.reduce((sum, b) => sum + b.reviewCount, 0)
+  const classifiedReviewCount = bands.reduce((sum, b) => sum + b.classifiedReviewCount, 0)
   const positiveCount = bands.reduce((sum, b) => sum + b.positiveCount, 0)
   const negativeCount = bands.reduce((sum, b) => sum + b.negativeCount, 0)
   return {
@@ -160,6 +165,7 @@ function buildOverall(bands: PlaytimeBandStats[]): PlaytimeBandStats {
     minMinutes: 0,
     maxMinutesExclusive: null,
     reviewCount,
+    classifiedReviewCount,
     positiveCount,
     negativeCount,
     positiveRate: reviewCount === 0 ? null : (positiveCount / reviewCount) * 100,
@@ -180,14 +186,13 @@ function buildTopics(selected: PlaytimeBandId): PlaytimeTopicRow[] {
     B4: [68.2, 40.9, 22.7, 16.0, 19.0],
   }
   const rates = selected === "ALL" ? overallRates : bandRates[selected]
-  // reviewBase: 선택 구간 리뷰 수(언급 건수 계산용). B4는 표본 부족이라 여기선 거의 안 씀.
-  const reviewBase =
-    selected === "ALL" ? 428 : selected === "B4" ? 8 : selected === "B2" ? 171 : 120
+  // classifiedBase: 선택 구간 토픽 분류 리뷰 수(언급 건수 계산용). buildBands 값과 맞춘다.
+  const classifiedBase = { ALL: 316, B1: 90, B2: 130, B3: 90, B4: 6 }[selected]
 
   return TOPIC_NAMES.map((name, index) => {
     const mentionRate = rates[index]!
     const overallMentionRate = overallRates[index]!
-    const mentionCount = Math.round((reviewBase * mentionRate) / 100)
+    const mentionCount = Math.round((classifiedBase * mentionRate) / 100)
     return {
       topicId: index + 1,
       name,

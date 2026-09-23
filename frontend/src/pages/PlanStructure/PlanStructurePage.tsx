@@ -9,13 +9,12 @@ import { useGameDetail } from "@/hooks/queries/gameQueries"
 import { useCreatePlanStructure } from "@/hooks/queries/patchQueries"
 import NotFound from "@/pages/NotFound"
 import { gameCasesPath, paths } from "@/router/paths"
+import GenreFilterDropdown from "./components/GenreFilterDropdown"
 import PlanStructureResult from "./components/PlanStructureResult"
 import { usePlanDraft, useUpdatePlanDraft } from "./planDraftStore"
 
 const MAX_TEXT_LENGTH = 500
 
-const genreChipClass =
-  "flex h-sb-control cursor-pointer items-center gap-sb-1 rounded-sb-tag border px-sb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary"
 const panelClass = "rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface"
 
 export default function PlanStructurePage() {
@@ -28,7 +27,6 @@ export default function PlanStructurePage() {
 
 function PlanStructureContent({ gameId }: { gameId: number }) {
   const textId = useId()
-  const genreLabelId = useId()
   const { text, excludedGenreIds, structure: savedStructure, editedSlots } = usePlanDraft(gameId)
   const updateDraft = useUpdatePlanDraft()
   const navigate = useNavigate()
@@ -50,13 +48,6 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
       { onSuccess: (data) => updateDraft(gameId, { structure: data, editedSlots: null }) },
     )
   }
-
-  const toggleGenre = (id: number) =>
-    updateDraft(gameId, {
-      excludedGenreIds: excludedGenreIds.includes(id)
-        ? excludedGenreIds.filter((genreId) => genreId !== id)
-        : [...excludedGenreIds, id],
-    })
 
   return (
     <>
@@ -84,46 +75,20 @@ function PlanStructureContent({ gameId }: { gameId: number }) {
               onChange={(event) => updateDraft(gameId, { text: event.target.value })}
             />
             <div className="flex flex-wrap items-center gap-sb-2">
-              <span id={genreLabelId} className="text-sb-ink-mute">
-                장르 필터
-              </span>
-              <div
-                role="group"
-                aria-labelledby={genreLabelId}
-                className="flex flex-wrap items-center gap-sb-2"
-              >
-                {game.isPending && <span className="text-sb-ink-mute">장르 불러오는 중…</span>}
-                {genres.map((genre) => {
-                  const selected = !excludedGenreIds.includes(genre.id)
-                  return (
-                    <button
-                      key={genre.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => toggleGenre(genre.id)}
-                      className={`${genreChipClass} ${selected ? "border-sb-hairline-strong bg-sb-tint-blue text-sb-primary" : "border-sb-hairline text-sb-ink-mute hover:text-sb-ink"}`}
-                    >
-                      {selected && <span aria-hidden="true">✓</span>}
-                      {genre.name}
-                    </button>
-                  )
-                })}
-                {genres.length > 0 && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => updateDraft(gameId, { excludedGenreIds: [] })}
-                    disabled={excludedGenreIds.length === 0}
-                  >
-                    전체 선택
-                  </Button>
-                )}
+              <GenreFilterDropdown
+                genres={genres}
+                excludedIds={excludedGenreIds}
+                isLoading={game.isPending}
+                onChange={(ids) => updateDraft(gameId, { excludedGenreIds: ids })}
+              />
+              <div className="ml-auto flex items-center gap-sb-2">
+                <p className="font-sb-mono text-sb-ink-mute tabular-nums">
+                  {text.length} / {MAX_TEXT_LENGTH}자
+                </p>
+                <Button variant="primary" type="submit" disabled={!canSubmit}>
+                  {structure.isPending ? "구조화 중…" : "변경점 구조화"}
+                </Button>
               </div>
-              <p className="font-sb-mono text-sb-ink-mute tabular-nums sm:ml-auto">
-                {text.length} / {MAX_TEXT_LENGTH}자
-              </p>
-              <Button variant="primary" type="submit" disabled={!canSubmit}>
-                {structure.isPending ? "구조화 중…" : "변경점 구조화"}
-              </Button>
             </div>
             {structure.error && (
               <div role="alert" className="flex flex-wrap items-center gap-sb-2 text-sb-neg-text">

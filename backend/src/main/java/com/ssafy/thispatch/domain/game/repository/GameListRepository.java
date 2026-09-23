@@ -24,6 +24,16 @@ public class GameListRepository {
 
 	private final NamedParameterJdbcTemplate jdbc;
 
+	public GameListQuery normalizeSearch(GameListQuery query) {
+		if (query.search().isEmpty()) {
+			return query;
+		}
+		String search = jdbc.queryForObject("select " + GameTitleSearch.expression(":rawSearch"),
+			new MapSqlParameterSource("rawSearch", query.search())
+				.addValue("ignoredTitleCharacters", GameTitleSearch.IGNORED_CHARACTERS), String.class);
+		return new GameListQuery(search, query.sort(), query.limit(), query.genreIds(), query.filters());
+	}
+
 	public long count(long memberId, GameListQuery query, GameListScope scope) {
 		return jdbc.queryForObject("select count(*) from game g where " + filter(query, scope),
 			parameters(memberId, query), Long.class);
@@ -141,7 +151,8 @@ public class GameListRepository {
 	}
 
 	private String filter(GameListQuery query, GameListScope scope) {
-		String filter = query.search().isEmpty() ? "true" : "lower(g.name) like :search escape '!'";
+		String filter = query.search().isEmpty() ? "true"
+			: GameTitleSearch.expression("g.name") + " like :search escape '!'";
 		var filters = query.filters();
 		if (filters.releaseYearFrom() != null) {
 			filter += " and extract(year from g.release_ts at time zone 'Asia/Seoul') >= :releaseYearFrom";
@@ -178,6 +189,7 @@ public class GameListRepository {
 	private MapSqlParameterSource parameters(long memberId, GameListQuery query) {
 		var filters = query.filters();
 		return new MapSqlParameterSource("memberId", memberId)
+			.addValue("ignoredTitleCharacters", GameTitleSearch.IGNORED_CHARACTERS)
 			.addValue("search", query.searchPattern()).addValue("genreIds", query.genreIds())
 			.addValue("genreCount", query.genreIds().size())
 			.addValue("releaseYearFrom", filters.releaseYearFrom()).addValue("releaseYearTo", filters.releaseYearTo())

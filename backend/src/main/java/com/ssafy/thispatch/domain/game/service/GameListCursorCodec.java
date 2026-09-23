@@ -27,7 +27,7 @@ public class GameListCursorCodec {
 
 	public String encode(GameListQuery query, GameListScope scope, long memberId, Boundary boundary) {
 		var node = mapper.createObjectNode();
-		node.put("version", 1);
+		node.put("version", 2);
 		node.put("scope", scope.name());
 		if (scope == GameListScope.MY) {
 			node.put("memberId", memberId);
@@ -60,7 +60,7 @@ public class GameListCursorCodec {
 				.readTree(Base64.getUrlDecoder().decode(cursor));
 			if (node == null || !node.isObject() || node.size() != (node.has("filters") ? 9 : 8)
 				|| !node.path("version").isIntegralNumber() || !node.path("version").canConvertToInt()
-				|| node.path("version").intValue() != 1
+				|| node.path("version").intValue() != 2
 				|| !node.path("scope").isTextual() || !scope.name().equals(node.path("scope").textValue())
 				|| !node.path("search").isTextual() || !query.search().equals(node.path("search").textValue())
 				|| !node.path("sort").isTextual() || !query.sort().name().equals(node.path("sort").textValue())

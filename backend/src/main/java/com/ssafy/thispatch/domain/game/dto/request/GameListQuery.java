@@ -4,7 +4,6 @@ import static com.ssafy.thispatch.global.exception.CommonErrorCode.INVALID_REQUE
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import com.ssafy.thispatch.global.exception.BusinessException;
 
@@ -35,7 +34,8 @@ public record GameListQuery(String search, GameListSort sort, int limit, List<In
 				throw new BusinessException(INVALID_REQUEST);
 			}
 		}
-		return new GameListQuery(search == null ? "" : search.strip().toLowerCase(Locale.ROOT), sort, limit, ids, filters);
+		// 제목과 검색어의 Unicode·소문자 규칙을 일치시키기 위해 정규화는 조회 전에 DB에서 수행한다.
+		return new GameListQuery(search == null ? "" : search.strip(), sort, limit, ids, filters);
 	}
 
 	public String searchPattern() {

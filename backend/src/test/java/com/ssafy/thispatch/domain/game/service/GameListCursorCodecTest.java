@@ -23,7 +23,8 @@ class GameListCursorCodecTest {
 
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final GameListCursorCodec codec = new GameListCursorCodec(mapper);
-	private final GameListQuery query = GameListQuery.of(" SlAy ", GameListSort.POSITIVE_RATE_ASC, 10, "2,1,2");
+	// Codec에는 repository가 정규화한 검색어가 전달된다. 정규화 동등성은 API 통합 테스트에서 검증한다.
+	private final GameListQuery query = GameListQuery.of("slay", GameListSort.POSITIVE_RATE_ASC, 10, "2,1,2");
 
 	@ParameterizedTest
 	@EnumSource(GameListSort.class)
@@ -71,7 +72,7 @@ class GameListCursorCodecTest {
 		}
 		String cursor = codec.encode(query, GameListScope.ALL, 1, new Boundary(4, "70"));
 		String json = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-		for (String bad : List.of(json + " {}", json.replace("\"version\":1", "\"version\":2"),
+		for (String bad : List.of(json + " {}", json.replace("\"version\":2", "\"version\":1"),
 			json.replace("\"id\":4", "\"id\":4.5"), json.replace("\"id\":4", "\"id\":9223372036854775808"),
 			json.replace("\"id\":4", "\"id\":4,\"id\":5"), json.replace("\"value\":\"70\"", "\"value\":{}"),
 			json.replace("\"value\":\"70\"", "\"value\":\"private-invalid-value\""))) {

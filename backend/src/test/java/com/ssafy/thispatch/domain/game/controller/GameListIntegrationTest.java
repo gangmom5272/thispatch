@@ -179,7 +179,7 @@ class GameListIntegrationTest {
 		for (String path : List.of("/games", "/members/me/games")) {
 			var expected = allOffsets.stream().filter(i -> path.equals("/games") || i != 1)
 				.map(i -> firstId + i).toList();
-			for (String search : new String[] {null, "", "   "}) {
+			for (String search : new String[] {null, "", "   ", "---!!!%_\\", "🎮", "\u00a0\u2003\t\n"}) {
 				String cursor = null;
 				List<Long> actual = new ArrayList<>();
 				for (int page = 0; page < expected.size(); page++) {
@@ -234,7 +234,7 @@ class GameListIntegrationTest {
 	}
 
 	@Test
-	void combinesCaseInsensitiveLiteralSearchWithAndGenresAndDeduplicatesMatches() throws Exception {
+	void combinesNormalizedTitleSearchWithAndGenresAndDeduplicatesMatches() throws Exception {
 		var data = request(memberId, GameListSort.POSITIVE_RATE_ASC, 10, null, " " + prefix.toUpperCase() + " ",
 			firstTag + "," + (firstTag + 1) + "," + firstTag);
 		assertThat(ids(data)).containsExactly(firstId);
@@ -488,8 +488,92 @@ class GameListIntegrationTest {
 		assertEmpty(filterData(filterRequest(path).param("developer", "missing-developer")), 0);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"/games", "/members/me/games"})
+	void normalizesUnicodeTitlesAndPreservesOriginalResponseAndStoredTitle(String path) throws Exception {
+		String[][] cases = {
+			{"Counter-Strike 2", "counter strike", "counter-strike", "COUNTERSTRIKE2"},
+			{"한글\u00a0게임—2 🎮", "한글게임2", "한글_게임%2", "한글\t게임\n2"},
+			{"Pokémon", "POKÉMON", "Poké-mon"},
+			{"Cafe\u0301", "CAFE\u0301", "Ca-fe\u0301"},
+			{"東京 ゲーム１２", "東京ゲーム１２", "東京—ゲーム１２"},
+			{"İSTANBUL", "İstanbul", "İS-TANBUL"},
+			{"ΟΣ", "οσ", "Ο-Σ"},
+			{"अनुच्छेद २", "अनुच्छेद२", "अनुच्छेद-२"},
+			{"𐐀𐐁 ½", "𐐨𐐩½", "𐐀-𐐁½"}
+		};
+		for (String[] sample : cases) {
+			String title = prefix + " " + sample[0];
+			jdbc.update("update game set name = ? where appid = ?", title, firstId);
+			for (int i = 1; i < sample.length; i++) {
+				var data = filterData(searchRequest(path, prefix + sample[i]));
+				assertThat(ids(data)).as(sample[i]).containsExactly(firstId);
+				assertThat(data.at("/page/totalCount").intValue()).isEqualTo(1);
+				assertThat(data.at("/items/0/title").asText()).isEqualTo(title);
+				assertThat(data.at("/items/0/gameSummary/title").asText()).isEqualTo(title);
+			}
+			assertThat(jdbc.queryForObject("select name from game where appid = ?", String.class, firstId))
+				.isEqualTo(title);
+		}
+		for (String[] distinct : new String[][] {{"Pokémon", "Pokemon"}, {"Café", "Cafe\u0301"},
+			{"한글게임", "ㅎㄱㄱㅇ"}, {"Game１２", "Game12"}}) {
+			jdbc.update("update game set name = ? where appid = ?", prefix + distinct[0], firstId);
+			assertEmpty(filterData(searchRequest(path, prefix + distinct[1])), 0);
+		}
+	}
+
+	@ParameterizedTest
+	@EnumSource(GameListSort.class)
+	void equivalentSearchesShareCursorAndCountsAcrossFiltersAndMemberScopes(GameListSort sort) throws Exception {
+		register(memberId, 2);
+		preparePatches();
+		jdbc.update("update game set name = ?, developer = 'Studio Keep' where appid between ? and ?",
+			prefix + " Counter-Strike 2", firstId, firstId + 2);
+		jdbc.update("insert into game_tag (appid, tag_id, weight) values (?, ?, 10), (?, ?, 10)",
+			firstId + 1, firstTag + 1, firstId + 2, firstTag);
+		for (String path : List.of("/games", "/members/me/games")) {
+			List<Integer> offsets = switch (sort) {
+				case POSITIVE_RATE_ASC -> List.of(1, 0, 2);
+				case REVIEW_COUNT_DESC -> List.of(0, 2, 1);
+				case REACTION_CHANGE_DESC -> List.of(1, 2, 0);
+				case RELEASE_DATE_DESC -> List.of(2, 0, 1);
+			};
+			var expected = offsets.stream().filter(i -> path.equals("/games") || i != 1)
+				.map(i -> firstId + i).toList();
+			String cursor = null;
+			List<Long> actual = new ArrayList<>();
+			for (String variant : List.of("Counter-Strike", "counter strike", "COUNTERSTRIKE")) {
+				var request = searchRequest(path, prefix + variant).param("sort", sort.name())
+					.param("limit", "1").param("genreIds", firstTag + "," + (firstTag + 1))
+					.param("developer", "STUDIO KEEP").param("minReviewCount", "50");
+				if (cursor != null) {
+					request.param("cursor", cursor);
+				}
+				var data = filterData(request);
+				actual.addAll(ids(data));
+				assertThat(data.at("/page/totalCount").intValue()).isEqualTo(expected.size());
+				if (!data.at("/page/hasNext").asBoolean()) {
+					assertThat(data.at("/page/nextCursor").isNull()).isTrue();
+					break;
+				}
+				cursor = data.at("/page/nextCursor").asText();
+			}
+			assertThat(actual).containsExactlyElementsOf(expected);
+			mvc.perform(searchRequest(path, prefix + "other").param("cursor", cursor).param("sort", sort.name())
+				.param("genreIds", firstTag + "," + (firstTag + 1))
+				.param("developer", "STUDIO KEEP").param("minReviewCount", "50"))
+				.andExpect(status().isBadRequest())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+					.value("INVALID_REQUEST"));
+		}
+	}
+
 	private MockHttpServletRequestBuilder filterRequest(String path) {
 		return get(path).param("search", prefix).header(HttpHeaders.AUTHORIZATION, auth(memberId));
+	}
+
+	private MockHttpServletRequestBuilder searchRequest(String path, String search) {
+		return get(path).param("search", search).header(HttpHeaders.AUTHORIZATION, auth(memberId));
 	}
 
 	private JsonNode filterData(MockHttpServletRequestBuilder request) throws Exception {

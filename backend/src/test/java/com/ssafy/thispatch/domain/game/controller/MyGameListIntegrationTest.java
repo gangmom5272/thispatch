@@ -168,12 +168,12 @@ class MyGameListIntegrationTest {
 	}
 
 	@Test
-	void trimsSearchIgnoresCaseAndTreatsSqlWildcardsLiterally() throws Exception {
+	void removesSearchPunctuationWithoutInterpretingSqlWildcards() throws Exception {
 		long exact = game("Slay %_\\ Hero", 50, 100);
 		long wildcard = game("Slay ABC Hero", 50, 100);
 		register(memberId, exact);
 		register(memberId, wildcard);
-		assertThat(ids(data(request(memberId).queryParam("search", " slAY %_\\ ")))).containsExactly(exact);
+		assertThat(ids(data(request(memberId).queryParam("search", " slAY %_\\ HERO ")))).containsExactly(exact);
 		assertThat(ids(data(request(memberId).queryParam("search", "   ")))).containsExactly(exact, wildcard);
 		assertThat(ids(data(request(memberId).queryParam("search", "' OR 1=1 --")))).isEmpty();
 	}

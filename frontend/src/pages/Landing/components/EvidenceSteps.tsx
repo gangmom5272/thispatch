@@ -106,7 +106,7 @@ function StepPanel({ index }: { index: number }) {
     return (
       <TopicBars
         topics={DIAGNOSIS_TOPICS}
-        reviewCount={DIAGNOSIS_REVIEW_COUNT}
+        classifiedReviewCount={DIAGNOSIS_REVIEW_COUNT}
         isOverall={false}
         dense
       />

@@ -143,7 +143,7 @@ export const TREND_KNOWN_DAYS = [
 /** 패치 직후로 날짜만 이어지는 칸. 이 뒤로는 라벨 없이 어둠으로 이어진다. */
 export const TREND_UNKNOWN_DAY_LABELS = ["17", "18", "19", "20", "21", "22"]
 
-/** 03 진단 섹션 — 선택 구간 리뷰 수. */
+/** 03 진단 섹션 — 선택 구간 토픽 분류 리뷰 수. */
 export const DIAGNOSIS_REVIEW_COUNT = 66
 
 /** 03 진단 섹션 — 토픽별 언급률. overallMentionRate는 mentionRate - differencePp. */

@@ -134,6 +134,7 @@ test("isSufficientSample로 토픽 집계를 표시하고 AI 장애를 구분한
     minMinutes: 0,
     maxMinutesExclusive: null,
     reviewCount: 40,
+    classifiedReviewCount: 30,
     positiveCount: 32,
     negativeCount: 8,
     positiveRate: 80,

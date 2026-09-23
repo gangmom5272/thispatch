@@ -69,7 +69,7 @@
 | `sort` | string (enum) | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
 | `limit` | int | No | 기본 10, min 1, max 100 |
 | `cursor` | string | No | 전체 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
-| `genreIds` | int[] | No | 콤마 구분, 생략 시 전체 |
+| `genreIds` | int[] | No | 콤마 구분, 선택한 장르를 모두 가진 게임만 조회(AND). 생략 시 전체 |
 | `releaseYearFrom` | int | No | 출시연도 하한 포함, 1~9999 |
 | `releaseYearTo` | int | No | 출시연도 상한 포함, 1~9999 |
 | `minReviewCount` | int | No | 전체 리뷰 수 하한 포함, 0~2147483647 |
@@ -80,7 +80,7 @@
 
 **신규 필터 공통 규칙 — 전체 게임·내 게임**
 
-- 모든 신규 필터는 선택값이며, 생략한 경계는 제한하지 않는다. 검색·장르·출시연도·리뷰 수·긍정률·개발사는 AND로 결합하며 장르 여러 개 사이의 OR 조건은 유지한다.
+- 모든 신규 필터는 선택값이며, 생략한 경계는 제한하지 않는다. 검색·장르·출시연도·리뷰 수·긍정률·개발사는 AND로 결합하며 여러 장르 사이에도 AND를 적용한다. 선택한 장르를 모두 가진 게임만 조회한다.
 - 범위 양 끝을 포함한다. 특정 출시연도는 `releaseYearFrom`과 `releaseYearTo`에 같은 값을 전달한다.
 - 출시연도는 `game.release_ts`를 `Asia/Seoul` 기준으로 변환한 연도다. 리뷰 수는 `game.store_review_count`, 긍정률은 `game.store_positive_pct`의 저장된 전체 통계를 사용한다.
 - 개발사명은 원문 500자 제한을 검증한 뒤 앞뒤 공백을 제거하고 대소문자를 무시하는 부분 검색을 적용한다. 내부 공백을 유지하며 `%`, `_`, `!`과 쉼표를 문자 그대로 검색한다. 빈 문자열·공백만 입력하면 필터를 적용하지 않는다.
@@ -183,7 +183,7 @@ Authorization: Bearer {ACCESS_TOKEN}
 
 - Path Variable, Request Body는 없다. 저장된 전체 `game`을 조회하며 요청 중 외부 API 호출·수집·갱신은 하지 않는다.
 - 검색은 입력 길이 최대 100자를 검증한 후 앞뒤 공백을 제거하고 대소문자를 무시하는 제목 부분 일치로 처리한다. 빈 검색은 전체 조회다. 내부 공백과 `%`, `_`, `\\` 등 특수문자는 입력 문자 그대로 검색한다.
-- `genreIds`는 양의 int ID를 콤마로 구분한다. 빈 값·빈 항목·숫자 형식/범위 오류는 400이다. 중복은 제거하고, 여러 장르는 하나라도 연결되면 포함하는 OR 조건이다. 존재하지 않는 ID는 일치하지 않으며, 일치 게임이 없으면 빈 목록이다.
+- `genreIds`는 양의 int ID를 콤마로 구분한다. 빈 값·빈 항목·숫자 형식/범위 오류는 400이다. 중복은 제거하고, 여러 장르는 모든 ID가 해당 게임의 `game_tag`에 연결되어야 포함하는 AND 조건이다. 생략 시 장르 제한이 없고 단일 ID는 해당 장르를 가진 게임을 조회한다. 존재하지 않는 ID가 하나라도 포함되거나 모든 선택 장르를 가진 게임이 없으면 빈 목록이다.
 - `POSITIVE_RATE_ASC`는 `game.store_positive_pct` 오름차순, `REVIEW_COUNT_DESC`는 `game.store_review_count` 내림차순, `RELEASE_DATE_DESC`는 `release_ts`를 KST 날짜로 변환한 출시일 내림차순이다. 모든 정렬은 null을 마지막에 두며, 동률은 `appid` 오름차순이다.
 - `REACTION_CHANGE_DESC`는 각 게임의 최신 패치에 연결된 `patch_stat.delta_pct`의 절댓값 내림차순이다. 최신 패치는 `news.is_patch = true` 중 `published_ts` 내림차순, 동률이면 `gid` 문자열 내림차순으로 하나를 선택한다. 최신 패치에 통계가 없거나 `delta_pct`가 null이면 정렬값도 null이다. 이전 패치 통계로 대체하지 않는다.
 - 기존 패치 집계의 비교 기간은 패치 게시일 D(KST) 기준 이전 `[D-7일, D)`, 이후 `[D, D+7일)`이다. 각 구간의 리뷰 수정 시각 기준 최종 관측으로 계산한 긍정률의 차이(이후 - 이전, %p)를 사용하며 목록 API에서 다시 계산하지 않는다.
@@ -239,7 +239,7 @@ GET /games?search=slay&limit=5
 | `sort` | string (enum) | No | `POSITIVE_RATE_ASC`(기본), `REVIEW_COUNT_DESC`, `REACTION_CHANGE_DESC`, `RELEASE_DATE_DESC` |
 | `limit` | int | No | 기본 10, min 1, max 100 |
 | `cursor` | string | No | 내 게임 목록의 다음 페이지 조회용 커서. 첫 조회 시 생략 |
-| `genreIds` | int[] | No | 내 게임에 적용할 장르 ID를 콤마로 구분. 생략 시 장르 제한 없음 |
+| `genreIds` | int[] | No | 내 게임에 적용할 장르 ID를 콤마로 구분. 선택한 장르를 모두 가진 게임만 조회(AND). 생략 시 장르 제한 없음 |
 | `releaseYearFrom` | int | No | 출시연도 하한 포함, 1~9999 |
 | `releaseYearTo` | int | No | 출시연도 상한 포함, 1~9999 |
 | `minReviewCount` | int | No | 전체 리뷰 수 하한 포함, 0~2147483647 |
@@ -322,7 +322,7 @@ Authorization: Bearer {ACCESS_TOKEN}
 - 내 게임 목록이므로 `items[].isMine` 필드는 반환하지 않는다.
 - `items[].gameSummary`는 전체 게임 목록과 동일하게 포함하며, 하위 필드의 타입과 의미도 전체 게임 목록의 Field rules를 따른다.
 - 이 API의 커서와 페이지 상태(`limit`, `nextCursor`, `hasNext`, `totalCount`)는 전체 게임 목록 조회 API와 독립적으로 관리한다.
-- 검색·개발사 정규화·장르 OR 필터·숫자 범위 필터·정렬 동률/null 순서·최신 패치 선택·반응 변화 계산·목록과 요약 필드 매핑은 전체 게임 목록의 확정된 규칙을 동일하게 적용한다. 단, 조회 대상과 `totalCount`는 현재 회원의 등록 게임으로 제한하고 `isMine`은 생략한다.
+- 검색·개발사 정규화·장르 AND 필터·숫자 범위 필터·정렬 동률/null 순서·최신 패치 선택·반응 변화 계산·목록과 요약 필드 매핑은 전체 게임 목록의 확정된 규칙을 동일하게 적용한다. 단, 조회 대상과 `totalCount`는 현재 회원의 등록 게임으로 제한하고 `isMine`은 생략한다.
 - 커서는 내 게임 목록 종류와 인증된 회원 ID에 연결한다. 전체 게임 목록의 커서나 다른 회원의 커서, 검색·모든 필터·정렬 조건이 다른 커서는 `400 INVALID_REQUEST`다. `limit` 변경은 허용한다.
 - 프론트에서는 내 게임 카드의 등록 상태를 명시적으로 설정해야 한다. 두 목록의 로딩·페이지 상태를 독립적으로 관리하고 등록·해제 후 각각 새로 조회한다. 프론트 구현 변경은 이 API 작업에 포함하지 않는다.
 

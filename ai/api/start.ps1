@@ -4,6 +4,8 @@
 # 순서: Ollama 확인(없으면 띄움) → FastAPI 시작(모델 워밍업은 서버가 백그라운드로) → /health 가 ready 될 때까지 표시
 param([int]$Port = 8100, [string]$Py = "$env:USERPROFILE\miniforge3\envs\py313\python.exe")
 $ErrorActionPreference = "Stop"
+# 로그는 UTF-8 로 남는다. 창 기본 코드페이지(cp949)로 읽으면 한글이 깨져 보여서 맞춰 준다.
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $env:OLLAMA_URL) { $env:OLLAMA_URL = "http://127.0.0.1:11434" }
 # GMS 키: 저장소 밖 api.txt(GMS_API='...') 에서 읽어 환경 변수로만 넘긴다. 없으면 폴백 없이 돈다.
@@ -45,8 +47,26 @@ if ($h -and $h.ready) { Write-Host "[ok] READY  http://<이 PC IP>:$Port  (백�
 else { Write-Host "[!!] 240초 안에 ready 안 됨. 위 warmup_error 확인" }
 
 # 로그 파일을 따라가며 창에도 그대로 보여준다(전에 창에 찍히던 것과 같다).
+# 두 파일을 같이 본다. uvicorn 은 시작 메시지·경고를 stderr 로, 요청 기록을 stdout 으로 보낸다.
+# 9/23 까지 stderr 만 따라가고 있어서 QA 중에 요청이 들어와도 창이 멈춘 것처럼 보였다.
 # Ctrl+C 로 따라가기를 멈추면 서버만 남아 떠도므로 finally 에서 같이 내린다.
-try { Get-Content $log -Wait -Tail 50 }
+try {
+  $files = @($log, $outLog)
+  $seen = @{}
+  foreach ($f in $files) { $seen[$f] = 0 }
+  while (-not $srv.HasExited) {
+    foreach ($f in $files) {
+      if (-not (Test-Path $f)) { continue }
+      $all = @(Get-Content $f -Encoding UTF8 -ErrorAction SilentlyContinue)
+      if ($all.Count -gt $seen[$f]) {
+        # 가중치 읽기 진행 막대는 블록 문자(U+2588)라 콘솔 코드페이지에서 깨져 보이기만 한다. 띄우지 않는다.
+        $all[$seen[$f]..($all.Count - 1)] | Where-Object { $_ -notmatch 'it/s\]' } | ForEach-Object { Write-Host $_ }
+        $seen[$f] = $all.Count
+      }
+    }
+    Start-Sleep -Milliseconds 700
+  }
+}
 finally {
   if (-not $srv.HasExited) { Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue }
   Write-Host "[..] 서버 종료. 로그: $log"

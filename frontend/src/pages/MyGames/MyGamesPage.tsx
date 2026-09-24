@@ -40,7 +40,7 @@ function MyGameList() {
 
   if (myGames.isPending) return <MyGameGridSkeleton />
 
-  if (myGames.isError) {
+  if (!myGames.data) {
     return (
       <div role="alert" className={panelClass}>
         <p>

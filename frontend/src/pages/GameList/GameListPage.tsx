@@ -140,7 +140,7 @@ export default function GameListPage() {
         <section className="flex flex-col gap-sb-5">
           <SectionLabel count={totalCount}>전체 게임</SectionLabel>
           {query.isPending && <GameGridSkeleton />}
-          {query.isError && (
+          {query.isError && !query.data && (
             <div role="alert" className={panelClass}>
               <p>
                 {isApiError(query.error)
@@ -157,7 +157,7 @@ export default function GameListPage() {
               </button>
             </div>
           )}
-          {query.isSuccess && (
+          {query.data && (
             <AllGames
               items={query.data.pages
                 .slice(0, pages.visiblePageCount)

@@ -87,18 +87,21 @@ export function RepresentativeReviewCard({ review }: RepresentativeReviewCardPro
         <ReviewBodyExpandable key={displayBody} text={displayBody} />
       )}
 
-      {review.tags.length > 0 ? (
-        <ul className="mt-sb-3 flex flex-wrap gap-sb-2">
-          {review.tags.map((tag) => (
-            <li
-              key={tag.id}
-              className="rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-0.5 text-sb-caption text-sb-ink-mute"
-            >
-              {tag.name}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {/* min-h: 태그 한 줄(caption 행간 + 상하 패딩·테두리 6px) 자리 예약 → 태그 없는 카드도 접힌 높이 동일 */}
+      <div className="mt-sb-3 min-h-[calc(1.5em+6px)] text-sb-caption">
+        {review.tags.length > 0 ? (
+          <ul className="flex flex-wrap gap-sb-2">
+            {review.tags.map((tag) => (
+              <li
+                key={tag.id}
+                className="rounded-sb-tag border border-sb-hairline-cool bg-sb-canvas-soft px-sb-2 py-0.5 text-sb-caption text-sb-ink-mute"
+              >
+                {tag.name}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </article>
   )
 }

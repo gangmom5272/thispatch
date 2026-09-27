@@ -23,5 +23,26 @@ export function RequireAuth() {
 
   if (session.isPending || unauthenticated) return null
 
+  if (session.isError) {
+    return (
+      <main className="mx-auto flex max-w-sb-page flex-col px-sb-4 py-sb-6 md:px-sb-12">
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-sb-3 rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-6"
+        >
+          <p>세션을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+          <button
+            type="button"
+            onClick={() => session.refetch()}
+            disabled={session.isFetching}
+            className="flex h-sb-control cursor-pointer items-center rounded-sb-control border border-sb-hairline-strong bg-sb-canvas px-sb-4 text-sb-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            다시 시도
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return <Outlet />
 }

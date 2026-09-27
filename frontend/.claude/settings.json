@@ -11,5 +11,6 @@
   },
   "enabledPlugins": {
     "ponytail@ponytail": true
-  }
+  },
+  "includeCoAuthoredBy": false
 }

@@ -8,13 +8,15 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://localhost:5174",
+    serviceWorkers: "block",
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
+    command: "node node_modules/vite/bin/vite.js --port 5174 --strictPort",
+    url: "http://localhost:5174",
+    env: { VITE_ENABLE_MOCKS: "false", VITE_API_BASE_URL: "/api" },
+    reuseExistingServer: false,
   },
 })

@@ -5,7 +5,7 @@ interface RepresentativeReviewsSectionProps {
   reviews: Review[]
 }
 
-/** 「최근 대표 리뷰」 제목 + 2열 카드 그리드. */
+/** 「최근 대표 리뷰」 제목 + 2열 카드 그리드. items-start로 한 카드를 펼쳐도 옆 카드는 늘어나지 않는다. */
 export function RepresentativeReviewsSection({ reviews }: RepresentativeReviewsSectionProps) {
   return (
     <section className="rounded-sb-card border border-sb-hairline-cool bg-sb-canvas-surface p-sb-4">
@@ -19,7 +19,7 @@ export function RepresentativeReviewsSection({ reviews }: RepresentativeReviewsS
       {reviews.length === 0 ? (
         <p className="text-sb-body text-sb-ink-mute">표시할 대표 리뷰가 없습니다.</p>
       ) : (
-        <ul className="grid gap-sb-3 md:grid-cols-2">
+        <ul className="grid items-start gap-sb-3 md:grid-cols-2">
           {reviews.map((review) => (
             <li key={review.id}>
               <RepresentativeReviewCard review={review} />

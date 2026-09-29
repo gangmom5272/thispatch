@@ -1,10 +1,10 @@
+import type { ComponentType } from "react"
 import { createBrowserRouter, Navigate } from "react-router"
 import { AppShell } from "@/components/layout/AppShell"
 import { RequireAuth } from "@/components/layout/RequireAuth"
-import LoginPage from "@/pages/login/LoginPage"
+import { RouteErrorBoundary } from "@/components/layout/RouteErrorBoundary"
 import NotFound from "@/pages/NotFound"
 import { PlaceholderPage } from "@/pages/PlaceholderPage"
-import SignupPage from "@/pages/signup/SignupPage"
 import {
   DEFAULT_GAME_DETAIL_TAB,
   GAME_DETAIL_TABS,
@@ -12,21 +12,26 @@ import {
   GAME_DETAIL_TAB_LABELS,
   paths,
   routeSegment,
+  type GameDetailTab,
 } from "@/router/paths"
-import GameDetailPage from "@/pages/GameDetail/GameDetailPage"
-import PlaytimeTopicsPage from "@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"
-import ReactionTrendsPage from "@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"
-import ReviewsPage from "@/pages/GameDetail/Reviews/ReviewsPage"
 import { TabPlaceholder } from "@/pages/GameDetail/components/TabPlaceholder"
-import GameListPage from "@/pages/GameList/GameListPage"
-import MyGamesPage from "@/pages/MyGames/MyGamesPage"
-import MyPage from "@/pages/MyPage/MyPage"
-import LandingPage from "@/pages/Landing/LandingPage"
-import LanguageAnalysisPage from "@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"
-import PlanStructurePage from "@/pages/PlanStructure/PlanStructurePage"
-import CaseSearchPage from "@/pages/CaseSearch/CaseSearchPage"
-import CaseDetailPage from "@/pages/CaseDetail/CaseDetailPage"
-import PlansPage from "@/pages/Plans/PlansPage"
+
+type PageModule = { default: ComponentType }
+
+/** 페이지 모듈을 별도 청크로 분리해, 해당 라우트에 진입할 때 내려받는다. */
+function lazyPage(importPage: () => Promise<PageModule>) {
+  return async () => ({ Component: (await importPage()).default })
+}
+
+const gameDetailTabPages: Partial<Record<GameDetailTab, () => Promise<PageModule>>> = {
+  [GAME_DETAIL_TABS.reactionTrends]: () =>
+    import("@/pages/GameDetail/ReactionTrends/ReactionTrendsPage"),
+  [GAME_DETAIL_TABS.playtimeTopics]: () =>
+    import("@/pages/GameDetail/PlaytimeTopics/PlaytimeTopicsPage"),
+  [GAME_DETAIL_TABS.reviews]: () => import("@/pages/GameDetail/Reviews/ReviewsPage"),
+  [GAME_DETAIL_TABS.languageAnalysis]: () =>
+    import("@/pages/GameDetail/LanguageAnalysis/LanguageAnalysisPage"),
+}
 
 export const router = createBrowserRouter([
   {
@@ -34,82 +39,82 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       {
-        index: true,
-        element: <LandingPage />,
-      },
-      {
-        element: <RequireAuth />,
+        errorElement: <RouteErrorBoundary />,
+        hydrateFallbackElement: <main aria-busy="true" />,
         children: [
           {
-            path: routeSegment(paths.games),
-            element: <GameListPage />,
+            index: true,
+            lazy: lazyPage(() => import("@/pages/Landing/LandingPage")),
           },
           {
-            path: routeSegment(paths.gameDetailPattern),
-            element: <GameDetailPage />,
+            element: <RequireAuth />,
             children: [
               {
-                index: true,
-                element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
+                path: routeSegment(paths.games),
+                lazy: lazyPage(() => import("@/pages/GameList/GameListPage")),
               },
-              ...GAME_DETAIL_MAIN_TABS.map((tab) => ({
-                path: tab,
-                element:
-                  tab === GAME_DETAIL_TABS.reactionTrends ? (
-                    <ReactionTrendsPage />
-                  ) : tab === GAME_DETAIL_TABS.playtimeTopics ? (
-                    <PlaytimeTopicsPage />
-                  ) : tab === GAME_DETAIL_TABS.reviews ? (
-                    <ReviewsPage />
-                  ) : tab === GAME_DETAIL_TABS.languageAnalysis ? (
-                    <LanguageAnalysisPage />
-                  ) : (
-                    <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />
-                  ),
-              })),
+              {
+                path: routeSegment(paths.gameDetailPattern),
+                lazy: lazyPage(() => import("@/pages/GameDetail/GameDetailPage")),
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to={DEFAULT_GAME_DETAIL_TAB} replace />,
+                  },
+                  ...GAME_DETAIL_MAIN_TABS.map((tab) => {
+                    const importPage = gameDetailTabPages[tab]
+                    return importPage
+                      ? { path: tab, lazy: lazyPage(importPage) }
+                      : {
+                          path: tab,
+                          element: <TabPlaceholder title={GAME_DETAIL_TAB_LABELS[tab]} />,
+                        }
+                  }),
+                ],
+              },
+              {
+                path: routeSegment(paths.gamePlanPattern),
+                lazy: lazyPage(() => import("@/pages/PlanStructure/PlanStructurePage")),
+              },
+              {
+                path: routeSegment(paths.gameCasesPattern),
+                lazy: lazyPage(() => import("@/pages/CaseSearch/CaseSearchPage")),
+              },
+              {
+                path: routeSegment(paths.gameCaseDetailPattern),
+                lazy: lazyPage(() => import("@/pages/CaseDetail/CaseDetailPage")),
+              },
+              {
+                path: routeSegment(paths.myGames),
+                lazy: lazyPage(() => import("@/pages/MyGames/MyGamesPage")),
+              },
+              {
+                path: routeSegment(paths.myPage),
+                lazy: lazyPage(() => import("@/pages/MyPage/MyPage")),
+              },
+              {
+                path: routeSegment(paths.plans),
+                lazy: lazyPage(() => import("@/pages/Plans/PlansPage")),
+              },
             ],
           },
           {
-            path: routeSegment(paths.gamePlanPattern),
-            element: <PlanStructurePage />,
+            path: routeSegment(paths.methodology),
+            element: <PlaceholderPage title="방법론" />,
           },
           {
-            path: routeSegment(paths.gameCasesPattern),
-            element: <CaseSearchPage />,
+            path: routeSegment(paths.login),
+            lazy: lazyPage(() => import("@/pages/login/LoginPage")),
           },
           {
-            path: routeSegment(paths.gameCaseDetailPattern),
-            element: <CaseDetailPage />,
+            path: routeSegment(paths.signup),
+            lazy: lazyPage(() => import("@/pages/signup/SignupPage")),
           },
           {
-            path: routeSegment(paths.myGames),
-            element: <MyGamesPage />,
-          },
-          {
-            path: routeSegment(paths.myPage),
-            element: <MyPage />,
-          },
-          {
-            path: routeSegment(paths.plans),
-            element: <PlansPage />,
+            path: "*",
+            element: <NotFound />,
           },
         ],
-      },
-      {
-        path: routeSegment(paths.methodology),
-        element: <PlaceholderPage title="방법론" />,
-      },
-      {
-        path: routeSegment(paths.login),
-        element: <LoginPage />,
-      },
-      {
-        path: routeSegment(paths.signup),
-        element: <SignupPage />,
-      },
-      {
-        path: "*",
-        element: <NotFound />,
       },
     ],
   },

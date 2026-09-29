@@ -11,3 +11,6 @@ public/mockServiceWorker.js
 # (2026-09-13 · 프론트 파이프라인 붙이면서 실측)
 .claude/
 .agents/
+
+# Lighthouse가 생성한 측정 원본 보고서
+docs/perf/**/lhr-*
